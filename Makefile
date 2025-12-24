@@ -1,4 +1,4 @@
-.PHONY: help test test-cov coverage coverage-html coverage-xml clean install dev
+.PHONY: help test test-cov coverage coverage-html coverage-xml clean install dev refresh
 
 help:
 	@echo "Available targets:"
@@ -9,6 +9,7 @@ help:
 	@echo "  coverage-xml  Generate XML coverage report (for CI)"
 	@echo "  clean         Remove build artifacts and coverage files"
 	@echo "  install       Install the tool via uv"
+	@echo "  refresh       Reinstall the tool (force refresh cache)"
 	@echo "  dev           Install dev dependencies"
 
 test:
@@ -45,6 +46,10 @@ clean:
 
 install:
 	uv tool install .
+
+refresh:
+	rm -rf ${HOME}/.local/share/uv/tools/run-claude
+	uv tool install . --refresh --force --verbose
 
 dev:
 	uv sync --dev

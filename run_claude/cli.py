@@ -17,8 +17,12 @@ from pathlib import Path
 
 def main() -> int:
     # Ensure config is initialized on first run
-    from . import profiles
+    from . import profiles, config
     profiles.ensure_initialized()
+
+    # Ensure secrets template exists
+    debug = "--debug" in sys.argv or "-d" in sys.argv
+    config.ensure_secrets_template(debug=debug)
 
     parser = argparse.ArgumentParser(
         prog="run-claude",
@@ -62,6 +66,7 @@ def main() -> int:
     proxy_sub.add_parser("stop", help="Stop proxy")
     proxy_sub.add_parser("status", help="Proxy status")
     proxy_sub.add_parser("health", help="Health check")
+    proxy_sub.add_parser("db-test", help="Test database connection")
 
     # profiles subcommands
     profiles_p = subparsers.add_parser("profiles", help="Profile management")
@@ -87,6 +92,17 @@ def main() -> int:
     # install - copy built-in assets to user config
     install_p = subparsers.add_parser("install", help="Install built-in profiles and models to user config")
     install_p.add_argument("--force", "-f", action="store_true", help="Overwrite existing files")
+
+    # secrets - manage secrets configuration
+    secrets_p = subparsers.add_parser("secrets", help="Manage secrets configuration")
+    secrets_sub = secrets_p.add_subparsers(dest="secrets_command")
+
+    init_p = secrets_sub.add_parser("init", help="Initialize secrets template")
+    init_p.add_argument("--generate", "-g", action="store_true", help="Generate random passwords")
+    init_p.add_argument("--force", "-f", action="store_true", help="Overwrite existing secrets")
+
+    secrets_sub.add_parser("path", help="Show secrets file path")
+    secrets_sub.add_parser("export", help="Export secrets to .env file for docker compose")
 
     args = parser.parse_args()
 
@@ -117,6 +133,8 @@ def main() -> int:
         return cmd_run(args)
     elif args.command == "install":
         return cmd_install(args)
+    elif args.command == "secrets":
+        return cmd_secrets(args)
     else:
         parser.print_help()
         return 1
@@ -137,15 +155,18 @@ def cmd_enter(args: argparse.Namespace) -> int:
         print(f"Error: Profile not found: {profile_name}", file=sys.stderr)
         return 1
 
-    # Ensure proxy is running
+    # Ensure proxy is running with profile's models
+    model_defs = [m.to_dict() for m in profile.model_list]
     if not proxy.is_proxy_running():
-        if not proxy.start_proxy():
+        config_path = str(proxy.generate_litellm_config(model_defs=model_defs)) if model_defs else None
+        if not proxy.start_proxy(config_path=config_path):
             print("Warning: Failed to start proxy", file=sys.stderr)
-
-    # Register only the models specified by the profile
-    if proxy.health_check():
-        model_defs = [m.to_dict() for m in profile.model_list]
-        added, skipped = proxy.ensure_models(model_defs)
+    elif model_defs:
+        # Add any missing models via API (no restart needed)
+        # Wait for recovery if proxy is not immediately healthy
+        added, skipped = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=True)
+        if debug and added > 0:
+            print(f"Added {added} model(s) to proxy", file=sys.stderr)
 
     # Update state
     st = state.load_state()
@@ -309,12 +330,25 @@ export AGENT_SHIM_PROFILE="{profile_name}"
 
 def cmd_status(args: argparse.Namespace) -> int:
     """Handle status command."""
-    from . import state, proxy
+    from . import state, proxy, profiles
 
     st = state.load_state()
     proxy_status = proxy.get_status()
 
     print("=== Claude Switch Status ===")
+    print()
+
+    # Configuration files
+    print("Configuration Files:")
+    loaded = profiles.get_loaded_files()
+    if loaded["profiles"]:
+        for profile_file in loaded["profiles"]:
+            print(f"  Profiles: {profile_file}")
+    if loaded["models"]:
+        for model_file in loaded["models"]:
+            print(f"  Models: {model_file}")
+    if not loaded["profiles"] and not loaded["models"]:
+        print("  (none loaded)")
     print()
 
     # Proxy status
@@ -327,6 +361,10 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"  Models: {proxy_status.model_count}")
     else:
         print("  Status: stopped")
+
+    # Database status
+    db_status = "connected" if proxy_status.db_healthy else "disconnected"
+    print(f"  Database: {db_status}")
 
     print()
 
@@ -437,29 +475,12 @@ def cmd_run(args: argparse.Namespace) -> int:
             print("Error: Failed to start proxy", file=sys.stderr)
             return 1
     else:
-        # Proxy already running, check if models need to be added
-        if proxy.health_check():
-            existing_ids = proxy.get_model_ids()
-            needed_models = [m.model_name for m in profile.model_list]
-            missing = [m for m in needed_models if m not in existing_ids]
-
-            if missing:
-                # Try to add models dynamically first
-                added, skipped = proxy.ensure_models(model_defs, debug=debug)
-                if debug and added > 0:
-                    print(f"Added {added} model(s) to proxy", file=sys.stderr)
-
-                # If dynamic add failed (added == 0 and we have missing), restart with config
-                if added == 0 and missing:
-                    if debug:
-                        print(f"Dynamic model add failed, restarting proxy with config...", file=sys.stderr)
-                    proxy.stop_proxy()
-                    config_path = str(proxy.generate_litellm_config(model_defs=model_defs))
-                    if not proxy.start_proxy(config_path=config_path):
-                        print("Error: Failed to restart proxy with models", file=sys.stderr)
-                        return 1
-        else:
-            print("Warning: Proxy is not healthy, proceeding anyway", file=sys.stderr)
+        # Proxy already running, add any missing models via API
+        # Wait for recovery if proxy is not immediately healthy
+        if model_defs:
+            added, skipped = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=True)
+            if debug and added > 0:
+                print(f"Added {added} model(s) to proxy", file=sys.stderr)
 
     # Build environment
     env = os.environ.copy()
@@ -517,6 +538,8 @@ def cmd_proxy(args: argparse.Namespace) -> int:
             print(f"  PID: {status.pid}")
             print(f"  URL: {status.url}")
             print(f"  Models: {status.model_count}")
+            db_health = "healthy" if status.db_healthy else "unhealthy"
+            print(f"  Database: {db_health}")
         else:
             print("Stopped")
         return 0
@@ -529,8 +552,17 @@ def cmd_proxy(args: argparse.Namespace) -> int:
             print("Unhealthy")
             return 1
 
+    elif args.proxy_command == "db-test":
+        debug = getattr(args, 'debug', False)
+        if proxy.test_db_connection(debug=debug):
+            print("Database connection: OK")
+            return 0
+        else:
+            print("Database connection: FAILED")
+            return 1
+
     else:
-        print("Usage: run-claude proxy {start|stop|status|health}")
+        print("Usage: run-claude proxy {start|stop|status|health|db-test}")
         return 1
 
 
@@ -558,7 +590,13 @@ def cmd_profiles(args: argparse.Namespace) -> int:
 
         print(f"Profile: {profile.meta.name}")
         if profile.source_path:
-            print(f"Source: {profile.source_path}")
+            print(f"Loaded from: {profile.source_path}")
+
+        # Also show model file sources
+        loaded = profiles.get_loaded_files()
+        if loaded["models"]:
+            for model_file in loaded["models"]:
+                print(f"Models loaded from: {model_file}")
         print()
         print("Model Aliases:")
         print(f"  opus:   {profile.meta.opus_model or '(not set)'}")
@@ -616,6 +654,12 @@ def cmd_models(args: argparse.Namespace) -> int:
             return 1
 
         print(f"Model: {model_def.model_name}")
+
+        # Show model file sources
+        loaded = profiles.get_loaded_files()
+        if loaded["models"]:
+            for model_file in loaded["models"]:
+                print(f"Loaded from: {model_file}")
         print()
         print("LiteLLM Params:")
         for key, value in model_def.litellm_params.items():
@@ -670,6 +714,38 @@ def cmd_install(args: argparse.Namespace) -> int:
         print(f"Skipped {skipped} existing file(s). Use --force to overwrite.")
 
     return 0
+
+
+def cmd_secrets(args: argparse.Namespace) -> int:
+    """Handle secrets commands."""
+    from . import config
+
+    debug = getattr(args, 'debug', False)
+
+    if args.secrets_command == "init":
+        generate = getattr(args, 'generate', False)
+        force = getattr(args, 'force', False)
+        config.ensure_secrets_template(force=force, generate_passwords=generate, debug=debug)
+        return 0
+
+    elif args.secrets_command == "path":
+        secrets_file = config.get_secrets_file()
+        print(str(secrets_file))
+        return 0
+
+    elif args.secrets_command == "export":
+        try:
+            env_file = config.export_env_file(debug=debug)
+            print(f"Exported secrets to: {env_file}")
+            print(f"\nSecrets automatically loaded by Docker Compose!")
+            print(f"  cd dep && docker compose up -d")
+            return 0
+        except Exception:
+            return 1
+
+    else:
+        print("Usage: run-claude secrets {init|path|export}")
+        return 1
 
 
 if __name__ == "__main__":

@@ -111,6 +111,16 @@ run-claude models list            # List available model definitions
 run-claude models show <name>     # Show model definition details
 ```
 
+### Secrets Management
+
+```bash
+run-claude secrets init           # Initialize secrets template
+run-claude secrets path           # Show secrets file location
+run-claude secrets export         # Export secrets to .env for Docker
+```
+
+For detailed secrets management guide, see [SECRETS.md](SECRETS.md).
+
 ## Per-Command Wrapper
 
 Use `with-agent-shim` to run a single command with a specific profile:

@@ -1,1 +1,6 @@
 .coverage
+htmlcov
+.envrc
+__pycache__/
+
+#*.pyc

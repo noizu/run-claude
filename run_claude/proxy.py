@@ -29,14 +29,14 @@ except ImportError:
 from .state import get_state_dir, load_state, save_state
 
 
-DEFAULT_PROXY_HOST = "0.0.0.0"
+DEFAULT_PROXY_HOST = "127.0.0.1"
 DEFAULT_PROXY_PORT = 4444
 DEFAULT_PROXY_URL = f"http://{DEFAULT_PROXY_HOST}:{DEFAULT_PROXY_PORT}"
 DEFAULT_API_KEY = "sk-litellm-proxy"
 
-HEALTH_CHECK_TIMEOUT = 25.0
+HEALTH_CHECK_TIMEOUT = 60.0
 HEALTH_CHECK_RETRIES = 30
-HEALTH_CHECK_INTERVAL = 1.0
+HEALTH_CHECK_INTERVAL = 10.0
 
 
 def get_proxy_url() -> str:
@@ -90,6 +90,7 @@ class ProxyStatus:
     healthy: bool = False
     url: str = DEFAULT_PROXY_URL
     model_count: int = 0
+    db_healthy: bool = False
 
 
 def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> Path:
@@ -107,6 +108,20 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
 
     # Import here to avoid circular imports
     from .profiles import load_model_definitions
+    from .config import load_secrets
+
+    # Load secrets from config file
+    try:
+        secrets = load_secrets(debug=False)
+        env_vars = secrets.to_env()
+        # Update environment with loaded secrets
+        for key, value in env_vars.items():
+            if key not in os.environ:
+                os.environ[key] = value
+    except Exception as e:
+        # Secrets file may not exist or be empty, continue with existing env vars
+        if "--debug" in sys.argv or "-d" in sys.argv:
+            print(f"Warning: Could not load secrets: {e}", file=sys.stderr)
 
     # Build model list
     if model_defs is None:
@@ -116,14 +131,32 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
     else:
         model_list = model_defs
 
+    # Get database URL from environment or use default
+    # Format: postgresql://user:password@host:port/database
+    db_url = os.environ.get(
+        "LITELLM_DATABASE_URL",
+        "postgresql://postgres:${RUN_CLAUDE_TIMESCALEDB_PASSWORD}@localhost:5433/postgres"
+    )
+
+    # Expand environment variables in database URL
+    if "${" in db_url and "}" in db_url:
+        import re
+        def expand_var(match):
+            var_name = match.group(1)
+            return os.environ.get(var_name, match.group(0))
+        db_url = re.sub(r'\$\{([^}]+)\}', expand_var, db_url)
+
+    print(f"Database connection string: {db_url}", file=sys.stderr)
+
     # Build config with required LiteLLM settings
     config = {
         "litellm_settings": {
-            "drop_params": False,
-            "forward_client_headers_to_llm_api": True,
+            "drop_params": True,
+            "forward_client_headers_to_llm_api": False,
         },
         "general_settings": {
             "master_key": "os.environ/LITELLM_MASTER_KEY",
+            "database_url": db_url,
         },
         "model_list": model_list,
     }
@@ -132,23 +165,60 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
     config_path = get_config_file()
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(yaml.dump(config, default_flow_style=False), encoding="utf-8")
-
+    print(config_path)
     return config_path
 
 
-def health_check(timeout: float = HEALTH_CHECK_TIMEOUT) -> bool:
-    """Check if proxy is healthy."""
+def health_check(timeout: float = HEALTH_CHECK_TIMEOUT, wait_for_recovery: bool = False, max_retries: int = 0) -> bool:
+    """
+    Check if proxy is healthy.
+
+    Args:
+        timeout: Timeout for health check request
+        wait_for_recovery: If True, wait for proxy to recover before returning
+        max_retries: Max retries when wait_for_recovery=True (0 = infinite)
+
+    Returns:
+        True if proxy is healthy
+    """
     if httpx is None:
-        print("HTTPX REQUIRE")
+        print("HTTPX REQUIRED")
         return False
 
     url = get_proxy_url()
-    try:
-        resp = httpx.get(f"{url}/health", timeout=timeout)
-        return resp.status_code == 200
-    except Exception as e:
-        print(f"Health check failed: {e}")
-        return False
+    retry_count = 0
+
+    while True:
+        try:
+            print(f"[GET] {url}/health")
+            resp = httpx.get(f"{url}/health", timeout=timeout)
+            print(resp)
+            if resp.status_code == 200:
+                return True
+
+            # Not healthy yet
+            if not wait_for_recovery:
+                return False
+
+            # Wait and retry if recovery mode enabled
+            if max_retries > 0 and retry_count >= max_retries:
+                return False
+
+            retry_count += 1
+            time.sleep(HEALTH_CHECK_INTERVAL)
+
+        except Exception as e:
+            print(f"Health check failed: {e}")
+
+            if not wait_for_recovery:
+                return False
+
+            # Wait and retry if recovery mode enabled
+            if max_retries > 0 and retry_count >= max_retries:
+                return False
+
+            retry_count += 1
+            time.sleep(HEALTH_CHECK_INTERVAL)
 
 
 def is_proxy_running() -> bool:
@@ -217,12 +287,17 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
 
     # Start proxy in background
     try:
+        # Prepare environment for proxy
+        env = os.environ.copy()
+        env["STORE_MODEL_IN_DB"] = "True"
+
         with open(log_file, "a") as log:
             proc = subprocess.Popen(
                 cmd,
                 stdout=log,
                 stderr=log,
                 start_new_session=True,
+                env=env,
             )
     except (FileNotFoundError, PermissionError) as e:
         # litellm not installed or not accessible
@@ -337,12 +412,15 @@ def get_status() -> ProxyStatus:
         models = list_models()
         model_count = len(models)
 
+    db_healthy = test_db_connection(debug=True)
+
     return ProxyStatus(
         running=running,
         pid=pid,
         healthy=healthy,
         url=get_proxy_url(),
         model_count=model_count,
+        db_healthy=db_healthy,
     )
 
 
@@ -452,17 +530,22 @@ def delete_model(model_id: str) -> bool:
         return False
 
 
-def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False) -> tuple[int, int]:
+def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_for_recovery: bool = False) -> tuple[int, int]:
     """
     Ensure models are registered with proxy.
 
     Args:
         model_defs: List of model definitions
         debug: If True, print debug info on failures
+        wait_for_recovery: If True, wait for proxy to recover before returning
 
     Returns:
         Tuple of (added_count, skipped_count)
     """
+    # If wait_for_recovery enabled, wait for proxy to become healthy
+    if wait_for_recovery:
+        health_check(wait_for_recovery=True, max_retries=HEALTH_CHECK_RETRIES)
+
     existing = get_model_ids()
     added = 0
     skipped = 0
@@ -498,3 +581,116 @@ def regenerate_config_and_restart() -> bool:
         return start_proxy(str(config_path))
 
     return True
+
+
+def test_db_connection(debug: bool = False) -> bool:
+    """
+    Test database connectivity.
+
+    Args:
+        debug: If True, print debug info
+
+    Returns:
+        True if database connection successful
+    """
+    # Load secrets from config file
+    try:
+        from .config import load_secrets
+        secrets = load_secrets(debug=False)
+        env_vars = secrets.to_env()
+        # Update environment with loaded secrets
+        for key, value in env_vars.items():
+            if key not in os.environ:
+                os.environ[key] = value
+    except Exception as e:
+        # Secrets file may not exist or be empty, continue with existing env vars
+        if debug:
+            print(f"Warning: Could not load secrets: {e}", file=sys.stderr)
+
+    # Get database URL from environment or use default
+    db_url = os.environ.get(
+        "LITELLM_DATABASE_URL",
+        "postgresql://postgres:${RUN_CLAUDE_TIMESCALEDB_PASSWORD}@localhost:5433/postgres"
+    )
+
+    # Expand environment variables in database URL
+    if "${" in db_url and "}" in db_url:
+        import re
+        def expand_var(match):
+            var_name = match.group(1)
+            return os.environ.get(var_name, match.group(0))
+        db_url = re.sub(r'\$\{([^}]+)\}', expand_var, db_url)
+
+    print(f"Database connection string (expanded): {db_url}", file=sys.stderr)
+
+    try:
+        import psycopg2
+    except ImportError:
+        if debug:
+            print("psycopg2 is required for database testing.", file=sys.stderr)
+            print("Install with: pip install psycopg2-binary", file=sys.stderr)
+        return False
+
+    # Parse connection string
+    # Format: postgresql://user:password@host:port/database
+    try:
+        # Simple parser for postgresql URLs
+        if not db_url.startswith("postgresql://"):
+            if debug:
+                print(f"Invalid database URL format: {db_url}", file=sys.stderr)
+            return False
+
+        # Remove scheme
+        conn_str = db_url.replace("postgresql://", "")
+
+        # Split credentials and host info
+        if "@" not in conn_str:
+            if debug:
+                print("Invalid database URL: missing host", file=sys.stderr)
+            return False
+
+        creds, host_info = conn_str.split("@", 1)
+        user, password = creds.split(":", 1) if ":" in creds else (creds, "")
+
+        # Split host and port/database
+        if "/" in host_info:
+            host_port, database = host_info.split("/", 1)
+        else:
+            host_port = host_info
+            database = "postgres"
+
+        # Split host and port
+        if ":" in host_port:
+            host, port = host_port.split(":", 1)
+            port = int(port)
+        else:
+            host = host_port
+            port = 5432
+
+        # Expand environment variables in password
+        if password.startswith("${") and password.endswith("}"):
+            env_var = password[2:-1]
+            password = os.environ.get(env_var, "")
+
+        if debug:
+            print(f"Testing database connection to {host}:{port}/{database}...", file=sys.stderr)
+
+        # Test connection
+        conn = psycopg2.connect(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database=database,
+            connect_timeout=5,
+        )
+        conn.close()
+
+        if debug:
+            print(f"Database connection successful!", file=sys.stderr)
+        return True
+
+    except Exception as e:
+        if debug:
+            print(f"Database connection failed: {e}", file=sys.stderr)
+        return False

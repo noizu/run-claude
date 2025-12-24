@@ -175,7 +175,7 @@ def get_user_models_file() -> Path:
     return get_config_dir() / "models.yaml"
 
 
-def _find_models_files() -> list[Path]:
+def _find_models_files(debug: bool = False) -> list[Path]:
     """
     Find all models files in priority order (lowest to highest).
 
@@ -187,13 +187,20 @@ def _find_models_files() -> list[Path]:
 
     # Built-in (lowest priority)
     builtin = get_builtin_models_file()
+    if debug:
+        print(f"DEBUG: Built-in models: {builtin} (exists={builtin.exists()})", file=sys.stderr)
     if builtin.exists():
         files.append(builtin)
 
     # User config (highest priority, overrides built-in)
     user = get_user_models_file()
+    if debug:
+        print(f"DEBUG: User models: {user} (exists={user.exists()})", file=sys.stderr)
     if user.exists():
         files.append(user)
+
+    if debug:
+        print(f"DEBUG: Models files search order: {files}", file=sys.stderr)
 
     return files
 
@@ -269,6 +276,8 @@ class Profile:
 
 # Cache for model definitions
 _model_definitions_cache: dict[str, ModelDef] | None = None
+_loaded_model_files: list[Path] = []
+_loaded_profile_files: dict[str, Path] = {}  # profile_name -> source_path
 
 
 def _require_yaml() -> None:
@@ -280,7 +289,7 @@ def _require_yaml() -> None:
         )
 
 
-def load_model_definitions(force_reload: bool = False) -> dict[str, ModelDef]:
+def load_model_definitions(force_reload: bool = False, debug: bool = False) -> dict[str, ModelDef]:
     """
     Load model definitions with base + user override logic.
 
@@ -291,7 +300,7 @@ def load_model_definitions(force_reload: bool = False) -> dict[str, ModelDef]:
     1. Built-in: <package>/models.yaml
     2. User config: ~/.config/run-claude/models.yaml
     """
-    global _model_definitions_cache
+    global _model_definitions_cache, _loaded_model_files
 
     if _model_definitions_cache is not None and not force_reload:
         return _model_definitions_cache
@@ -299,9 +308,13 @@ def load_model_definitions(force_reload: bool = False) -> dict[str, ModelDef]:
     _require_yaml()
 
     models: dict[str, ModelDef] = {}
+    _loaded_model_files = []
 
     # Load from all sources in priority order
-    for models_file in _find_models_files():
+    for models_file in _find_models_files(debug=debug):
+        _loaded_model_files.append(models_file)
+        if debug:
+            print(f"DEBUG: Loading models file: {models_file}", file=sys.stderr)
         data = yaml.safe_load(models_file.read_text(encoding="utf-8")) or {}
         for model_data in data.get("model_list", []):
             model_def = ModelDef.from_dict(model_data)
@@ -318,14 +331,14 @@ def get_model_definition(model_name: str) -> ModelDef | None:
     return models.get(model_name)
 
 
-def resolve_profile_models(profile: Profile) -> list[ModelDef]:
+def resolve_profile_models(profile: Profile, debug: bool = False) -> list[ModelDef]:
     """
     Resolve profile model references to actual model definitions.
 
     Takes the model names from profile.meta (opus_model, sonnet_model, haiku_model)
     and resolves them to ModelDef objects from the model definitions.
     """
-    models = load_model_definitions()
+    models = load_model_definitions(debug=debug)
     resolved: list[ModelDef] = []
     seen: set[str] = set()
 
@@ -405,6 +418,7 @@ def load_profile(name: str, debug: bool = False) -> Profile | None:
 
     After loading, resolves model references from model definitions.
     """
+    global _loaded_profile_files
     _require_yaml()
 
     if debug:
@@ -426,6 +440,9 @@ def load_profile(name: str, debug: bool = False) -> Profile | None:
                 if debug:
                     print(f"DEBUG: Profile '{name}' is disabled in {profiles_file}, continuing search", file=sys.stderr)
                 continue
+
+            # Track which profile file was loaded
+            _loaded_profile_files[name] = profiles_file
 
             # Load the profile
             return _load_profile_from_data(name, profile_data, profiles_file, debug=debug)
@@ -461,7 +478,7 @@ def _load_profile_from_data(
     profile = Profile(meta=meta, source_path=source_path)
 
     # Resolve model references to actual definitions
-    profile.model_list = resolve_profile_models(profile)
+    profile.model_list = resolve_profile_models(profile, debug=debug)
 
     if debug:
         print(f"DEBUG: Loaded profile '{name}' from {source_path}", file=sys.stderr)
@@ -469,7 +486,7 @@ def _load_profile_from_data(
     return profile
 
 
-def load_profile_file(path: Path) -> Profile:
+def load_profile_file(path: Path, debug: bool = False) -> Profile:
     """
     Load a profile from a specific file path.
 
@@ -479,6 +496,9 @@ def load_profile_file(path: Path) -> Profile:
     """
     _require_yaml()
 
+    if debug:
+        print(f"DEBUG: Loading profile file: {path}", file=sys.stderr)
+
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     profile = Profile.from_dict(data, source_path=path)
 
@@ -487,7 +507,7 @@ def load_profile_file(path: Path) -> Profile:
         profile.meta.name = path.stem
 
     # Resolve model references to actual definitions
-    profile.model_list = resolve_profile_models(profile)
+    profile.model_list = resolve_profile_models(profile, debug=debug)
 
     return profile
 
@@ -582,3 +602,15 @@ def get_profile_path(name: str) -> Path | None:
                 return profiles_file
 
     return None
+
+
+def get_loaded_files() -> dict[str, list[Path]]:
+    """
+    Get the paths to the loaded profiles and models files.
+
+    Returns a dict with 'profiles' and 'models' keys containing lists of paths.
+    """
+    return {
+        "profiles": list(_loaded_profile_files.values()),
+        "models": _loaded_model_files.copy(),
+    }

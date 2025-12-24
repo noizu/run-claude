@@ -1,5 +1,5 @@
 [project]
-name = "run-claud"
+name = "run-claude"
 version = "0.1.2"
 description = "Agent shim controller for Claude - directory-aware model routing via LiteLLM proxy"
 readme = "README.md"
@@ -7,6 +7,8 @@ requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6.0",
     "httpx>=0.25.0",
+    "prisma>=0.15.0",
+    "psycopg2-binary>=2.9.0",
 ]
 
 [project.scripts]

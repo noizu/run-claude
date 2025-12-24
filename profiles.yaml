@@ -28,16 +28,16 @@ openai:
 # Cerebras - Speed optimized inference
 cerebras:
   name: "Cerebras"
-  opus_model: "gpt-oss-120b"
-  sonnet_model: "qwen-3-32b"
-  haiku_model: "llama3.1-8b"
+  opus_model: "cerebras/gpt-oss-120b"
+  sonnet_model: "cerebras/qwen-3-32b"
+  haiku_model: "cerebras/llama3.1-8b"
 
 # Cerebras2 - Alternative Cerebras config with GLM
 cerebras2:
   name: "Cerebras (GLM)"
-  opus_model: "zai-glm-4.6"
-  sonnet_model: "gpt-oss-120b"
-  haiku_model: "qwen-3-32b"
+  opus_model: "cerebras/zai-glm-4.6"
+  sonnet_model: "cerebras/gpt-oss-120b"
+  haiku_model: "cerebras/qwen-3-32b"
 
 # Cerebras Subscription - GLM with thinking tiers
 cerebras-sub:
