@@ -311,15 +311,24 @@ def load_model_definitions(force_reload: bool = False, debug: bool = False) -> d
     _loaded_model_files = []
 
     # Load from all sources in priority order
-    for models_file in _find_models_files(debug=debug):
+    model_files = _find_models_files(debug=debug)
+    print(f"[MODELS_FILES] Found {len(model_files)} model file(s)", file=sys.stderr)
+    for models_file in model_files:
         _loaded_model_files.append(models_file)
         if debug:
             print(f"DEBUG: Loading models file: {models_file}", file=sys.stderr)
         data = yaml.safe_load(models_file.read_text(encoding="utf-8")) or {}
+        count = 0
         for model_data in data.get("model_list", []):
             model_def = ModelDef.from_dict(model_data)
             if model_def.model_name:
                 models[model_def.model_name] = model_def
+                count += 1
+        print(f"[MODELS_LOADED_FROM] {models_file}: {count} model(s)", file=sys.stderr)
+
+    model_names = sorted(models.keys())
+    if model_names:
+        print(f"[MODELS_AVAILABLE] Total {len(models)} models: {', '.join(model_names)}", file=sys.stderr)
 
     _model_definitions_cache = models
     return models
@@ -331,16 +340,50 @@ def get_model_definition(model_name: str) -> ModelDef | None:
     return models.get(model_name)
 
 
+def hydrate_model_def(model_def: ModelDef) -> ModelDef:
+    """
+    Hydrate a model definition by expanding environment variable references.
+
+    Replaces values like 'os.environ/VAR_NAME' with the actual environment variable value.
+
+    Args:
+        model_def: Model definition to hydrate
+
+    Returns:
+        New ModelDef with hydrated litellm_params
+    """
+    hydrated_params = {}
+
+    for key, value in model_def.litellm_params.items():
+        if isinstance(value, str) and value.startswith("os.environ/"):
+            # Extract environment variable name
+            env_var = value.replace("os.environ/", "")
+            hydrated_value = os.environ.get(env_var)
+            if hydrated_value:
+                hydrated_params[key] = hydrated_value
+                print(f"[HYDRATE] {key}: os.environ/{env_var} -> {hydrated_value[:20]}..." if len(hydrated_value) > 20 else f"[HYDRATE] {key}: os.environ/{env_var} -> {hydrated_value}", file=sys.stderr)
+            else:
+                # Keep original if env var not found
+                hydrated_params[key] = value
+                print(f"[HYDRATE_WARNING] {key}: os.environ/{env_var} not found, keeping placeholder", file=sys.stderr)
+        else:
+            hydrated_params[key] = value
+
+    return ModelDef(model_name=model_def.model_name, litellm_params=hydrated_params)
+
+
 def resolve_profile_models(profile: Profile, debug: bool = False) -> list[ModelDef]:
     """
     Resolve profile model references to actual model definitions.
 
     Takes the model names from profile.meta (opus_model, sonnet_model, haiku_model)
     and resolves them to ModelDef objects from the model definitions.
+    Hydrates environment variable references before returning.
     """
     models = load_model_definitions(debug=debug)
     resolved: list[ModelDef] = []
     seen: set[str] = set()
+    not_found: list[str] = []
 
     # Collect unique model names from profile
     model_names = [
@@ -353,8 +396,18 @@ def resolve_profile_models(profile: Profile, debug: bool = False) -> list[ModelD
         if name and name not in seen:
             seen.add(name)
             if name in models:
-                resolved.append(models[name])
+                # Hydrate the model definition before adding to resolved list
+                hydrated = hydrate_model_def(models[name])
+                resolved.append(hydrated)
+                print(f"[MODEL_RESOLVED] '{name}' found in models", file=sys.stderr)
+            else:
+                not_found.append(name)
+                print(f"[MODEL_NOT_FOUND] '{name}' - not in models.yaml", file=sys.stderr)
 
+    if not_found:
+        print(f"[PROFILE_RESOLUTION_WARNING] {len(not_found)}/{len([n for n in model_names if n])} models not found", file=sys.stderr)
+
+    print(f"[PROFILE_MODELS_RESOLVED] {len(resolved)} models resolved", file=sys.stderr)
     return resolved
 
 
@@ -474,6 +527,10 @@ def _load_profile_from_data(
     # Use profile name as display name if not specified
     if not meta.name:
         meta.name = name
+
+    # Log profile metadata
+    print(f"[PROFILE_LOADED] '{name}' from {source_path}", file=sys.stderr)
+    print(f"[PROFILE_MODEL_REFS] opus={meta.opus_model}, sonnet={meta.sonnet_model}, haiku={meta.haiku_model}", file=sys.stderr)
 
     profile = Profile(meta=meta, source_path=source_path)
 

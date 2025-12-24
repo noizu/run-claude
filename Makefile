@@ -50,6 +50,6 @@ install:
 refresh:
 	rm -rf ${HOME}/.local/share/uv/tools/run-claude
 	uv tool install . --refresh --force --verbose
-
+	run-claude status
 dev:
 	uv sync --dev

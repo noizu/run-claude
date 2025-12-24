@@ -6,6 +6,7 @@ Handles starting, stopping, health checks, and model management via API.
 
 from __future__ import annotations
 
+import json
 import os
 import signal
 import subprocess
@@ -32,7 +33,7 @@ from .state import get_state_dir, load_state, save_state
 DEFAULT_PROXY_HOST = "127.0.0.1"
 DEFAULT_PROXY_PORT = 4444
 DEFAULT_PROXY_URL = f"http://{DEFAULT_PROXY_HOST}:{DEFAULT_PROXY_PORT}"
-DEFAULT_API_KEY = "sk-litellm-proxy"
+DEFAULT_MASTER_KEY = "sk-litellm-master-key-12345"
 
 HEALTH_CHECK_TIMEOUT = 60.0
 HEALTH_CHECK_RETRIES = 30
@@ -44,9 +45,14 @@ def get_proxy_url() -> str:
     return os.environ.get("LITELLM_PROXY_URL", DEFAULT_PROXY_URL)
 
 
+def get_master_key() -> str:
+    """Get proxy master key from environment or default."""
+    return os.environ.get("LITELLM_MASTER_KEY", DEFAULT_MASTER_KEY)
+
+
 def get_api_key() -> str:
-    """Get proxy API key from environment or default."""
-    return os.environ.get("LITELLM_API_KEY", DEFAULT_API_KEY)
+    """Get API key for proxy authentication."""
+    return get_master_key()
 
 
 def get_pid_file() -> Path:
@@ -93,6 +99,42 @@ class ProxyStatus:
     db_healthy: bool = False
 
 
+def _hydrate_model_dict(model_dict: dict[str, Any]) -> dict[str, Any]:
+    """
+    Hydrate a model definition dict by expanding environment variable references.
+
+    Replaces values like 'os.environ/VAR_NAME' with the actual environment variable value.
+
+    Args:
+        model_dict: Model definition dict to hydrate
+
+    Returns:
+        New dict with hydrated litellm_params
+    """
+    hydrated = model_dict.copy()
+    litellm_params = hydrated.get("litellm_params", {})
+
+    if not isinstance(litellm_params, dict):
+        return hydrated
+
+    hydrated_params = {}
+    for key, value in litellm_params.items():
+        if isinstance(value, str) and value.startswith("os.environ/"):
+            # Extract environment variable name
+            env_var = value.replace("os.environ/", "")
+            hydrated_value = os.environ.get(env_var)
+            if hydrated_value:
+                hydrated_params[key] = hydrated_value
+            else:
+                # Keep original if env var not found
+                hydrated_params[key] = value
+        else:
+            hydrated_params[key] = value
+
+    hydrated["litellm_params"] = hydrated_params
+    return hydrated
+
+
 def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> Path:
     """
     Generate LiteLLM proxy config file with required settings.
@@ -127,15 +169,16 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
     if model_defs is None:
         # Load all available models
         models = load_model_definitions()
-        model_list = [m.to_dict() for m in models.values()]
+        model_list = [_hydrate_model_dict(m.to_dict()) for m in models.values()]
     else:
-        model_list = model_defs
+        # Hydrate provided model defs
+        model_list = [_hydrate_model_dict(m) for m in model_defs]
 
     # Get database URL from environment or use default
     # Format: postgresql://user:password@host:port/database
     db_url = os.environ.get(
         "LITELLM_DATABASE_URL",
-        "postgresql://postgres:${RUN_CLAUDE_TIMESCALEDB_PASSWORD}@localhost:5433/postgres"
+        "postgresql://postgres:${RUN_CLAUDE_TIMESCALEDB_PASSWORD}@localhost:5433/postgres?sslmode=disable"
     )
 
     # Expand environment variables in database URL
@@ -149,13 +192,15 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
     print(f"Database connection string: {db_url}", file=sys.stderr)
 
     # Build config with required LiteLLM settings
+    # Use the actual master key value directly in config as fallback
+    master_key = get_master_key()
     config = {
         "litellm_settings": {
             "drop_params": True,
             "forward_client_headers_to_llm_api": False,
         },
         "general_settings": {
-            "master_key": "os.environ/LITELLM_MASTER_KEY",
+            "master_key": master_key,
             "database_url": db_url,
         },
         "model_list": model_list,
@@ -182,42 +227,54 @@ def health_check(timeout: float = HEALTH_CHECK_TIMEOUT, wait_for_recovery: bool 
         True if proxy is healthy
     """
     if httpx is None:
-        print("HTTPX REQUIRED")
+        print("[ERROR] httpx required for health check", file=sys.stderr)
         return False
 
     url = get_proxy_url()
+    master_key = get_master_key()
     retry_count = 0
 
     while True:
         try:
-            print(f"[GET] {url}/health")
-            resp = httpx.get(f"{url}/health", timeout=timeout)
-            print(resp)
+            print(f"[HEALTH_CHECK] GET {url}/health with key={master_key}", file=sys.stderr)
+            resp = httpx.get(
+                f"{url}/health",
+                headers={"Authorization": f"Bearer {master_key}"},
+                timeout=timeout
+            )
+            print(f"[HEALTH_CHECK] Response: {resp.status_code} | key={master_key}", file=sys.stderr)
+
             if resp.status_code == 200:
+                print(f"[HEALTH_CHECK] Healthy", file=sys.stderr)
                 return True
 
             # Not healthy yet
             if not wait_for_recovery:
+                print(f"[HEALTH_CHECK] Unhealthy (HTTP {resp.status_code})", file=sys.stderr)
                 return False
 
             # Wait and retry if recovery mode enabled
             if max_retries > 0 and retry_count >= max_retries:
+                print(f"[HEALTH_CHECK] Max retries reached", file=sys.stderr)
                 return False
 
             retry_count += 1
+            print(f"[HEALTH_CHECK] Retry {retry_count}, waiting {HEALTH_CHECK_INTERVAL}s", file=sys.stderr)
             time.sleep(HEALTH_CHECK_INTERVAL)
 
         except Exception as e:
-            print(f"Health check failed: {e}")
+            print(f"[HEALTH_CHECK_ERROR] {type(e).__name__}: {e}", file=sys.stderr)
 
             if not wait_for_recovery:
                 return False
 
             # Wait and retry if recovery mode enabled
             if max_retries > 0 and retry_count >= max_retries:
+                print(f"[HEALTH_CHECK] Max retries reached", file=sys.stderr)
                 return False
 
             retry_count += 1
+            print(f"[HEALTH_CHECK] Retry {retry_count}, waiting {HEALTH_CHECK_INTERVAL}s", file=sys.stderr)
             time.sleep(HEALTH_CHECK_INTERVAL)
 
 
@@ -287,10 +344,18 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
 
     # Start proxy in background
     try:
-        # Prepare environment for proxy
+        # Clone parent environment with additional flags for proxy
         env = os.environ.copy()
         env["STORE_MODEL_IN_DB"] = "True"
+        env['USE_PRISMA_MIGRATE'] = "True"
+        # Set master key if not already set
+        if "LITELLM_MASTER_KEY" not in env:
+            env["LITELLM_MASTER_KEY"] = get_master_key()
 
+        print(f"LiteLLM proxy logs saved to: {log_file}", file=sys.stderr)
+        print(f"Master key configured: {env.get('LITELLM_MASTER_KEY', 'NOT SET')}", file=sys.stderr)
+        print(f"To run litellm locally for debugging, run:", file=sys.stderr)
+        print(f" LITELLM_MASTER_KEY={env.get('LITELLM_MASTER_KEY', 'NOT SET')} STORE_MODEL_IN_DB=True USE_PRISMA_MIGRATE=True {' '.join(cmd)}", file=sys.stderr)
         with open(log_file, "a") as log:
             proc = subprocess.Popen(
                 cmd,
@@ -430,19 +495,25 @@ def list_models() -> list[dict[str, Any]]:
         return []
 
     url = get_proxy_url()
-    api_key = get_api_key()
+    master_key = get_master_key()
 
     try:
         resp = httpx.get(
             f"{url}/model/info",
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers={"Authorization": f"Bearer {master_key}"},
             timeout=10.0,
         )
         if resp.status_code == 200:
             data = resp.json()
-            return data.get("data", [])
-    except Exception:
-        pass
+            models = data.get("data", [])
+            print(f"[LIST_MODELS] Retrieved {len(models)} model(s) (HTTP {resp.status_code})", file=sys.stderr)
+            return models
+
+        # Log API error for non-200 responses
+        print(f"[LIST_MODELS_ERROR] Failed to retrieve models (HTTP {resp.status_code})", file=sys.stderr)
+        print(f"[API_RESPONSE] {resp.text}", file=sys.stderr)
+    except Exception as e:
+        print(f"[LIST_MODELS_ERROR] Exception: {type(e).__name__}: {e}", file=sys.stderr)
 
     return []
 
@@ -465,37 +536,103 @@ def add_model(model_def: dict[str, Any], debug: bool = False) -> bool:
 
     Args:
         model_def: Model definition with model_name and litellm_params
-        debug: If True, print debug info on failure
+        debug: If True, print detailed debug info on all attempts
 
     Returns:
         True if model added successfully
     """
     if httpx is None:
+        print("[ERROR] httpx not available for model creation", file=sys.stderr)
         return False
 
     url = get_proxy_url()
-    api_key = get_api_key()
+    master_key = get_master_key()
+    model_name = model_def.get("model_name", "unknown")
+
+    # Hydrate the model definition before logging
+    hydrated_model_def = _hydrate_model_dict(model_def)
+
+    print(f"[ATTEMPT] Creating model '{model_name}'", file=sys.stderr)
+    print(f"[MASTER_KEY] Using master key: {master_key}", file=sys.stderr)
 
     try:
+        # Always log YAML representation of hydrated model
+        if yaml is not None:
+            print(f"[MODEL_DEF_YAML]", file=sys.stderr)
+            print(yaml.dump(hydrated_model_def, default_flow_style=False), file=sys.stderr)
+
+        if debug:
+            request_payload = {
+                "method": "POST",
+                "url": f"{url}/model/new",
+                "headers": {
+                    "Authorization": f"Bearer {master_key}",
+                    "Content-Type": "application/json",
+                },
+                "body": hydrated_model_def,
+            }
+            print(f"[REQUEST_PAYLOAD]", file=sys.stderr)
+            if yaml is not None:
+                print(yaml.dump(request_payload, default_flow_style=False, sort_keys=False), file=sys.stderr)
+            else:
+                print(json.dumps(request_payload, indent=2), file=sys.stderr)
+
         resp = httpx.post(
             f"{url}/model/new",
             headers={
-                "Authorization": f"Bearer {api_key}",
+                "Authorization": f"Bearer {master_key}",
                 "Content-Type": "application/json",
             },
-            json=model_def,
+            json=hydrated_model_def,
             timeout=10.0,
         )
+
         if resp.status_code in (200, 201):
+            print(f"[SUCCESS] Model '{model_name}' created (HTTP {resp.status_code})", file=sys.stderr)
+            if debug:
+                response_payload = {
+                    "status_code": resp.status_code,
+                    "headers": dict(resp.headers),
+                    "body": None,
+                }
+                try:
+                    response_payload["body"] = resp.json()
+                except:
+                    response_payload["body"] = resp.text
+
+                print(f"[RESPONSE_PAYLOAD]", file=sys.stderr)
+                if yaml is not None:
+                    print(yaml.dump(response_payload, default_flow_style=False, sort_keys=False), file=sys.stderr)
+                else:
+                    print(json.dumps(response_payload, indent=2), file=sys.stderr)
             return True
+
+        # Failure case - always log response
+        print(f"[FAILED] Model '{model_name}' creation failed (HTTP {resp.status_code})", file=sys.stderr)
+        print(f"[API_RESPONSE] {resp.text}", file=sys.stderr)
         if debug:
-            model_name = model_def.get("model_name", "unknown")
-            print(f"Failed to add model '{model_name}': {resp.status_code} {resp.text}", file=sys.stderr)
+            response_payload = {
+                "status_code": resp.status_code,
+                "headers": dict(resp.headers),
+                "body": None,
+            }
+            try:
+                response_payload["body"] = resp.json()
+            except:
+                response_payload["body"] = resp.text
+
+            print(f"[RESPONSE_PAYLOAD]", file=sys.stderr)
+            if yaml is not None:
+                print(yaml.dump(response_payload, default_flow_style=False, sort_keys=False), file=sys.stderr)
+            else:
+                print(json.dumps(response_payload, indent=2), file=sys.stderr)
         return False
+
     except Exception as e:
+        print(f"[ERROR] Model '{model_name}' creation error: {type(e).__name__}: {e}", file=sys.stderr)
         if debug:
-            model_name = model_def.get("model_name", "unknown")
-            print(f"Failed to add model '{model_name}': {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc(file=sys.stderr)
         return False
 
 
@@ -510,23 +647,36 @@ def delete_model(model_id: str) -> bool:
         True if model deleted successfully
     """
     if httpx is None:
+        print(f"[ERROR] httpx not available for deleting model '{model_id}'", file=sys.stderr)
         return False
 
     url = get_proxy_url()
-    api_key = get_api_key()
+    master_key = get_master_key()
+
+    print(f"[ATTEMPT] Deleting model '{model_id}'", file=sys.stderr)
 
     try:
         resp = httpx.post(
             f"{url}/model/delete",
             headers={
-                "Authorization": f"Bearer {api_key}",
+                "Authorization": f"Bearer {master_key}",
                 "Content-Type": "application/json",
             },
             json={"id": model_id},
             timeout=10.0,
         )
-        return resp.status_code in (200, 204)
-    except Exception:
+
+        if resp.status_code in (200, 204):
+            print(f"[SUCCESS] Model '{model_id}' deleted (HTTP {resp.status_code})", file=sys.stderr)
+            return True
+
+        # Failure case
+        print(f"[FAILED] Model '{model_id}' deletion failed (HTTP {resp.status_code})", file=sys.stderr)
+        print(f"[API_RESPONSE] {resp.text}", file=sys.stderr)
+        return False
+
+    except Exception as e:
+        print(f"[ERROR] Model '{model_id}' deletion error: {type(e).__name__}: {e}", file=sys.stderr)
         return False
 
 
@@ -536,29 +686,47 @@ def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_fo
 
     Args:
         model_defs: List of model definitions
-        debug: If True, print debug info on failures
+        debug: If True, print debug info for each model
         wait_for_recovery: If True, wait for proxy to recover before returning
 
     Returns:
         Tuple of (added_count, skipped_count)
     """
+    print(f"[ENSURE_MODELS] Processing {len(model_defs)} model(s)", file=sys.stderr)
+
+    # Log all model definitions in YAML format
+    if model_defs and yaml is not None:
+        print(f"[MODELS_YAML_LIST]", file=sys.stderr)
+        for i, model_def in enumerate(model_defs):
+            print(f"--- Model {i + 1} ---", file=sys.stderr)
+            print(yaml.dump(model_def, default_flow_style=False), file=sys.stderr)
+
     # If wait_for_recovery enabled, wait for proxy to become healthy
     if wait_for_recovery:
         health_check(wait_for_recovery=True, max_retries=HEALTH_CHECK_RETRIES)
 
     existing = get_model_ids()
+    if existing:
+        print(f"[INFO] {len(existing)} model(s) already registered", file=sys.stderr)
+
     added = 0
     skipped = 0
+    failed = 0
 
     for model_def in model_defs:
         model_name = model_def.get("model_name", "")
         if model_name in existing:
+            print(f"[SKIP] Model '{model_name}' already registered", file=sys.stderr)
             skipped += 1
             continue
 
         if add_model(model_def, debug=debug):
             added += 1
-        # Failures are logged by add_model when debug=True
+        else:
+            failed += 1
+
+    # Always show summary
+    print(f"[SUMMARY] Added: {added}, Skipped: {skipped}, Failed: {failed}", file=sys.stderr)
 
     return added, skipped
 

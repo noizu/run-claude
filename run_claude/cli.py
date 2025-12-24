@@ -155,6 +155,12 @@ def cmd_enter(args: argparse.Namespace) -> int:
         print(f"Error: Profile not found: {profile_name}", file=sys.stderr)
         return 1
 
+    # Log profile selection and models
+    print(f"[PROFILE_SELECTED] '{profile_name}' ({profile.meta.name})", file=sys.stderr)
+    print(f"[MODELS_FOR_REGISTRATION] {len(profile.model_list)} models:", file=sys.stderr)
+    for m in profile.model_list:
+        print(f"  - {m.model_name}", file=sys.stderr)
+
     # Ensure proxy is running with profile's models
     model_defs = [m.to_dict() for m in profile.model_list]
     if not proxy.is_proxy_running():
@@ -452,6 +458,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     if profile is None:
         print(f"Error: Profile not found: {profile_name}", file=sys.stderr)
         return 1
+
+    # Log profile selection and models
+    print(f"[PROFILE_SELECTED] '{profile_name}' ({profile.meta.name})", file=sys.stderr)
+    print(f"[MODELS_FOR_REGISTRATION] {len(profile.model_list)} models:", file=sys.stderr)
+    for m in profile.model_list:
+        print(f"  - {m.model_name}", file=sys.stderr)
 
     # Verify profile has models resolved
     if not profile.model_list:
