@@ -34,6 +34,7 @@ DEFAULT_PROXY_HOST = "127.0.0.1"
 DEFAULT_PROXY_PORT = 4444
 DEFAULT_PROXY_URL = f"http://{DEFAULT_PROXY_HOST}:{DEFAULT_PROXY_PORT}"
 DEFAULT_MASTER_KEY = "sk-litellm-master-key-12345"
+DEFAULT_LITELLM_COMMAND = "litellm"
 
 HEALTH_CHECK_TIMEOUT = 60.0
 HEALTH_CHECK_RETRIES = 30
@@ -53,6 +54,14 @@ def get_master_key() -> str:
 def get_api_key() -> str:
     """Get API key for proxy authentication."""
     return get_master_key()
+
+
+def get_litellm_command() -> str:
+    """Get litellm command from environment or default.
+
+    On NixOS systems, use LITELLM_COMMAND=litellm-proxy to specify the uv alias.
+    """
+    return os.environ.get("LITELLM_COMMAND", DEFAULT_LITELLM_COMMAND)
 
 
 def get_pid_file() -> Path:
@@ -339,7 +348,8 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
         config_path = str(generate_litellm_config(model_defs=model_defs))
 
     # Build command
-    cmd = ["litellm", "--host", DEFAULT_PROXY_HOST, "--port", str(DEFAULT_PROXY_PORT)]
+    litellm_cmd = get_litellm_command()
+    cmd = [litellm_cmd, "--host", DEFAULT_PROXY_HOST, "--port", str(DEFAULT_PROXY_PORT)]
     cmd.extend(["--config", config_path])
 
     # Start proxy in background

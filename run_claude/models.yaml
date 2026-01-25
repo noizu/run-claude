@@ -175,54 +175,54 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
 
-  # zai-glm-4.6
-  - model_name: "cerebras/zai-glm-4.6"
+  # zai-glm-4.7
+  - model_name: "cerebras/zai-glm-4.7"
     litellm_params:
-      model: zai-glm-4.6
+      model: zai-glm-4.7
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
 
-  - model_name: "cerebras/zai-glm-4.6:instant"
+  - model_name: "cerebras/zai-glm-4.7:instant"
     litellm_params:
-      model: cerebras/zai-glm-4.6
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
 
-  - model_name: "cerebras/zai-glm-4.6:thinking"
+  - model_name: "cerebras/zai-glm-4.7:thinking"
     litellm_params:
-      model: cerebras/zai-glm-4.6
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
       additional_drop_params: ["context_management"]
       reasoning_effort: "low"
 
-  - model_name: "cerebras/zai-glm-4.6:thinking-medium"
+  - model_name: "cerebras/zai-glm-4.7:thinking-medium"
     litellm_params:
-      model: cerebras/zai-glm-4.6
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
       additional_drop_params: ["context_management"]
       reasoning_effort: "medium"
 
-  - model_name: "cerebras/zai-glm-4.6:thinking-high"
+  - model_name: "cerebras/zai-glm-4.7:thinking-high"
     litellm_params:
-      model: cerebras/zai-glm-4.6
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
       additional_drop_params: ["context_management"]
       reasoning_effort: "high"
 
-  # cerebras/pro - alias for zai-glm-4.6 with subscription key
+  # cerebras/pro - alias for zai-glm-4.7 with subscription key
   - model_name: "cerebras_pro"
     litellm_params:
-      model: cerebras/zai-glm-4.6
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
@@ -230,7 +230,7 @@ model_list:
 
   - model_name: "cerebras_pro_instant"
     litellm_params:
-      model: cerebras/zai-glm-4.6
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
@@ -238,7 +238,7 @@ model_list:
 
   - model_name: "cerebras_pro_thinking"
     litellm_params:
-      model: cerebraszai-glm-4.6
+      model: cerebraszai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
@@ -247,7 +247,7 @@ model_list:
 
   - model_name: "cerebras/pro_thinking.medium"
     litellm_params:
-      model: zai-glm-4.6
+      model: zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
@@ -256,7 +256,7 @@ model_list:
 
   - model_name: "cerebras/pro_thinking.high"
     litellm_params:
-      model: zai-glm-4.6
+      model: zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
