@@ -62,11 +62,22 @@ def main() -> int:
     # proxy subcommands
     proxy_p = subparsers.add_parser("proxy", help="Proxy management")
     proxy_sub = proxy_p.add_subparsers(dest="proxy_command")
-    proxy_sub.add_parser("start", help="Start proxy")
-    proxy_sub.add_parser("stop", help="Stop proxy")
+    proxy_start_p = proxy_sub.add_parser("start", help="Start proxy")
+    proxy_start_p.add_argument("--no-db", action="store_true", help="Don't auto-start database container")
+    proxy_stop_p = proxy_sub.add_parser("stop", help="Stop proxy")
+    proxy_stop_p.add_argument("--with-db", action="store_true", help="Also stop database container")
+    proxy_stop_p.add_argument("--all", action="store_true", help="Stop everything and remove containers")
     proxy_sub.add_parser("status", help="Proxy status")
     proxy_sub.add_parser("health", help="Health check")
     proxy_sub.add_parser("db-test", help="Test database connection")
+
+    # db subcommands
+    db_p = subparsers.add_parser("db", help="Database container management")
+    db_sub = db_p.add_subparsers(dest="db_command")
+    db_sub.add_parser("start", help="Start database container")
+    db_stop_p = db_sub.add_parser("stop", help="Stop database container")
+    db_stop_p.add_argument("--remove", "-r", action="store_true", help="Remove container and volumes")
+    db_sub.add_parser("status", help="Database container status")
 
     # profiles subcommands
     profiles_p = subparsers.add_parser("profiles", help="Profile management")
@@ -125,6 +136,8 @@ def main() -> int:
         return cmd_env(args)
     elif args.command == "proxy":
         return cmd_proxy(args)
+    elif args.command == "db":
+        return cmd_db(args)
     elif args.command == "profiles":
         return cmd_profiles(args)
     elif args.command == "models":
@@ -367,10 +380,27 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"  Models: {proxy_status.model_count}")
     else:
         print("  Status: stopped")
+    print()
 
-    # Database status
-    db_status = "connected" if proxy_status.db_healthy else "disconnected"
-    print(f"  Database: {db_status}")
+    # Database container status
+    print("Database Container:")
+    if proxy_status.db_status:
+        if not proxy_status.db_status.installed:
+            print("  Infrastructure: not installed")
+        elif not proxy_status.db_status.container_exists:
+            print("  Container: not created")
+        elif not proxy_status.db_status.running:
+            print(f"  Status: stopped (ID: {proxy_status.db_status.container_id})")
+        else:
+            health = "healthy" if proxy_status.db_status.healthy else "starting"
+            print(f"  Status: running ({health})")
+            print(f"  Container ID: {proxy_status.db_status.container_id}")
+    else:
+        print("  Status: unknown")
+
+    # Database connection status
+    db_conn = "connected" if proxy_status.db_healthy else "disconnected"
+    print(f"  Connection: {db_conn}")
 
     print()
 
@@ -510,6 +540,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     # Determine command to run
     cmd = args.cmd if args.cmd else ["claude"]
 
+    cmd_status(args)
+
     # Execute
     try:
         result = subprocess.run(cmd, env=env)
@@ -525,9 +557,12 @@ def cmd_proxy(args: argparse.Namespace) -> int:
     """Handle proxy commands."""
     from . import proxy
 
+    debug = getattr(args, 'debug', False)
+
     if args.proxy_command == "start":
         # Start with empty model list, models are loaded on-demand via profiles
-        if proxy.start_proxy(empty_config=True):
+        no_db = getattr(args, 'no_db', False)
+        if proxy.start_proxy(empty_config=True, no_db=no_db, debug=debug):
             print("Proxy started")
             return 0
         else:
@@ -535,25 +570,64 @@ def cmd_proxy(args: argparse.Namespace) -> int:
             return 1
 
     elif args.proxy_command == "stop":
-        if proxy.stop_proxy():
-            print("Proxy stopped")
-            return 0
-        else:
+        # Stop proxy first
+        if not proxy.stop_proxy():
             print("Failed to stop proxy", file=sys.stderr)
             return 1
+        print("Proxy stopped")
+
+        # Optionally stop database
+        with_db = getattr(args, 'with_db', False)
+        stop_all = getattr(args, 'all', False)
+
+        if with_db or stop_all:
+            print("Stopping database container...")
+            if proxy.stop_db_container(remove=stop_all, debug=debug):
+                if stop_all:
+                    print("Database container removed")
+                else:
+                    print("Database container stopped")
+            else:
+                print("Failed to stop database container", file=sys.stderr)
+                return 1
+
+        return 0
 
     elif args.proxy_command == "status":
         status = proxy.get_status()
+
+        # Proxy status
+        print("Proxy:")
         if status.running:
             health = "healthy" if status.healthy else "unhealthy"
-            print(f"Running ({health})")
+            print(f"  Status: running ({health})")
             print(f"  PID: {status.pid}")
             print(f"  URL: {status.url}")
             print(f"  Models: {status.model_count}")
-            db_health = "healthy" if status.db_healthy else "unhealthy"
-            print(f"  Database: {db_health}")
         else:
-            print("Stopped")
+            print("  Status: stopped")
+
+        # Database container status
+        print()
+        print("Database Container:")
+        if status.db_status:
+            if not status.db_status.installed:
+                print("  Infrastructure: not installed")
+                print("  Run 'run-claude install' to install")
+            elif not status.db_status.container_exists:
+                print("  Container: not created")
+            elif not status.db_status.running:
+                print("  Container: stopped")
+                print(f"  Container ID: {status.db_status.container_id}")
+            else:
+                health = "healthy" if status.db_status.healthy else "starting"
+                print(f"  Container: running ({health})")
+                print(f"  Container ID: {status.db_status.container_id}")
+
+        # Database connection status
+        db_conn = "connected" if status.db_healthy else "disconnected"
+        print(f"  Connection: {db_conn}")
+
         return 0
 
     elif args.proxy_command == "health":
@@ -565,7 +639,6 @@ def cmd_proxy(args: argparse.Namespace) -> int:
             return 1
 
     elif args.proxy_command == "db-test":
-        debug = getattr(args, 'debug', False)
         if proxy.test_db_connection(debug=debug):
             print("Database connection: OK")
             return 0
@@ -575,6 +648,72 @@ def cmd_proxy(args: argparse.Namespace) -> int:
 
     else:
         print("Usage: run-claude proxy {start|stop|status|health|db-test}")
+        return 1
+
+
+def cmd_db(args: argparse.Namespace) -> int:
+    """Handle database container commands."""
+    from . import proxy
+
+    debug = getattr(args, 'debug', False)
+
+    if args.db_command == "start":
+        # Ensure infrastructure is installed
+        if not proxy.is_infrastructure_installed():
+            print("Installing infrastructure...")
+            if not proxy.install_infrastructure(debug=debug):
+                print("Failed to install infrastructure", file=sys.stderr)
+                return 1
+
+        if proxy.start_db_container(wait=True, debug=debug):
+            print("Database container started")
+            return 0
+        else:
+            print("Failed to start database container", file=sys.stderr)
+            return 1
+
+    elif args.db_command == "stop":
+        remove = getattr(args, 'remove', False)
+        if proxy.stop_db_container(remove=remove, debug=debug):
+            if remove:
+                print("Database container removed")
+            else:
+                print("Database container stopped")
+            return 0
+        else:
+            print("Failed to stop database container", file=sys.stderr)
+            return 1
+
+    elif args.db_command == "status":
+        status = proxy.get_db_status()
+
+        print("Database Container:")
+        if not status.installed:
+            print("  Infrastructure: not installed")
+            print("  Run 'run-claude install' to install")
+        elif not status.container_exists:
+            print("  Container: not created")
+            print("  Run 'run-claude db start' to create and start")
+        elif not status.running:
+            print("  Status: stopped")
+            print(f"  Container ID: {status.container_id}")
+        else:
+            health = "healthy" if status.healthy else "starting"
+            print(f"  Status: running ({health})")
+            print(f"  Container ID: {status.container_id}")
+
+        # Test actual connection
+        print()
+        print("Connection Test:")
+        if proxy.test_db_connection(debug=debug):
+            print("  Status: OK")
+        else:
+            print("  Status: FAILED")
+
+        return 0
+
+    else:
+        print("Usage: run-claude db {start|stop|status}")
         return 1
 
 
@@ -684,10 +823,11 @@ def cmd_models(args: argparse.Namespace) -> int:
 
 
 def cmd_install(args: argparse.Namespace) -> int:
-    """Install built-in profiles and models to user config directory."""
+    """Install built-in profiles, models, and infrastructure to user directories."""
     import shutil
-    from . import profiles
+    from . import profiles, proxy
 
+    debug = getattr(args, 'debug', False)
     config_dir = profiles.get_config_dir()
     user_profiles_file = profiles.get_user_profiles_file()
     user_models_file = profiles.get_user_models_file()
@@ -720,10 +860,23 @@ def cmd_install(args: argparse.Namespace) -> int:
             print(f"Skipped (exists): {user_profiles_file}")
             skipped += 1
 
+    # Install infrastructure (docker-compose files)
+    dep_dir = proxy.get_dep_dir()
+    if not proxy.is_infrastructure_installed() or args.force:
+        if proxy.install_infrastructure(force=args.force, debug=debug):
+            print(f"Installed: {dep_dir}/docker-compose.yaml")
+            print(f"Installed: {dep_dir}/docker-compose.override.yaml")
+            installed += 2
+    else:
+        print(f"Skipped (exists): {dep_dir}/docker-compose.yaml")
+        skipped += 1
+
     print()
-    print(f"Installed {installed} file(s) to {config_dir}")
+    print(f"Configuration installed to: {config_dir}")
+    print(f"Infrastructure installed to: {dep_dir}")
+    print(f"  {installed} file(s) installed")
     if skipped > 0:
-        print(f"Skipped {skipped} existing file(s). Use --force to overwrite.")
+        print(f"  {skipped} file(s) skipped (use --force to overwrite)")
 
     return 0
 

@@ -40,11 +40,11 @@ cerebras2:
   haiku_model: "cerebras/qwen-3-32b"
 
 # Cerebras Subscription - GLM with thinking tiers
-cerebras-sub:
-  name: "Cerebras Sub"
-  opus_model: "cerebras/pro_thinking.high"
-  sonnet_model: "cerebras/pro_thinking.medium"
-  haiku_model: "cerebras_pro_instant"
+cerebras-pro:
+  name: "Cerebras Pro Subscription"
+  opus_model: "cerebras-pro/opus"
+  sonnet_model: "cerebras-pro/sonnet"
+  haiku_model: "cerebras-pro/haiku"
 
 # Groq - Ultra-fast inference
 groq:

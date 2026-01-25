@@ -24,6 +24,7 @@ packages = ["run_claude"]
 [tool.hatch.build.targets.wheel.force-include]
 "profiles.yaml" = "run_claude/profiles.yaml"
 "templates" = "run_claude/templates"
+"dep" = "run_claude/dep"
 
 [dependency-groups]
 dev = [

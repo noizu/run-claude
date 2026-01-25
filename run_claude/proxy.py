@@ -98,6 +98,16 @@ def _require_yaml() -> None:
 
 
 @dataclass
+class DbStatus:
+    """Database container status information."""
+    installed: bool = False      # Compose files present in state dir
+    container_exists: bool = False  # Container has been created
+    running: bool = False        # Container is running
+    healthy: bool = False        # Health check passing
+    container_id: str | None = None
+
+
+@dataclass
 class ProxyStatus:
     """Proxy status information."""
     running: bool
@@ -106,6 +116,7 @@ class ProxyStatus:
     url: str = DEFAULT_PROXY_URL
     model_count: int = 0
     db_healthy: bool = False
+    db_status: DbStatus | None = None
 
 
 def _hydrate_model_dict(model_dict: dict[str, Any]) -> dict[str, Any]:
@@ -318,7 +329,7 @@ def get_proxy_pid() -> int | None:
         return None
 
 
-def start_proxy(config_path: str | None = None, wait: bool = True, empty_config: bool = False) -> bool:
+def start_proxy(config_path: str | None = None, wait: bool = True, empty_config: bool = False, no_db: bool = False, debug: bool = False) -> bool:
     """
     Start LiteLLM proxy.
 
@@ -327,12 +338,32 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
         wait: Wait for proxy to become healthy
         empty_config: If True, generate config with empty model list.
                      Models are loaded on-demand via ensure_models().
+        no_db: If True, skip automatic database container management.
+        debug: Print debug information.
 
     Returns:
         True if proxy started successfully
     """
     if is_proxy_running() and health_check():
         return True
+
+    # Auto-start database container unless disabled
+    if not no_db:
+        # Ensure infrastructure is installed
+        if not is_infrastructure_installed():
+            if debug:
+                print("Installing infrastructure...", file=sys.stderr)
+            install_infrastructure(debug=debug)
+
+        # Start database if not running
+        if not is_db_container_running():
+            print("Starting database container...", file=sys.stderr)
+            if not start_db_container(wait=True, debug=debug):
+                print("Error: Failed to start database container", file=sys.stderr)
+                print("Is Docker running?", file=sys.stderr)
+                return False
+        elif debug:
+            print("Database container already running", file=sys.stderr)
 
     state_dir = get_state_dir()
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -488,6 +519,7 @@ def get_status() -> ProxyStatus:
         model_count = len(models)
 
     db_healthy = test_db_connection(debug=True)
+    db_status = get_db_status()
 
     return ProxyStatus(
         running=running,
@@ -496,6 +528,7 @@ def get_status() -> ProxyStatus:
         url=get_proxy_url(),
         model_count=model_count,
         db_healthy=db_healthy,
+        db_status=db_status,
     )
 
 
@@ -601,6 +634,7 @@ def add_model(model_def: dict[str, Any], debug: bool = False) -> bool:
             print(f"[SUCCESS] Model '{model_name}' created (HTTP {resp.status_code})", file=sys.stderr)
             if debug:
                 response_payload = {
+                    "url": url,
                     "status_code": resp.status_code,
                     "headers": dict(resp.headers),
                     "body": None,
@@ -734,7 +768,7 @@ def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_fo
             added += 1
         else:
             failed += 1
-
+    list_models()
     # Always show summary
     print(f"[SUMMARY] Added: {added}, Skipped: {skipped}, Failed: {failed}", file=sys.stderr)
 
@@ -872,3 +906,388 @@ def test_db_connection(debug: bool = False) -> bool:
         if debug:
             print(f"Database connection failed: {e}", file=sys.stderr)
         return False
+
+
+# =============================================================================
+# Infrastructure Management
+# =============================================================================
+
+CONTAINER_NAME = "run-claude-timescaledb"
+COMPOSE_PROJECT = "run-claude-infra"
+
+
+def get_dep_dir() -> Path:
+    """Get the infrastructure dependency directory in state."""
+    return get_state_dir() / "dep"
+
+
+def get_builtin_dep_dir() -> Path:
+    """Get the built-in dep directory from package."""
+    return Path(__file__).parent / "dep"
+
+
+def is_docker_available() -> bool:
+    """Check if docker command is available."""
+    try:
+        result = subprocess.run(
+            ["docker", "version", "--format", "{{.Server.Version}}"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
+def is_docker_running() -> bool:
+    """Check if docker daemon is running."""
+    try:
+        result = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
+def install_infrastructure(force: bool = False, debug: bool = False) -> bool:
+    """
+    Install docker-compose files to state directory.
+
+    Args:
+        force: Overwrite existing files
+        debug: Print debug information
+
+    Returns:
+        True if installation successful
+    """
+    import shutil
+
+    dep_dir = get_dep_dir()
+    builtin_dep = get_builtin_dep_dir()
+
+    # Check if already installed
+    compose_file = dep_dir / "docker-compose.yaml"
+    if compose_file.exists() and not force:
+        if debug:
+            print(f"Infrastructure already installed at {dep_dir}", file=sys.stderr)
+        return True
+
+    # Check if built-in dep directory exists
+    if not builtin_dep.exists():
+        print(f"Error: Built-in dep directory not found: {builtin_dep}", file=sys.stderr)
+        return False
+
+    # Create state directory if needed
+    dep_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy compose files
+    try:
+        # Copy docker-compose.yaml
+        src_compose = builtin_dep / "docker-compose.yaml"
+        if src_compose.exists():
+            shutil.copy2(src_compose, dep_dir / "docker-compose.yaml")
+            if debug:
+                print(f"Installed: {dep_dir / 'docker-compose.yaml'}", file=sys.stderr)
+
+        # Copy docker-compose.override.yaml
+        src_override = builtin_dep / "docker-compose.override.yaml"
+        if src_override.exists():
+            shutil.copy2(src_override, dep_dir / "docker-compose.override.yaml")
+            if debug:
+                print(f"Installed: {dep_dir / 'docker-compose.override.yaml'}", file=sys.stderr)
+
+        # Copy config directory if it exists
+        src_config = builtin_dep / "config"
+        if src_config.exists():
+            dst_config = dep_dir / "config"
+            if dst_config.exists() and force:
+                shutil.rmtree(dst_config)
+            if not dst_config.exists():
+                shutil.copytree(src_config, dst_config)
+                if debug:
+                    print(f"Installed: {dst_config}", file=sys.stderr)
+
+        return True
+
+    except (OSError, shutil.Error) as e:
+        print(f"Error installing infrastructure: {e}", file=sys.stderr)
+        return False
+
+
+def is_infrastructure_installed() -> bool:
+    """Check if infrastructure is installed in state directory."""
+    compose_file = get_dep_dir() / "docker-compose.yaml"
+    return compose_file.exists()
+
+
+def get_db_container_id() -> str | None:
+    """Get the container ID if it exists."""
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "-f", "{{.Id}}", CONTAINER_NAME],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()[:12]  # Short ID
+        return None
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+
+
+def is_db_container_running() -> bool:
+    """Check if TimescaleDB container is running."""
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Running}}", CONTAINER_NAME],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return result.returncode == 0 and result.stdout.strip().lower() == "true"
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
+def is_db_container_healthy() -> bool:
+    """Check if TimescaleDB container is healthy."""
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Health.Status}}", CONTAINER_NAME],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return result.returncode == 0 and result.stdout.strip().lower() == "healthy"
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
+def wait_for_db_healthy(timeout: float = 60.0, interval: float = 2.0, debug: bool = False) -> bool:
+    """
+    Wait for database container to become healthy.
+
+    Args:
+        timeout: Maximum time to wait in seconds
+        interval: Time between checks in seconds
+        debug: Print debug information
+
+    Returns:
+        True if container became healthy within timeout
+    """
+    start = time.time()
+    while time.time() - start < timeout:
+        if is_db_container_healthy():
+            if debug:
+                print("Database container is healthy", file=sys.stderr)
+            return True
+
+        if not is_db_container_running():
+            if debug:
+                print("Database container stopped unexpectedly", file=sys.stderr)
+            return False
+
+        if debug:
+            elapsed = int(time.time() - start)
+            print(f"Waiting for database to become healthy... ({elapsed}s)", file=sys.stderr)
+
+        time.sleep(interval)
+
+    if debug:
+        print(f"Database failed to become healthy within {timeout}s", file=sys.stderr)
+    return False
+
+
+def _get_config_dir() -> Path:
+    """Get the config directory for .env file."""
+    run_claude_home = os.environ.get("RUN_CLAUDE_HOME")
+    if run_claude_home:
+        return Path(run_claude_home)
+
+    xdg_config = os.environ.get("XDG_CONFIG_HOME")
+    if xdg_config:
+        return Path(xdg_config) / "run-claude"
+
+    return Path.home() / ".config" / "run-claude"
+
+
+def start_db_container(wait: bool = True, debug: bool = False) -> bool:
+    """
+    Start the TimescaleDB container.
+
+    Args:
+        wait: Wait for container to become healthy
+        debug: Print debug information
+
+    Returns:
+        True if container started successfully
+    """
+    # Check docker availability
+    if not is_docker_available():
+        print("Error: Docker not found. Please install Docker.", file=sys.stderr)
+        return False
+
+    if not is_docker_running():
+        print("Error: Docker daemon not running. Please start Docker.", file=sys.stderr)
+        return False
+
+    # Ensure infrastructure is installed
+    if not is_infrastructure_installed():
+        if debug:
+            print("Installing infrastructure...", file=sys.stderr)
+        if not install_infrastructure(debug=debug):
+            return False
+
+    # Check if already running
+    if is_db_container_running():
+        if debug:
+            print("Database container already running", file=sys.stderr)
+        return True
+
+    dep_dir = get_dep_dir()
+    config_dir = _get_config_dir()
+    env_file = config_dir / ".env"
+
+    # Build compose command
+    cmd = [
+        "docker", "compose",
+        "-f", str(dep_dir / "docker-compose.yaml"),
+        "-f", str(dep_dir / "docker-compose.override.yaml"),
+        "-p", COMPOSE_PROJECT,
+    ]
+
+    # Add env file if it exists
+    if env_file.exists():
+        cmd.extend(["--env-file", str(env_file)])
+    else:
+        print(f"Warning: .env file not found at {env_file}", file=sys.stderr)
+        print("Run 'run-claude secrets export' to create it", file=sys.stderr)
+
+    cmd.extend(["up", "-d"])
+
+    if debug:
+        print(f"Running: {' '.join(cmd)}", file=sys.stderr)
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        if result.returncode != 0:
+            print(f"Error starting database container:", file=sys.stderr)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
+            return False
+
+        if debug and result.stdout:
+            print(result.stdout, file=sys.stderr)
+
+        # Wait for container to become healthy
+        if wait:
+            if debug:
+                print("Waiting for database to become healthy...", file=sys.stderr)
+            return wait_for_db_healthy(timeout=60.0, debug=debug)
+
+        return True
+
+    except subprocess.TimeoutExpired:
+        print("Error: Timed out starting database container", file=sys.stderr)
+        return False
+    except FileNotFoundError:
+        print("Error: docker compose not found", file=sys.stderr)
+        return False
+
+
+def stop_db_container(remove: bool = False, debug: bool = False) -> bool:
+    """
+    Stop the TimescaleDB container.
+
+    Args:
+        remove: If True, also remove container and volumes
+        debug: Print debug information
+
+    Returns:
+        True if container stopped successfully
+    """
+    if not is_docker_available():
+        if debug:
+            print("Docker not available", file=sys.stderr)
+        return True  # Nothing to stop
+
+    dep_dir = get_dep_dir()
+    compose_file = dep_dir / "docker-compose.yaml"
+
+    if not compose_file.exists():
+        if debug:
+            print("No compose file found, nothing to stop", file=sys.stderr)
+        return True
+
+    # Build compose command
+    cmd = [
+        "docker", "compose",
+        "-f", str(compose_file),
+        "-p", COMPOSE_PROJECT,
+    ]
+
+    if remove:
+        cmd.extend(["down", "-v"])  # Remove volumes too
+    else:
+        cmd.append("stop")
+
+    if debug:
+        print(f"Running: {' '.join(cmd)}", file=sys.stderr)
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+        if result.returncode != 0:
+            print(f"Error stopping database container:", file=sys.stderr)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
+            return False
+
+        if debug and result.stdout:
+            print(result.stdout, file=sys.stderr)
+
+        return True
+
+    except subprocess.TimeoutExpired:
+        print("Error: Timed out stopping database container", file=sys.stderr)
+        return False
+    except FileNotFoundError:
+        print("Error: docker compose not found", file=sys.stderr)
+        return False
+
+
+def get_db_status() -> DbStatus:
+    """Get database container status."""
+    status = DbStatus()
+
+    # Check if infrastructure is installed
+    status.installed = is_infrastructure_installed()
+
+    # Check container status
+    container_id = get_db_container_id()
+    status.container_exists = container_id is not None
+    status.container_id = container_id
+
+    if status.container_exists:
+        status.running = is_db_container_running()
+        if status.running:
+            status.healthy = is_db_container_healthy()
+
+    return status

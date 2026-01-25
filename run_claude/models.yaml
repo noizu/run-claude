@@ -236,16 +236,16 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
 
-  - model_name: "cerebras_pro_thinking"
+  - model_name: "cerebras-pro/haiku"
     litellm_params:
-      model: cerebraszai-glm-4.7
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
       additional_drop_params: ["context_management"]
       reasoning_effort: "low"
 
-  - model_name: "cerebras/pro_thinking.medium"
+  - model_name: "cerebras-pro/sonnet"
     litellm_params:
       model: zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
@@ -254,7 +254,7 @@ model_list:
       additional_drop_params: ["context_management"]
       reasoning_effort: "medium"
 
-  - model_name: "cerebras/pro_thinking.high"
+  - model_name: "cerebras-pro/opus"
     litellm_params:
       model: zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
