@@ -549,7 +549,8 @@ def list_models() -> list[dict[str, Any]]:
         if resp.status_code == 200:
             data = resp.json()
             models = data.get("data", [])
-            print(f"[LIST_MODELS] Retrieved {len(models)} model(s) (HTTP {resp.status_code})", file=sys.stderr)
+            model_names = [m.get("model_name", "?") for m in models]
+            print(f"[LIST_MODELS] {len(models)} model(s): {', '.join(model_names)}", file=sys.stderr)
             return models
 
         # Log API error for non-200 responses

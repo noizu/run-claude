@@ -46,6 +46,28 @@ cerebras-pro:
   sonnet_model: "cerebras-pro/sonnet"
   haiku_model: "cerebras-pro/haiku"
 
+groq-pro:
+  name: "Groq Equivalent"
+  opus_model: "groq/opus"
+  sonnet_model: "groq/sonnet"
+  haiku_model: "groq/haiku"
+
+
+# Z.AI Subscription - GLM with thinking tiers
+zai-pro:
+  name: "Zai Subscription"
+  opus_model: "zai/opus"
+  sonnet_model: "zai/sonnet"
+  haiku_model: "zai/haiku"
+
+
+# glm 4.7 group
+fast-glm:
+  name: "Cerebras Pro Subscription"
+  opus_model: "zai/opus"
+  sonnet_model: "groq/opus"
+  haiku_model: "cerebras-pro/opus"
+
 # Groq - Ultra-fast inference
 groq:
   name: "Groq"

@@ -236,6 +236,8 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
 
+# Named
+
   - model_name: "cerebras-pro/haiku"
     litellm_params:
       model: cerebras/zai-glm-4.7
@@ -247,7 +249,7 @@ model_list:
 
   - model_name: "cerebras-pro/sonnet"
     litellm_params:
-      model: zai-glm-4.7
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
@@ -256,12 +258,79 @@ model_list:
 
   - model_name: "cerebras-pro/opus"
     litellm_params:
-      model: zai-glm-4.7
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
       additional_drop_params: ["context_management"]
       reasoning_effort: "high"
+
+# Zai - Named
+
+
+  - model_name: "zai/haiku"
+    litellm_params:
+      model: za/glm-4.7
+      api_key: os.environ/ZAI_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management"]
+      reasoning_effort: "low"
+
+  - model_name: "zai/sonnet"
+    litellm_params:
+      model: zai/glm-4.7
+      api_key: os.environ/ZAI_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management"]
+      reasoning_effort: "medium"
+
+  - model_name: "zai/opus"
+    litellm_params:
+      model: zai/glm-4.7
+      api_key: os.environ/ZAI_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management"]
+      reasoning_effort: "high"
+
+
+
+
+# Groq - Named
+
+
+
+# Groq GPT-OSS based (same model, different reasoning effort)
+
+# Groq - Named
+  - model_name: "groq/haiku"
+    litellm_params:
+      model: groq/openai/gpt-oss-20b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management"]    # ← Add this
+      reasoning_effort: "low"
+      
+  - model_name: "groq/sonnet"
+    litellm_params:
+      model: groq/openai/gpt-oss-120b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management"]    # ← Add this
+      reasoning_effort: "medium"
+      
+  - model_name: "groq/opus"
+    litellm_params:
+      model: groq/openai/gpt-oss-120b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management"]    # ← Add this
+      reasoning_effort: "high"
+
+
+
+
+
+
 
   # ==========================================================================
   # Groq
