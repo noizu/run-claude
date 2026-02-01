@@ -78,6 +78,7 @@ def main() -> int:
     db_stop_p = db_sub.add_parser("stop", help="Stop database container")
     db_stop_p.add_argument("--remove", "-r", action="store_true", help="Remove container and volumes")
     db_sub.add_parser("status", help="Database container status")
+    db_sub.add_parser("migrate", help="Run prisma migrate with LiteLLM config")
 
     # profiles subcommands
     profiles_p = subparsers.add_parser("profiles", help="Profile management")
@@ -712,8 +713,17 @@ def cmd_db(args: argparse.Namespace) -> int:
 
         return 0
 
+    elif args.db_command == "migrate":
+        print("Running prisma migrate...")
+        if proxy.run_prisma_migrate(debug=debug):
+            print("Migration completed successfully")
+            return 0
+        else:
+            print("Migration failed", file=sys.stderr)
+            return 1
+
     else:
-        print("Usage: run-claude db {start|stop|status}")
+        print("Usage: run-claude db {start|stop|status|migrate}")
         return 1
 
 

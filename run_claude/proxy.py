@@ -263,7 +263,7 @@ def health_check(timeout: float = HEALTH_CHECK_TIMEOUT, wait_for_recovery: bool 
                 timeout=timeout
             )
             print(f"[HEALTH_CHECK] Response: {resp.status_code} | key={master_key}", file=sys.stderr)
-
+            # print(resp.content)
             if resp.status_code == 200:
                 print(f"[HEALTH_CHECK] Healthy", file=sys.stderr)
                 return True
@@ -1291,3 +1291,136 @@ def get_db_status() -> DbStatus:
             status.healthy = is_db_container_healthy()
 
     return status
+
+
+DEFAULT_PRISMA_COMMAND = "prisma"
+
+
+def get_prisma_command() -> str:
+    """Get prisma command from environment or default.
+
+    On NixOS systems, use PRISMA_COMMAND to specify the command (e.g., 'uv run prisma').
+    """
+    return os.environ.get("PRISMA_COMMAND", DEFAULT_PRISMA_COMMAND)
+
+
+def run_prisma_migrate(debug: bool = False) -> bool:
+    """
+    Run prisma migrate using the same config as LiteLLM proxy.
+
+    This sets up the environment variables and database URL the same way
+    as start_proxy() does, then runs prisma db push.
+
+    Args:
+        debug: Print debug information
+
+    Returns:
+        True if migration succeeded
+    """
+    import re
+    import shlex
+
+    # Load secrets from config file (same as generate_litellm_config)
+    try:
+        from .config import load_secrets
+        secrets = load_secrets(debug=False)
+        env_vars = secrets.to_env()
+        # Update environment with loaded secrets
+        for key, value in env_vars.items():
+            if key not in os.environ:
+                os.environ[key] = value
+    except Exception as e:
+        if debug:
+            print(f"Warning: Could not load secrets: {e}", file=sys.stderr)
+
+    # Get database URL from environment or use default (same as generate_litellm_config)
+    db_url = os.environ.get(
+        "LITELLM_DATABASE_URL",
+        "postgresql://postgres:${RUN_CLAUDE_TIMESCALEDB_PASSWORD}@localhost:5433/postgres?sslmode=disable"
+    )
+
+    # Expand environment variables in database URL
+    if "${" in db_url and "}" in db_url:
+        def expand_var(match):
+            var_name = match.group(1)
+            return os.environ.get(var_name, match.group(0))
+        db_url = re.sub(r'\$\{([^}]+)\}', expand_var, db_url)
+
+    print(f"Database URL: {db_url}", file=sys.stderr)
+
+    # Find litellm's prisma schema
+    try:
+        import litellm
+        litellm_path = Path(litellm.__file__).parent
+        schema_path = litellm_path / "proxy" / "schema.prisma"
+
+        if not schema_path.exists():
+            # Try alternate locations
+            alt_paths = [
+                litellm_path / "proxy" / "prisma" / "schema.prisma",
+                litellm_path / "schema.prisma",
+            ]
+            for alt in alt_paths:
+                if alt.exists():
+                    schema_path = alt
+                    break
+
+        if not schema_path.exists():
+            print(f"Error: Could not find prisma schema file", file=sys.stderr)
+            print(f"Searched in: {litellm_path}", file=sys.stderr)
+            return False
+
+        if debug:
+            print(f"Using schema: {schema_path}", file=sys.stderr)
+
+    except ImportError:
+        print("Error: litellm not installed", file=sys.stderr)
+        return False
+
+    # Build environment for prisma
+    env = os.environ.copy()
+    env["DATABASE_URL"] = db_url
+    env["STORE_MODEL_IN_DB"] = "True"
+    env["USE_PRISMA_MIGRATE"] = "True"
+
+    # Get prisma command - supports custom command via PRISMA_COMMAND env var
+    prisma_cmd = get_prisma_command()
+    # Split command in case it's "uv run prisma" or similar
+    cmd = shlex.split(prisma_cmd) + ["db", "push", f"--schema={schema_path}"]
+
+    if debug:
+        print(f"Running: {' '.join(cmd)}", file=sys.stderr)
+
+    try:
+        result = subprocess.run(
+            cmd,
+            env=env,
+            timeout=120,
+        )
+
+        if result.returncode != 0:
+            print(f"Prisma migrate failed with exit code {result.returncode}", file=sys.stderr)
+            return False
+
+        return True
+
+    except FileNotFoundError:
+        print("Error: prisma command not found", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("Install with: pip install prisma", file=sys.stderr)
+        print("", file=sys.stderr)
+        # Check if using uv for litellm
+        litellm_cmd = get_litellm_command()
+        if "uv" in litellm_cmd:
+            print("Note: You appear to be using uv. Try:", file=sys.stderr)
+            print("  PRISMA_COMMAND='uv run prisma' run-claude db migrate", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("Or add to your shell config:", file=sys.stderr)
+            print("  export PRISMA_COMMAND='uv run prisma'", file=sys.stderr)
+        else:
+            print("On NixOS or with uv, you may need to set PRISMA_COMMAND:", file=sys.stderr)
+            print("  export PRISMA_COMMAND='uv run prisma'", file=sys.stderr)
+        return False
+    except subprocess.TimeoutExpired:
+        print("Error: Prisma migrate timed out", file=sys.stderr)
+        return False

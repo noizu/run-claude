@@ -456,6 +456,13 @@ model_list:
   # ==========================================================================
   # Local (Ollama / vLLM / LM Studio)
   # ==========================================================================
+
+  - model_name: "spark/gpt-120"
+    litellm_params:
+      model: openai/llama
+      api_base: http://localhost:7180/v1
+      api_key: fake-key  #
+
   - model_name: "local-large"
     litellm_params:
       model: ollama/llama3.3:70b
