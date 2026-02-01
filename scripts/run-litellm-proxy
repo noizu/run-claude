@@ -1,0 +1,30 @@
+#!/bin/bash
+# macOS wrapper for litellm that ensures Python 3.12 environment
+set -e
+
+LITELLM_HOME="${HOME}/.local/share/litellm"
+VENV="${LITELLM_HOME}/.venv"
+
+if [[ ! -d "$VENV" ]]; then
+  echo "Setting up litellm environment with Python 3.12..."
+  mkdir -p "$LITELLM_HOME"
+  uv venv --python 3.12 "$VENV"
+  source "$VENV/bin/activate"
+  uv pip install 'litellm[proxy]' litellm-proxy-extras psycopg2-binary prometheus_client opentelemetry-api opentelemetry-sdk
+  uv pip install prisma
+else
+  source "$VENV/bin/activate"
+fi
+
+# Create a modified schema.prisma with explicit output path to the venv
+LITELLM_SCHEMA="$(python -c 'import litellm; print(litellm.__path__[0])')/proxy/schema.prisma"
+PRISMA_OUTPUT="${VENV}/lib/python3.12/site-packages/prisma"
+LOCAL_SCHEMA="${LITELLM_HOME}/schema.prisma"
+
+# Copy and patch the schema to specify correct output
+sed 's|generator client {|generator client {\n  output = "'"${PRISMA_OUTPUT}"'"|' "$LITELLM_SCHEMA" > "$LOCAL_SCHEMA"
+
+# Run prisma generate with patched schema
+python -m prisma generate --schema "$LOCAL_SCHEMA"
+
+exec "$VENV/bin/litellm" "$@"

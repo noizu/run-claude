@@ -86,7 +86,7 @@ def main() -> int:
     profiles_sub.add_parser("list", help="List available profiles")
     show_p = profiles_sub.add_parser("show", help="Show profile details")
     show_p.add_argument("name", help="Profile name")
-    profiles_sub.add_parser("install", help="Install built-in profiles to user config")
+    profiles_sub.add_parser("install", help="Create user profiles config template")
 
     # models subcommands
     models_p = subparsers.add_parser("models", help="Model definitions management")
@@ -101,8 +101,8 @@ def main() -> int:
     run_p.add_argument("profile", help="Profile name")
     run_p.add_argument("cmd", nargs=argparse.REMAINDER, help="Command to run (default: claude)")
 
-    # install - copy built-in assets to user config
-    install_p = subparsers.add_parser("install", help="Install built-in profiles and models to user config")
+    # install - create user config templates and infrastructure
+    install_p = subparsers.add_parser("install", help="Create user config templates for profiles and models")
     install_p.add_argument("--force", "-f", action="store_true", help="Overwrite existing files")
 
     # secrets - manage secrets configuration
@@ -770,22 +770,15 @@ def cmd_profiles(args: argparse.Namespace) -> int:
         return 0
 
     elif args.profiles_command == "install":
-        import shutil
-
-        builtin_profiles = profiles.get_builtin_profiles_file()
         user_profiles = profiles.get_user_profiles_file()
         user_profiles.parent.mkdir(parents=True, exist_ok=True)
-
-        if not builtin_profiles.exists():
-            print("No built-in profiles found")
-            return 0
 
         if user_profiles.exists():
             print(f"User profiles already exist: {user_profiles}")
             print("Use 'run-claude install --force' to overwrite")
             return 0
 
-        shutil.copy2(builtin_profiles, user_profiles)
+        user_profiles.write_text(profiles._USER_PROFILES_TEMPLATE, encoding="utf-8")
         print(f"Installed: {user_profiles}")
         return 0
 
@@ -833,16 +826,13 @@ def cmd_models(args: argparse.Namespace) -> int:
 
 
 def cmd_install(args: argparse.Namespace) -> int:
-    """Install built-in profiles, models, and infrastructure to user directories."""
-    import shutil
+    """Install user config templates and infrastructure to user directories."""
     from . import profiles, proxy
 
     debug = getattr(args, 'debug', False)
     config_dir = profiles.get_config_dir()
     user_profiles_file = profiles.get_user_profiles_file()
     user_models_file = profiles.get_user_models_file()
-    builtin_profiles_file = profiles.get_builtin_profiles_file()
-    builtin_models_file = profiles.get_builtin_models_file()
 
     # Create config directory
     config_dir.mkdir(parents=True, exist_ok=True)
@@ -850,25 +840,23 @@ def cmd_install(args: argparse.Namespace) -> int:
     installed = 0
     skipped = 0
 
-    # Copy models.yaml
-    if builtin_models_file.exists():
-        if not user_models_file.exists() or args.force:
-            shutil.copy2(builtin_models_file, user_models_file)
-            print(f"Installed: {user_models_file}")
-            installed += 1
-        else:
-            print(f"Skipped (exists): {user_models_file}")
-            skipped += 1
+    # Create models.yaml template (for user overrides)
+    if not user_models_file.exists() or args.force:
+        user_models_file.write_text(profiles._USER_MODELS_TEMPLATE, encoding="utf-8")
+        print(f"Installed: {user_models_file}")
+        installed += 1
+    else:
+        print(f"Skipped (exists): {user_models_file}")
+        skipped += 1
 
-    # Copy profiles.yaml
-    if builtin_profiles_file.exists():
-        if not user_profiles_file.exists() or args.force:
-            shutil.copy2(builtin_profiles_file, user_profiles_file)
-            print(f"Installed: {user_profiles_file}")
-            installed += 1
-        else:
-            print(f"Skipped (exists): {user_profiles_file}")
-            skipped += 1
+    # Create profiles.yaml template (for user overrides)
+    if not user_profiles_file.exists() or args.force:
+        user_profiles_file.write_text(profiles._USER_PROFILES_TEMPLATE, encoding="utf-8")
+        print(f"Installed: {user_profiles_file}")
+        installed += 1
+    else:
+        print(f"Skipped (exists): {user_profiles_file}")
+        skipped += 1
 
     # Install infrastructure (docker-compose files)
     dep_dir = proxy.get_dep_dir()

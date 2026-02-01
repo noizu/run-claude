@@ -17,7 +17,6 @@ as not found and the search continues to the next file.
 from __future__ import annotations
 
 import os
-import shutil
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -45,32 +44,90 @@ def ensure_initialized() -> None:
     if marker.exists():
         return
 
-    # First run - copy built-in assets
+    # First run - create user config templates
     _do_first_run_init(config_dir, marker)
+
+
+# Template for user models.yaml - empty with helpful comments
+_USER_MODELS_TEMPLATE = """\
+# User model definitions for run-claude
+#
+# Models defined here override built-in models with the same name.
+# Built-in models are in: <install>/run_claude/models.yaml
+#
+# Format:
+# model_list:
+#   - model_name: "my-custom-model"
+#     litellm_params:
+#       model: provider/model-name
+#       api_key: os.environ/MY_API_KEY  # References environment variable
+#       api_base: https://api.example.com/v1  # Optional
+#       drop_params: true  # Drop unsupported params
+#
+# Example - Add a custom OpenAI-compatible endpoint:
+#   - model_name: "my-local-llm"
+#     litellm_params:
+#       model: openai/my-model
+#       api_base: http://localhost:8080/v1
+#       api_key: "not-needed"
+#       drop_params: true
+#
+# See built-in models.yaml for more examples.
+
+model_list: []
+"""
+
+# Template for user profiles.yaml - empty with helpful comments
+_USER_PROFILES_TEMPLATE = """\
+# User profiles for run-claude
+#
+# Profiles defined here override built-in profiles with the same name.
+# Built-in profiles are in: <install>/profiles.yaml
+#
+# Profile search order (first match wins):
+# 1. ~/.config/run-claude/user.profiles.yaml  (highest priority overrides)
+# 2. ~/.config/run-claude/profiles.yaml       (this file)
+# 3. <install>/user.profiles.yaml
+# 4. <install>/profiles.yaml                  (built-in defaults)
+#
+# Format:
+# profile-name:
+#   name: "Display Name"
+#   opus_model: "model-name-for-opus"      # References model from models.yaml
+#   sonnet_model: "model-name-for-sonnet"
+#   haiku_model: "model-name-for-haiku"
+#
+# To disable a built-in profile, set model: null
+# Example:
+#   cerebras:
+#     model: null  # Disables cerebras, falls through to lower-priority files
+#
+# Example - Add a custom profile:
+#   my-provider:
+#     name: "My Provider"
+#     opus_model: "my-custom-model"
+#     sonnet_model: "my-custom-model"
+#     haiku_model: "my-custom-model"
+"""
 
 
 def _do_first_run_init(config_dir: Path, marker: Path) -> None:
     """Perform first-run initialization."""
     config_dir.mkdir(parents=True, exist_ok=True)
 
-    builtin_profiles = get_builtin_profiles_file()
-    builtin_models = get_builtin_models_file()
-
     installed = 0
 
-    # Copy models.yaml
-    if builtin_models.exists():
-        dst = get_user_models_file()
-        if not dst.exists():
-            shutil.copy2(builtin_models, dst)
-            installed += 1
+    # Create models.yaml template
+    dst = get_user_models_file()
+    if not dst.exists():
+        dst.write_text(_USER_MODELS_TEMPLATE, encoding="utf-8")
+        installed += 1
 
-    # Copy profiles.yaml (consolidated file)
-    if builtin_profiles.exists():
-        dst = get_user_profiles_file()
-        if not dst.exists():
-            shutil.copy2(builtin_profiles, dst)
-            installed += 1
+    # Create profiles.yaml template
+    dst = get_user_profiles_file()
+    if not dst.exists():
+        dst.write_text(_USER_PROFILES_TEMPLATE, encoding="utf-8")
+        installed += 1
 
     # Create marker
     marker.touch()
@@ -365,7 +422,8 @@ def hydrate_model_def(model_def: ModelDef) -> ModelDef:
             else:
                 # Keep original if env var not found
                 hydrated_params[key] = value
-                print(f"[HYDRATE_WARNING] {key}: os.environ/{env_var} not found, keeping placeholder", file=sys.stderr)
+                # Print warning in red
+                print(f"\033[31m[HYDRATE_WARNING] {key}: os.environ/{env_var} not found, keeping placeholder\033[0m", file=sys.stderr)
         else:
             hydrated_params[key] = value
 
@@ -402,10 +460,12 @@ def resolve_profile_models(profile: Profile, debug: bool = False) -> list[ModelD
                 print(f"[MODEL_RESOLVED] '{name}' found in models", file=sys.stderr)
             else:
                 not_found.append(name)
-                print(f"[MODEL_NOT_FOUND] '{name}' - not in models.yaml", file=sys.stderr)
+                # Print warning in red
+                print(f"\033[31m[MODEL_NOT_FOUND] '{name}' - not in models.yaml\033[0m", file=sys.stderr)
 
     if not_found:
-        print(f"[PROFILE_RESOLUTION_WARNING] {len(not_found)}/{len([n for n in model_names if n])} models not found", file=sys.stderr)
+        # Print warning in red
+        print(f"\033[31m[PROFILE_RESOLUTION_WARNING] {len(not_found)}/{len([n for n in model_names if n])} models not found\033[0m", file=sys.stderr)
 
     print(f"[PROFILE_MODELS_RESOLVED] {len(resolved)} models resolved", file=sys.stderr)
     return resolved
