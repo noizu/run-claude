@@ -70,7 +70,28 @@ def get_pid_file() -> Path:
 
 
 def get_log_file() -> Path:
-    """Get log file path."""
+    """Get log file path.
+
+    Uses LITELLM_LOG_FILE env var if set, otherwise defaults to /var/log/litellm-proxy.log.
+    Falls back to state directory if /var/log is not writable.
+    """
+    log_path = os.environ.get("LITELLM_LOG_FILE")
+    if log_path:
+        return Path(log_path)
+
+    # Default to /var/log/litellm-proxy.log
+    default_path = Path("/var/log/litellm-proxy.log")
+
+    # Check if /var/log exists and is writable
+    if default_path.parent.exists():
+        try:
+            # Test if we can write to this directory
+            default_path.parent.mkdir(parents=True, exist_ok=True)
+            return default_path
+        except PermissionError:
+            pass
+
+    # Fall back to state directory if /var/log is not accessible
     return get_state_dir() / "proxy.log"
 
 
@@ -214,11 +235,26 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
     # Build config with required LiteLLM settings
     # Use the actual master key value directly in config as fallback
     master_key = get_master_key()
+
+    # Check if callbacks should be enabled (default: enabled)
+    enable_callbacks = os.environ.get("LITELLM_ENABLE_CALLBACKS", "true").lower() in ("true", "1", "yes")
+
+    litellm_settings = {
+        "drop_params": True,
+        "forward_client_headers_to_llm_api": True,
+        "set_verbose": True,
+        "json_logs": True,
+        "log_raw_request_response": True,
+    }
+
+    # Add provider compatibility callbacks for strict providers (Groq, Cerebras, etc.)
+    if enable_callbacks:
+        litellm_settings["callbacks"] = [
+            "run_claude.callbacks.ProviderCompatCallback",
+        ]
+
     config = {
-        "litellm_settings": {
-            "drop_params": True,
-            "forward_client_headers_to_llm_api": True,
-        },
+        "litellm_settings": litellm_settings,
         "general_settings": {
             "master_key": master_key,
             "database_url": db_url,

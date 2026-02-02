@@ -1,4 +1,4 @@
-.PHONY: help test test-cov coverage coverage-html coverage-xml clean install dev refresh
+.PHONY: help test test-cov coverage coverage-html coverage-xml clean install dev refresh setup-litellm
 
 help:
 	@echo "Available targets:"
@@ -11,6 +11,7 @@ help:
 	@echo "  install       Install the tool via uv"
 	@echo "  refresh       Reinstall the tool (force refresh cache)"
 	@echo "  dev           Install dev dependencies"
+	@echo "  setup-litellm Setup litellm venv with custom callbacks"
 
 test:
 	uv run pytest
@@ -53,3 +54,21 @@ refresh:
 	run-claude status
 dev:
 	uv sync --dev
+
+# Setup litellm venv with run_claude callbacks
+# This creates a separate venv at ~/.local/share/litellm/.venv
+setup-litellm:
+	@echo "Setting up litellm venv with custom callbacks..."
+	@LITELLM_HOME="$${HOME}/.local/share/litellm"; \
+	VENV="$${LITELLM_HOME}/.venv"; \
+	mkdir -p "$${LITELLM_HOME}"; \
+	if [ ! -d "$${VENV}" ]; then \
+		uv venv --python 3.11 "$${VENV}"; \
+	fi; \
+	. "$${VENV}/bin/activate" && \
+	uv pip install 'litellm[proxy]' litellm-proxy-extras psycopg2-binary prometheus_client opentelemetry-api opentelemetry-sdk && \
+	uv pip install prisma==0.11.0 && \
+	uv pip install -e "$(CURDIR)" && \
+	echo "$(CURDIR)" > "$${VENV}/.run_claude_installed"
+	@echo "Done. Litellm venv configured at ~/.local/share/litellm/.venv"
+	@echo "Custom callbacks (ProviderCompatCallback) are now available."
