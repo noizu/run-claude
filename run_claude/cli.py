@@ -52,7 +52,8 @@ def main() -> int:
     setfolder_p.add_argument("--dir", help="Directory path (default: cwd)")
 
     # status
-    subparsers.add_parser("status", help="Show current state")
+    status_p = subparsers.add_parser("status", help="Show current state")
+    status_p.add_argument("--health", action="store_true", help="Show formatted health endpoint response")
 
     # env
     env_p = subparsers.add_parser("env", help="Print environment variables for a profile")
@@ -94,6 +95,8 @@ def main() -> int:
     models_sub.add_parser("list", help="List available model definitions")
     show_model_p = models_sub.add_parser("show", help="Show model definition details")
     show_model_p.add_argument("name", help="Model name")
+    wipe_p = models_sub.add_parser("wipe", help="Delete all models from proxy database")
+    wipe_p.add_argument("--force", "-f", action="store_true", help="Skip confirmation prompt")
 
     # run - run a command with profile environment
     run_p = subparsers.add_parser("with", help="Run Claude with a profile")
@@ -350,7 +353,17 @@ export AGENT_SHIM_PROFILE="{profile_name}"
 
 def cmd_status(args: argparse.Namespace) -> int:
     """Handle status command."""
+    import json
     from . import state, proxy, profiles
+
+    # Handle --health flag: show formatted health endpoint response
+    if getattr(args, 'health', False):
+        health_info = proxy.get_health_info()
+        if health_info is None:
+            print("Failed to get health info (proxy may not be running)", file=sys.stderr)
+            return 1
+        print(json.dumps(health_info, indent=2))
+        return 0
 
     st = state.load_state()
     proxy_status = proxy.get_status()
@@ -763,6 +776,11 @@ def cmd_profiles(args: argparse.Namespace) -> int:
         print(f"  opus:   {profile.meta.opus_model or '(not set)'}")
         print(f"  sonnet: {profile.meta.sonnet_model or '(not set)'}")
         print(f"  haiku:  {profile.meta.haiku_model or '(not set)'}")
+        if profile.meta.extended:
+            print()
+            print("Extended Models:")
+            for ext_model in profile.meta.extended:
+                print(f"  - {ext_model}")
         print()
         print("Models:")
         for model in profile.model_list:
@@ -820,8 +838,49 @@ def cmd_models(args: argparse.Namespace) -> int:
             print(f"  {key}: {value}")
         return 0
 
+    elif args.models_command == "wipe":
+        from . import proxy, state
+
+        debug = getattr(args, 'debug', False)
+
+        # Require confirmation unless --force
+        if not getattr(args, 'force', False):
+            print("This will delete ALL models from the LiteLLM proxy database.")
+            print("Models will be re-added when profiles are loaded.")
+            try:
+                response = input("Continue? [y/N]: ")
+                if response.lower() not in ('y', 'yes'):
+                    print("Aborted.")
+                    return 0
+            except (EOFError, KeyboardInterrupt):
+                print("\nAborted.")
+                return 0
+
+        # Check if proxy is running
+        if not proxy.is_proxy_running():
+            print("Error: Proxy is not running. Start with: run-claude proxy start", file=sys.stderr)
+            return 1
+
+        # Wipe models via API
+        deleted, failed = proxy.wipe_all_models(debug=debug)
+
+        # Clear local state
+        st = state.load_state()
+        st.model_refcounts.clear()
+        st.model_leases.clear()
+        state.save_state(st)
+
+        print(f"Deleted {deleted} model(s) from database")
+        if failed > 0:
+            print(f"Failed to delete {failed} model(s)")
+            return 1
+
+        print("Local state cleared.")
+        print("Run 'run-claude with <profile>' to reload models.")
+        return 0
+
     else:
-        print("Usage: run-claude models {list|show}")
+        print("Usage: run-claude models {list|show|wipe}")
         return 1
 
 

@@ -217,7 +217,7 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
     config = {
         "litellm_settings": {
             "drop_params": True,
-            "forward_client_headers_to_llm_api": False,
+            "forward_client_headers_to_llm_api": True,
         },
         "general_settings": {
             "master_key": master_key,
@@ -232,6 +232,35 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
     config_path.write_text(yaml.dump(config, default_flow_style=False), encoding="utf-8")
     print(config_path)
     return config_path
+
+
+def get_health_info(timeout: float = HEALTH_CHECK_TIMEOUT) -> dict[str, Any] | None:
+    """
+    Get full health information from proxy.
+
+    Args:
+        timeout: Timeout for health check request
+
+    Returns:
+        Health info dict if successful, None on failure
+    """
+    if httpx is None:
+        return None
+
+    url = get_proxy_url()
+    master_key = get_master_key()
+
+    try:
+        resp = httpx.get(
+            f"{url}/health",
+            headers={"Authorization": f"Bearer {master_key}"},
+            timeout=timeout
+        )
+        if resp.status_code == 200:
+            return resp.json()
+        return None
+    except Exception:
+        return None
 
 
 def health_check(timeout: float = HEALTH_CHECK_TIMEOUT, wait_for_recovery: bool = False, max_retries: int = 0) -> bool:
@@ -396,7 +425,7 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
         print(f"LiteLLM proxy logs saved to: {log_file}", file=sys.stderr)
         print(f"Master key configured: {env.get('LITELLM_MASTER_KEY', 'NOT SET')}", file=sys.stderr)
         print(f"To run litellm locally for debugging, run:", file=sys.stderr)
-        print(f" LITELLM_MASTER_KEY={env.get('LITELLM_MASTER_KEY', 'NOT SET')} STORE_MODEL_IN_DB=True USE_PRISMA_MIGRATE=True {' '.join(cmd)}", file=sys.stderr)
+        print(f" LITELLM_MASTER_KEY={env.get('LITELLM_MASTER_KEY', 'NOT SET')} STORE_MODEL_IN_DB=True USE_PRISMA_MIGRATE=False {' '.join(cmd)}", file=sys.stderr)
         with open(log_file, "a") as log:
             proc = subprocess.Popen(
                 cmd,
@@ -723,6 +752,50 @@ def delete_model(model_id: str) -> bool:
     except Exception as e:
         print(f"[ERROR] Model '{model_id}' deletion error: {type(e).__name__}: {e}", file=sys.stderr)
         return False
+
+
+def wipe_all_models(debug: bool = False) -> tuple[int, int]:
+    """
+    Delete all models from the LiteLLM proxy database.
+
+    Args:
+        debug: If True, print debug info for each deletion
+
+    Returns:
+        Tuple of (deleted_count, failed_count)
+    """
+    models = list_models()
+    if not models:
+        print("[WIPE] No models found in database", file=sys.stderr)
+        return (0, 0)
+
+    print(f"[WIPE] Found {len(models)} model(s) to delete", file=sys.stderr)
+
+    deleted = 0
+    failed = 0
+
+    for model in models:
+        # Get model ID - try model_info.id first, then model_name
+        model_id = model.get("model_info", {}).get("id")
+        if not model_id:
+            model_id = model.get("model_name")
+
+        if not model_id:
+            print(f"[WIPE] Skipping model with no ID: {model}", file=sys.stderr)
+            failed += 1
+            continue
+
+        if delete_model(model_id):
+            deleted += 1
+            if debug:
+                print(f"[WIPE] Deleted model: {model_id}", file=sys.stderr)
+        else:
+            failed += 1
+            if debug:
+                print(f"[WIPE] Failed to delete model: {model_id}", file=sys.stderr)
+
+    print(f"[WIPE] Completed: {deleted} deleted, {failed} failed", file=sys.stderr)
+    return (deleted, failed)
 
 
 def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_for_recovery: bool = False) -> tuple[int, int]:

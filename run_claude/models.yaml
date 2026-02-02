@@ -270,7 +270,7 @@ model_list:
 
   - model_name: "zai/haiku"
     litellm_params:
-      model: za/glm-4.7
+      model: zai/glm-4.7
       api_key: os.environ/ZAI_API_KEY
       drop_params: true
       additional_drop_params: ["context_management"]
@@ -292,6 +292,24 @@ model_list:
       additional_drop_params: ["context_management"]
       reasoning_effort: "high"
 
+  # Alias for zai/opus - high quality
+  - model_name: "ultra"
+    litellm_params:
+      model: zai/glm-4.7
+      api_key: os.environ/ZAI_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management"]
+      reasoning_effort: "high"
+
+  # Alias for zai/opus - cheap option
+  - model_name: "cheap"
+    litellm_params:
+      model: zai/glm-4.7
+      api_key: os.environ/ZAI_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management"]
+      reasoning_effort: "high"
+
 
 
 
@@ -301,30 +319,86 @@ model_list:
 
 # Groq GPT-OSS based (same model, different reasoning effort)
 
-# Groq - Named
+# Groq - Named (GPT-OSS supports reasoning_effort: low/medium/high)
   - model_name: "groq/haiku"
     litellm_params:
       model: groq/openai/gpt-oss-20b
       api_key: os.environ/GROQ_API_KEY
       drop_params: true
-      additional_drop_params: ["context_management"]    # ← Add this
+      additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "low"
-      
+
   - model_name: "groq/sonnet"
     litellm_params:
       model: groq/openai/gpt-oss-120b
       api_key: os.environ/GROQ_API_KEY
       drop_params: true
-      additional_drop_params: ["context_management"]    # ← Add this
+      additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "medium"
-      
+
   - model_name: "groq/opus"
     litellm_params:
       model: groq/openai/gpt-oss-120b
       api_key: os.environ/GROQ_API_KEY
       drop_params: true
-      additional_drop_params: ["context_management"]    # ← Add this
+      additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "high"
+
+  # Alias for groq/opus - fast option
+  - model_name: "fast"
+    litellm_params:
+      model: groq/openai/gpt-oss-120b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+
+# Groq Extended Models
+  # Kimi: does NOT support reasoning_effort - must drop
+  - model_name: "groq-kimi-k2"
+    litellm_params:
+      model: groq/moonshotai/kimi-k2-instruct-0905
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+
+  # Llama 4: does NOT support reasoning_effort - must drop
+  - model_name: "groq-llama-4-scout"
+    litellm_params:
+      model: groq/meta-llama/llama-4-scout-17b-16e-instruct
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+
+  - model_name: "groq-llama-4-maverick"
+    litellm_params:
+      model: groq/meta-llama/llama-4-maverick-17b-128e-instruct
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+
+  # Qwen3: supports reasoning_effort but ONLY "default" or "none" - drop to avoid invalid values
+  - model_name: "groq-qwen3-32b"
+    litellm_params:
+      model: groq/qwen/qwen3-32b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+
+  # Llama 3.x: does NOT support reasoning_effort - must drop
+  - model_name: "groq-llama-3.3-70b"
+    litellm_params:
+      model: groq/llama-3.3-70b-versatile
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+
+  - model_name: "groq-llama-3.1-8b"
+    litellm_params:
+      model: groq/llama-3.1-8b-instant
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
 
 
 
@@ -335,14 +409,16 @@ model_list:
   # ==========================================================================
   # Groq
   # ==========================================================================
+  # Qwen3: only supports "default" or "none" - drop to avoid invalid values
   - model_name: "groq.qwen3-32b"
     litellm_params:
       model: groq/qwen/qwen3-32b
       api_key: os.environ/GROQ_API_KEY
       api_base: https://api.groq.com/openai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking"]
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
 
+  # Kimi: does NOT support reasoning_effort
   - model_name: "groq.kimi-k2-instruct"
     litellm_params:
       model: groq/moonshotai/kimi-k2-instruct
@@ -350,8 +426,9 @@ model_list:
       api_base: https://api.groq.com/openai/v1
       drop_params: true
       max_tokens: 4194
-      additional_drop_params: ["context_management", "thinking"]
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
 
+  # GPT-OSS: supports reasoning_effort with low/medium/high
   - model_name: "groq.gpt-oss-120b"
     litellm_params:
       model: groq/openai/gpt-oss-120b
@@ -359,15 +436,16 @@ model_list:
       api_base: https://api.groq.com/openai/v1
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
-      reasoning_effort: "low"
+      reasoning_effort: "medium"
 
+  # Llama 3.x: does NOT support reasoning_effort
   - model_name: "groq.llama-3.3-70b"
     litellm_params:
       model: groq/meta-llama/llama-3.3-70b-versatile
       api_key: os.environ/GROQ_API_KEY
       api_base: https://api.groq.com/openai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking"]
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
 
   # ==========================================================================
   # Azure OpenAI

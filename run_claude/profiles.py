@@ -96,6 +96,9 @@ _USER_PROFILES_TEMPLATE = """\
 #   opus_model: "model-name-for-opus"      # References model from models.yaml
 #   sonnet_model: "model-name-for-sonnet"
 #   haiku_model: "model-name-for-haiku"
+#   extended:                               # Optional: additional models to load
+#     - "custom-model-1"
+#     - "custom-model-2"
 #
 # To disable a built-in profile, set model: null
 # Example:
@@ -289,14 +292,19 @@ class ProfileMeta:
     opus_model: str = ""
     sonnet_model: str = ""
     haiku_model: str = ""
+    extended: list[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ProfileMeta:
+        extended = data.get("extended", [])
+        if extended is None:
+            extended = []
         return cls(
             name=data.get("name", ""),
             opus_model=data.get("opus_model", ""),
             sonnet_model=data.get("sonnet_model", ""),
             haiku_model=data.get("haiku_model", ""),
+            extended=extended,
         )
 
 
@@ -318,6 +326,7 @@ class Profile:
                 "opus_model": self.meta.opus_model,
                 "sonnet_model": self.meta.sonnet_model,
                 "haiku_model": self.meta.haiku_model,
+                "extended": self.meta.extended,
             },
             "model_list": [m.to_dict() for m in self.model_list],
         }
@@ -430,12 +439,17 @@ def hydrate_model_def(model_def: ModelDef) -> ModelDef:
     return ModelDef(model_name=model_def.model_name, litellm_params=hydrated_params)
 
 
+# Always-included models (added to every profile)
+ALWAYS_INCLUDE_MODELS = ["ultra", "fast", "cheap"]
+
+
 def resolve_profile_models(profile: Profile, debug: bool = False) -> list[ModelDef]:
     """
     Resolve profile model references to actual model definitions.
 
     Takes the model names from profile.meta (opus_model, sonnet_model, haiku_model)
     and resolves them to ModelDef objects from the model definitions.
+    Also always includes 'ultra', 'fast', and 'cheap' models.
     Hydrates environment variable references before returning.
     """
     models = load_model_definitions(debug=debug)
@@ -449,6 +463,13 @@ def resolve_profile_models(profile: Profile, debug: bool = False) -> list[ModelD
         profile.meta.sonnet_model,
         profile.meta.haiku_model,
     ]
+
+    # Include extended models from profile
+    if profile.meta.extended:
+        model_names.extend(profile.meta.extended)
+
+    # Always include ultra, fast, and cheap models
+    model_names.extend(ALWAYS_INCLUDE_MODELS)
 
     for name in model_names:
         if name and name not in seen:
@@ -591,6 +612,8 @@ def _load_profile_from_data(
     # Log profile metadata
     print(f"[PROFILE_LOADED] '{name}' from {source_path}", file=sys.stderr)
     print(f"[PROFILE_MODEL_REFS] opus={meta.opus_model}, sonnet={meta.sonnet_model}, haiku={meta.haiku_model}", file=sys.stderr)
+    if meta.extended:
+        print(f"[PROFILE_EXTENDED] {len(meta.extended)} additional models: {', '.join(meta.extended)}", file=sys.stderr)
 
     profile = Profile(meta=meta, source_path=source_path)
 

@@ -51,6 +51,13 @@ groq-pro:
   opus_model: "groq/opus"
   sonnet_model: "groq/sonnet"
   haiku_model: "groq/haiku"
+  extended:
+    - "groq-kimi-k2"
+    - "groq-llama-4-scout"
+    - "groq-llama-4-maverick"
+    - "groq-qwen3-32b"
+    - "groq-llama-3.3-70b"
+    - "groq-llama-3.1-8b"
 
 
 # Z.AI Subscription - GLM with thinking tiers
@@ -81,6 +88,18 @@ groq2:
   opus_model: "groq.gpt-oss-120b"
   sonnet_model: "groq.qwen3-32b"
   haiku_model: "groq.llama-3.3-70b"
+
+# Groq Mix - Optimized Groq blend (intelligence-first)
+groq-mix:
+  name: "Groq Mix (Intelligence-First)"
+  opus_model: "groq.gpt-oss-120b"
+  sonnet_model: "groq.kimi-k2-instruct"
+  haiku_model: "groq.qwen3-32b"
+  extended:
+    - "groq.llama-3.3-70b"
+    - "groq.llama-3.1-8b"
+    - "groq.llama-4-scout"
+    - "groq.llama-4-maverick"
 
 # Gemini - Google AI models
 gemini:
