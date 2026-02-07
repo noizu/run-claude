@@ -240,30 +240,30 @@ model_list:
 
   - model_name: "cerebras-pro/haiku"
     litellm_params:
-      model: cerebras/zai-glm-4.7
+      model: openai/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
       additional_drop_params: ["context_management"]
-      reasoning_effort: "low"
+      temperature: 0.5
 
   - model_name: "cerebras-pro/sonnet"
     litellm_params:
-      model: cerebras/zai-glm-4.7
+      model: openai/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
       additional_drop_params: ["context_management"]
-      reasoning_effort: "medium"
 
+     
   - model_name: "cerebras-pro/opus"
     litellm_params:
-      model: cerebras/zai-glm-4.7
+      model: openai/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
       additional_drop_params: ["context_management"]
-      reasoning_effort: "high"
+      clear_thinking: false
 
 # Zai - Named
 

@@ -30,6 +30,33 @@ except ImportError:
 from .state import get_state_dir, load_state, save_state
 
 
+def _setup_httpx_logging() -> None:
+    """Configure httpx and httpcore loggers to write to /var/log/litellm-httpx.log."""
+    import logging
+
+    log_path = Path("/var/log/litellm-httpx.log")
+    try:
+        handler = logging.FileHandler(log_path)
+    except (PermissionError, OSError):
+        # Fall back to state dir if /var/log is not writable
+        fallback = get_state_dir() / "litellm-httpx.log"
+        fallback.parent.mkdir(parents=True, exist_ok=True)
+        handler = logging.FileHandler(fallback)
+
+    formatter = logging.Formatter(
+        "%(asctime)s %(name)s %(levelname)s %(message)s"
+    )
+    handler.setFormatter(formatter)
+
+    logging.getLogger("httpx").setLevel(logging.DEBUG)
+    logging.getLogger("httpx").addHandler(handler)
+    logging.getLogger("httpcore").setLevel(logging.DEBUG)  # lower-level transport
+    logging.getLogger("httpcore").addHandler(handler)
+
+
+_setup_httpx_logging()
+
+
 DEFAULT_PROXY_HOST = "127.0.0.1"
 DEFAULT_PROXY_PORT = 4444
 DEFAULT_PROXY_URL = f"http://{DEFAULT_PROXY_HOST}:{DEFAULT_PROXY_PORT}"
@@ -237,13 +264,13 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
     master_key = get_master_key()
 
     # Check if callbacks should be enabled (default: enabled)
-    enable_callbacks = os.environ.get("LITELLM_ENABLE_CALLBACKS", "true").lower() in ("true", "1", "yes")
+    enable_callbacks = False # os.environ.get("LITELLM_ENABLE_CALLBACKS", "true").lower() in ("true", "1", "yes")
 
     litellm_settings = {
         "drop_params": True,
-        "forward_client_headers_to_llm_api": True,
-        "set_verbose": True,
-        "json_logs": True,
+#        "forward_client_headers_to_llm_api": True,
+#        "exclude_headers": "[\"authorization\"]",
+        "json_logs": False,
         "log_raw_request_response": True,
     }
 

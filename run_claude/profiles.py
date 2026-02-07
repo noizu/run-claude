@@ -270,18 +270,23 @@ class ModelDef:
     """LiteLLM model definition."""
     model_name: str
     litellm_params: dict[str, Any] = field(default_factory=dict)
+    model_info: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "model_name": self.model_name,
             "litellm_params": self.litellm_params,
         }
+        if self.model_info:
+            d["model_info"] = self.model_info
+        return d
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ModelDef:
         return cls(
             model_name=data.get("model_name", ""),
             litellm_params=data.get("litellm_params", {}),
+            model_info=data.get("model_info", {}),
         )
 
 
@@ -436,7 +441,7 @@ def hydrate_model_def(model_def: ModelDef) -> ModelDef:
         else:
             hydrated_params[key] = value
 
-    return ModelDef(model_name=model_def.model_name, litellm_params=hydrated_params)
+    return ModelDef(model_name=model_def.model_name, litellm_params=hydrated_params, model_info=model_def.model_info)
 
 
 # Always-included models (added to every profile)
