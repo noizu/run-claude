@@ -3,12 +3,18 @@ Provider compatibility callback for LiteLLM proxy.
 
 Handles request transformations for providers with strict input requirements
 (e.g., Groq, Cerebras) that don't accept certain fields in the request.
+
+Integrates with the hook system (run_claude.hooks) to allow extensible
+pre-request and post-response processing.
 """
 
 from __future__ import annotations
 
 import copy
 import sys
+import time
+import uuid
+from pathlib import Path
 from typing import Any, Optional
 
 try:
@@ -18,6 +24,15 @@ except ImportError:
     # Fallback for when litellm isn't installed (e.g., during package build)
     CustomLogger = object
     UserAPIKeyAuth = Any
+
+try:
+    from run_claude.hooks import HookContext, HookEvent
+    from run_claude.hooks.chain import get_hook_chain
+    from run_claude.hooks.loader import load_hooks_from_config
+
+    _HOOKS_AVAILABLE = True
+except ImportError:
+    _HOOKS_AVAILABLE = False
 
 
 # Providers that need special handling
@@ -201,6 +216,23 @@ class ProviderCompatCallback(CustomLogger):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs) if hasattr(super(), '__init__') else None
         self.debug = kwargs.get("debug", False)
+        self._hooks_loaded = False
+
+        if _HOOKS_AVAILABLE:
+            hooks_config = Path.home() / ".config" / "run-claude" / "hooks.yaml"
+            if hooks_config.exists():
+                try:
+                    count = load_hooks_from_config(hooks_config)
+                    self._hooks_loaded = True
+                    print(
+                        f"[HOOKS] Loaded {count} hooks from {hooks_config}",
+                        file=sys.stderr,
+                    )
+                except Exception as e:
+                    print(
+                        f"[HOOKS] Failed to load hooks: {e}",
+                        file=sys.stderr,
+                    )
 
     async def async_pre_call_hook(
         self,
@@ -213,11 +245,36 @@ class ProviderCompatCallback(CustomLogger):
         Transform request data before sending to provider.
 
         This is called by LiteLLM proxy before making the API call.
+        Runs the hook chain first (if available), then falls back to
+        built-in provider compat transforms.
         """
         model = data.get("model", "")
         provider = _get_provider_from_model(model)
 
-        # Only transform for strict providers
+        # --- Hook chain execution ---
+        if self._hooks_loaded and _HOOKS_AVAILABLE:
+            ctx = HookContext(
+                event=HookEvent.PRE_REQUEST,
+                model=model,
+                provider=provider,
+                request_id=str(uuid.uuid4()),
+                timestamp=time.time(),
+                messages=data.get("messages"),
+                tools=data.get("tools"),
+                metadata=data.get("metadata", {}),
+            )
+
+            chain = get_hook_chain()
+            ctx = await chain.execute(ctx)
+
+            # Apply hook modifications back to data
+            if ctx.messages is not None:
+                data["messages"] = ctx.messages
+            if ctx.tools is not None:
+                data["tools"] = ctx.tools
+            return data
+
+        # --- Fallback: built-in provider compat (no hooks loaded) ---
         if provider not in STRICT_PROVIDERS:
             return data
 
@@ -233,8 +290,8 @@ class ProviderCompatCallback(CustomLogger):
             data["tools"] = _clean_tools_definition(data["tools"])
 
         # Remove top-level problematic fields
-        for field in ["provider_specific_fields", "cache_control"]:
-            data.pop(field, None)
+        for field_name in ["provider_specific_fields", "cache_control"]:
+            data.pop(field_name, None)
 
         return data
 
@@ -255,6 +312,32 @@ class ProviderCompatCallback(CustomLogger):
             if provider in STRICT_PROVIDERS:
                 print(f"[ProviderCompatCallback] Pre-API call to {model}", file=sys.stderr)
 
+    async def async_log_success_event(
+        self,
+        kwargs: dict[str, Any],
+        response_obj: Any,
+        start_time: Any,
+        end_time: Any,
+    ) -> None:
+        """Called on successful API response. Runs post-response hooks."""
+        if not (self._hooks_loaded and _HOOKS_AVAILABLE):
+            return
+
+        model = kwargs.get("model", "unknown")
+        provider = _get_provider_from_model(model)
+
+        ctx = HookContext(
+            event=HookEvent.POST_RESPONSE,
+            model=model,
+            provider=provider,
+            request_id=kwargs.get("litellm_call_id", str(uuid.uuid4())),
+            timestamp=time.time(),
+            response=response_obj if isinstance(response_obj, dict) else None,
+            metadata=kwargs.get("metadata", {}),
+        )
+
+        await get_hook_chain().execute(ctx)
+
     def log_success_event(
         self,
         kwargs: dict[str, Any],
@@ -262,7 +345,7 @@ class ProviderCompatCallback(CustomLogger):
         start_time: Any,
         end_time: Any,
     ) -> None:
-        """Called on successful API response."""
+        """Called on successful API response (sync fallback)."""
         pass
 
     def log_failure_event(

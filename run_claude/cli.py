@@ -20,8 +20,11 @@ def main() -> int:
     from . import profiles, config
     profiles.ensure_initialized()
 
-    # Ensure secrets template exists
+    # Load .env into os.environ BEFORE anything else that might need env vars
     debug = "--debug" in sys.argv or "-d" in sys.argv
+    config.load_env_file(debug=debug)
+
+    # Ensure secrets template exists (passwords auto-generated)
     config.ensure_secrets_template(debug=debug)
 
     parser = argparse.ArgumentParser(
@@ -113,7 +116,8 @@ def main() -> int:
     secrets_sub = secrets_p.add_subparsers(dest="secrets_command")
 
     init_p = secrets_sub.add_parser("init", help="Initialize secrets template")
-    init_p.add_argument("--generate", "-g", action="store_true", help="Generate random passwords")
+    init_p.add_argument("--generate", "-g", action="store_true",
+                        help="(deprecated, now default) Generate random passwords")
     init_p.add_argument("--force", "-f", action="store_true", help="Overwrite existing secrets")
 
     secrets_sub.add_parser("path", help="Show secrets file path")
@@ -389,7 +393,8 @@ def cmd_status(args: argparse.Namespace) -> int:
     if proxy_status.running:
         health = "healthy" if proxy_status.healthy else "unhealthy"
         print(f"  Status: running ({health})")
-        print(f"  PID: {proxy_status.pid}")
+        if proxy_status.container_id:
+            print(f"  Container: {proxy_status.container_id}")
         print(f"  URL: {proxy_status.url}")
         print(f"  Models: {proxy_status.model_count}")
     else:
@@ -615,7 +620,8 @@ def cmd_proxy(args: argparse.Namespace) -> int:
         if status.running:
             health = "healthy" if status.healthy else "unhealthy"
             print(f"  Status: running ({health})")
-            print(f"  PID: {status.pid}")
+            if status.container_id:
+                print(f"  Container: {status.container_id}")
             print(f"  URL: {status.url}")
             print(f"  Models: {status.model_count}")
         else:
@@ -917,25 +923,76 @@ def cmd_install(args: argparse.Namespace) -> int:
         print(f"Skipped (exists): {user_profiles_file}")
         skipped += 1
 
-    # Install infrastructure (docker-compose files)
-    dep_dir = proxy.get_dep_dir()
+    # Install hooks.yaml template
+    hooks_dst = config_dir / "hooks.yaml"
+    hooks_src = Path(__file__).parent / "hooks.yaml"
+    if (not hooks_dst.exists() or args.force) and hooks_src.exists():
+        import shutil
+        shutil.copy2(hooks_src, hooks_dst)
+        print(f"Installed: {hooks_dst}")
+        installed += 1
+    elif hooks_dst.exists():
+        print(f"Skipped (exists): {hooks_dst}")
+        skipped += 1
+
+    # Install infrastructure (docker-compose, Dockerfile)
+    services_dir = proxy.get_services_dir()
     if not proxy.is_infrastructure_installed() or args.force:
         if proxy.install_infrastructure(force=args.force, debug=debug):
-            print(f"Installed: {dep_dir}/docker-compose.yaml")
-            print(f"Installed: {dep_dir}/docker-compose.override.yaml")
-            installed += 2
+            print(f"Installed: {services_dir}/docker-compose.yaml")
+            print(f"Installed: {services_dir}/docker-compose.override.yaml")
+            print(f"Installed: {services_dir}/litellm.Dockerfile")
+            installed += 3
     else:
-        print(f"Skipped (exists): {dep_dir}/docker-compose.yaml")
+        print(f"Skipped (exists): {services_dir}/docker-compose.yaml")
         skipped += 1
 
     print()
     print(f"Configuration installed to: {config_dir}")
-    print(f"Infrastructure installed to: {dep_dir}")
+    print(f"Infrastructure installed to: {services_dir}")
     print(f"  {installed} file(s) installed")
     if skipped > 0:
         print(f"  {skipped} file(s) skipped (use --force to overwrite)")
 
+    if installed > 0:
+        _print_welcome_message(config_dir)
+
     return 0
+
+
+def _print_welcome_message(config_dir: Path) -> None:
+    """Show post-install intro with file locations and next steps."""
+    print(f"""
++-------------------------------------+
+|     run-claude installed!           |
++-------------------------------------+
+
+Configuration files:
+  Secrets:   {config_dir}/.secrets
+  Profiles:  {config_dir}/profiles.yaml
+  Models:    {config_dir}/models.yaml
+  Hooks:     {config_dir}/hooks.yaml
+  Env:       {config_dir}/.env
+
+Quick start:
+  1. Edit your API key:
+     $EDITOR {config_dir}/.secrets
+
+  2. Export secrets to .env:
+     run-claude secrets export
+
+  3. Setup a project directory:
+     cd ~/my-project
+     run-claude set-folder anthropic
+
+  4. Start using:
+     run-claude proxy start
+
+Customize profiles:
+  run-claude profiles list            # see available profiles
+  run-claude profiles show anthropic  # see profile details
+  $EDITOR {config_dir}/profiles.yaml  # edit profiles
+""")
 
 
 def cmd_secrets(args: argparse.Namespace) -> int:
@@ -945,9 +1002,10 @@ def cmd_secrets(args: argparse.Namespace) -> int:
     debug = getattr(args, 'debug', False)
 
     if args.secrets_command == "init":
-        generate = getattr(args, 'generate', False)
+        if getattr(args, 'generate', False):
+            print("Note: --generate is now the default and can be omitted.", file=sys.stderr)
         force = getattr(args, 'force', False)
-        config.ensure_secrets_template(force=force, generate_passwords=generate, debug=debug)
+        config.ensure_secrets_template(force=force, debug=debug)
         return 0
 
     elif args.secrets_command == "path":

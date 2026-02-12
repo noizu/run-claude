@@ -4,32 +4,26 @@ This document describes the architecture, data flow, and design patterns of the 
 
 ## High-Level Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          CLI Layer (cli.py)                          │
-│   Main entry point with command dispatch for enter/leave/proxy      │
-└───────────────────────────────┬─────────────────────────────────────┘
-                                │
-        ┌───────────────────────┼───────────────────────┐
-        │                       │                       │
-        ▼                       ▼                       ▼
-┌───────────────┐      ┌───────────────┐       ┌───────────────┐
-│   Profiles    │      │     State     │       │     Proxy     │
-│  Management   │      │  Management   │       │  Management   │
-│ (profiles.py) │      │  (state.py)   │       │  (proxy.py)   │
-└───────┬───────┘      └───────┬───────┘       └───────┬───────┘
-        │                      │                       │
-        ▼                      ▼                       ▼
-┌───────────────┐      ┌───────────────┐       ┌───────────────┐
-│  YAML Files   │      │  state.json   │       │ LiteLLM Proxy │
-│profiles.yaml  │      │               │       │   (port 4444) │
-│ models.yaml   │      │               │       │               │
-└───────────────┘      └───────────────┘       └───────┬───────┘
-                                                       │
-                                               ┌───────▼───────┐
-                                               │  TimescaleDB  │
-                                               │  (port 5433)  │
-                                               └───────────────┘
+```mermaid
+graph TD
+    CLI[CLI Layer<br/><i>cli.py</i><br/>Command dispatch] --> |enter/leave| PROFILES
+    CLI --> |state operations| STATE
+    CLI --> |start/stop| PROXY
+
+    PROFILES[Profiles Management<br/><i>profiles.py</i>] --> YAML[<i>YAML Files</i><br/>profiles.yaml<br/>models.yaml]
+    STATE[State Management<br/><i>state.py</i>] --> STATEFILE[<i>state.json</i>]
+    PROXY[Proxy Management<br/><i>proxy.py</i>] --> COMPAT[Provider Compatibility<br/><i>callbacks/provider_compat.py</i>]
+
+    COMPAT --> LITELLM[<i>LiteLLM Proxy</i><br/>port 4444]
+    LITELLM --> DB[TimescaleDB<br/>port 5433]
+
+    style CLI fill:#e1f5fe
+    style PROFILES fill:#fff9c4
+    style STATE fill:#ffe0b2
+    style PROXY fill:#c8e6c9
+    style COMPAT fill:#f8bbd9
+    style LITELLM fill:#d1c4e9
+    style DB fill:#b2dfdb
 ```
 
 ## Core Components
@@ -158,113 +152,94 @@ Secure credential storage and export.
 - `create_secrets_template()`: Generate documented template
 - `export_env_file()`: Convert to `.env` for Docker
 
+### 6. Provider Compatibility Layer (`callbacks/provider_compat.py`)
+
+Handles provider-specific quirks and normalization across different AI service providers.
+
+**Purpose:**
+- Abstract provider API differences
+- Normalize model identifiers and parameters
+- Handle provider-specific authentication patterns
+- Provide compatibility adapters for legacy API behaviors
+
+**Key Components:**
+- Provider callbacks for authentication
+- Model ID normalization functions
+- Parameter validation and transformation
+
+This layer bridges differences between providers like Anthropic, OpenAI, Groq, Cerebras, etc. ensuring consistent behavior through the LiteLLM proxy.
+
 ## Data Flows
 
 ### Directory Enter Flow
 
-```
-User enters directory (via direnv)
-        │
-        ▼
-┌───────────────────────────────────────────┐
-│ .envrc sets AGENT_SHIM_TOKEN              │
-│ .envrc.user sets AGENT_SHIM_PROFILE       │
-│ .envrc evals: run-claude env $PROFILE     │
-└───────────────────┬───────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────┐
-│ Shell hook detects token change           │
-│ Calls: run-claude enter $TOKEN $PROFILE   │
-└───────────────────┬───────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────┐
-│ cli.cmd_enter():                          │
-│   1. Load profile by name                 │
-│   2. Resolve model definitions            │
-│   3. Ensure proxy running                 │
-│   4. Register models with proxy           │
-│   5. Add token to state                   │
-│   6. Increment model refcounts            │
-│   7. Save state                           │
-└───────────────────────────────────────────┘
+```mermaid
+graph TD
+    USER1["User enters directory<br/><i>via direnv</i>"]
+    ENVRC[".envrc sets AGENT_SHIM_TOKEN<br/>.envrc.user sets AGENT_SHIM_PROFILE<br/>.envrc evals: run-claude env $PROFILE"]
+    HOOK["Shell hook detects token change<br/>Calls: run-claude enter $TOKEN $PROFILE"]
+    ENTER["cli.cmd_enter():<br/>1. Load profile by name<br/>2. Resolve model definitions<br/>3. Ensure proxy running<br/>4. Register models with proxy<br/>5. Add token to state<br/>6. Increment model refcounts<br/>7. Save state"]
+
+    USER1 --> ENVRC
+    ENVRC --> HOOK
+    HOOK --> ENTER
+
+    style USER1 fill:#fff9c4
+    style ENVRC fill:#e1f5fe
+    style HOOK fill:#ffe0b2
+    style ENTER fill:#c8e6c9
 ```
 
 ### Directory Leave Flow
 
-```
-User leaves directory
-        │
-        ▼
-┌───────────────────────────────────────────┐
-│ Shell hook detects token cleared          │
-│ Calls: run-claude leave $TOKEN            │
-└───────────────────┬───────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────┐
-│ cli.cmd_leave():                          │
-│   1. Load state                           │
-│   2. Get token info (profile, models)     │
-│   3. Decrement model refcounts            │
-│   4. If refcount=0: set lease (15 min)    │
-│   5. Remove token from state              │
-│   6. Save state                           │
-└───────────────────────────────────────────┘
+```mermaid
+graph TD
+    USER2["User leaves directory"]
+    HOOK2["Shell hook detects token cleared<br/>Calls: run-claude leave $TOKEN"]
+    LEAVE["cli.cmd_leave():<br/>1. Load state<br/>2. Get token info profile, models<br/>3. Decrement model refcounts<br/>4. If refcount=0: set lease 15 min<br/>5. Remove token from state<br/>6. Save state"]
+
+    USER2 --> HOOK2
+    HOOK2 --> LEAVE
+
+    style USER2 fill:#fff9c4
+    style HOOK2 fill:#ffe0b2
+    style LEAVE fill:#c8e6c9
 ```
 
 ### Janitor Cleanup Flow
 
-```
-Periodic janitor run (rate-limited to 1/minute)
-        │
-        ▼
-┌───────────────────────────────────────────┐
-│ cli.cmd_janitor():                        │
-│   1. Load state                           │
-│   2. Get expired leases                   │
-│   3. For each expired model:              │
-│      - Delete from proxy                  │
-│      - Clear lease from state             │
-│   4. Save state                           │
-└───────────────────────────────────────────┘
+```mermaid
+graph TD
+    SCHED["Periodic janitor run<br/><i>rate-limited to 1/minute</i>"]
+    JANITOR["cli.cmd_janitor():<br/>1. Load state<br/>2. Get expired leases<br/>3. For each expired model:<br/>   - Delete from proxy<br/>   - Clear lease from state<br/>4. Save state"]
+
+    SCHED --> JANITOR
+
+    style SCHED fill:#f8bbd9
+    style JANITOR fill:#c8e6c9
 ```
 
 ### Profile Resolution Flow
 
-```
-profiles.load_profile("anthropic")
-        │
-        ▼
-┌───────────────────────────────────────────┐
-│ Search profile files in priority order    │
-│ (user override → user → built-in)         │
-└───────────────────┬───────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────┐
-│ Check if profile disabled (model: null)   │
-│ If disabled, continue to next file        │
-└───────────────────┬───────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────┐
-│ Extract ProfileMeta:                      │
-│   - opus_model: "claude-opus-4-..."       │
-│   - sonnet_model: "claude-sonnet-4-..."   │
-│   - haiku_model: "claude-3-5-haiku-..."   │
-└───────────────────┬───────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────┐
-│ resolve_profile_models():                 │
-│   1. Load model definitions               │
-│   2. For each model name in profile:      │
-│      - Find ModelDef by name              │
-│      - hydrate_model_def() (expand env)   │
-│   3. Return list[ModelDef]                │
-└───────────────────────────────────────────┘
+```mermaid
+graph TD
+    LOAD["profiles.load_profile anthropic"]
+    SEARCH["Search profile files in priority order<br/><i>user override → user → built-in</i>"]
+    CHECK["Check if profile disabled model: null<br/>If disabled, continue to next file"]
+    META["Extract ProfileMeta:<br/>- opus_model: claude-opus-4-...<br/>- sonnet_model: claude-sonnet-4-...<br/>- haiku_model: claude-3-5-haiku-..."]
+    RESOLVE["resolve_profile_models():<br/>1. Load model definitions<br/>2. For each model name in profile:<br/>   - Find ModelDef by name<br/>   - hydrate_model_def expand env<br/>3. Return list ModelDef"]
+
+    LOAD --> SEARCH
+    SEARCH --> CHECK
+    CHECK --> |profile valid| META
+    CHECK --> |disabled| SEARCH
+    META --> RESOLVE
+
+    style LOAD fill:#fff9c4
+    style SEARCH fill:#e1f5fe
+    style CHECK fill:#ffe0b2
+    style META fill:#d1c4e9
+    style RESOLVE fill:#c8e6c9
 ```
 
 ## Design Patterns
@@ -371,26 +346,24 @@ LiteLLM uses Prisma ORM for:
 
 ## Network Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Host Machine                            │
-│                                                             │
-│  ┌─────────────┐                    ┌─────────────────────┐ │
-│  │   Claude    │ ──HTTP:4444──────► │   LiteLLM Proxy     │ │
-│  │   Client    │                    │   (port 4444)       │ │
-│  └─────────────┘                    └──────────┬──────────┘ │
-│                                                │            │
-│                                     TCP:5433   │            │
-│                                                ▼            │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │              Docker: run-claude-network                 ││
-│  │  ┌───────────────────────────────────────────────────┐  ││
-│  │  │           TimescaleDB Container                    │  ││
-│  │  │           (internal port 5432)                     │  ││
-│  │  │           Volume: timescaledb-data                 │  ││
-│  │  └───────────────────────────────────────────────────┘  ││
-│  └─────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Host["Host Machine"]
+        CLIENT[Claude Client]
+        L2[Litellm Proxy<br/>port 4444]
+        subgraph Docker["Docker: run-claude-network"]
+            TSDB[TimescaleDB Container<br/>internal port 5432<br/>Volume: timescaledb-data]
+        end
+    end
+
+    CLIENT --"HTTP: 4444"--> L2
+    L2 --"TCP: 5433"--> TSDB
+
+    style Host fill:#f5f5f5,stroke:#333,stroke-width:2px
+    style Docker fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style CLIENT fill:#fff9c4
+    style L2 fill:#c8e6c9
+    style TSDB fill:#b2dfdb
 ```
 
 ## Process Lifecycle

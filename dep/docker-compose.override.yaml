@@ -11,7 +11,13 @@ services:
   # ===========================================================================
   # Expose database port for local development/debugging
   # ===========================================================================
-
   timescaledb:
     ports:
       - "5433:5432"   # PostgreSQL (unique port to avoid conflicts)
+
+  # ===========================================================================
+  # Expose LiteLLM proxy port for local tools (Claude Code, Aider, Cursor)
+  # ===========================================================================
+  litellm:
+    ports:
+      - "${LITELLM_PORT:-4444}:4444"

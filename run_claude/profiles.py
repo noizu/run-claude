@@ -132,6 +132,14 @@ def _do_first_run_init(config_dir: Path, marker: Path) -> None:
         dst.write_text(_USER_PROFILES_TEMPLATE, encoding="utf-8")
         installed += 1
 
+    # Create hooks.yaml from built-in template
+    hooks_dst = config_dir / "hooks.yaml"
+    hooks_src = Path(__file__).parent / "hooks.yaml"
+    if not hooks_dst.exists() and hooks_src.exists():
+        import shutil
+        shutil.copy2(hooks_src, hooks_dst)
+        installed += 1
+
     # Create marker
     marker.touch()
 

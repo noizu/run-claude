@@ -8,10 +8,8 @@ from __future__ import annotations
 
 import json
 import os
-import signal
 import subprocess
 import sys
-import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -67,6 +65,22 @@ HEALTH_CHECK_TIMEOUT = 60.0
 HEALTH_CHECK_RETRIES = 30
 HEALTH_CHECK_INTERVAL = 10.0
 
+LITELLM_CONTAINER_NAME = "run-claude-litellm"
+COMPOSE_PROJECT = "run-claude-infra"
+
+
+def _compose_cmd(services_dir: Path, env_file: Path | None = None) -> list[str]:
+    """Build base docker compose command with project and file flags."""
+    cmd = [
+        "docker", "compose",
+        "-f", str(services_dir / "docker-compose.yaml"),
+        "-f", str(services_dir / "docker-compose.override.yaml"),
+        "-p", COMPOSE_PROJECT,
+    ]
+    if env_file and env_file.exists():
+        cmd.extend(["--env-file", str(env_file)])
+    return cmd
+
 
 def get_proxy_url() -> str:
     """Get proxy URL from environment or default."""
@@ -83,6 +97,30 @@ def get_api_key() -> str:
     return get_master_key()
 
 
+def get_database_url(debug: bool = False) -> str:
+    """Get fully-expanded database URL.
+
+    Reads from LITELLM_DATABASE_URL (set by .env via load_env_file).
+    Falls back to constructing from RUN_CLAUDE_TIMESCALEDB_PASSWORD if
+    the .env hasn't been exported yet.
+    """
+    db_url = os.environ.get("LITELLM_DATABASE_URL")
+    if db_url:
+        return db_url
+
+    # Fallback: construct from individual vars (pre-export state)
+    password = os.environ.get("RUN_CLAUDE_TIMESCALEDB_PASSWORD", "")
+    if password:
+        from .config import construct_database_url
+        db_url = construct_database_url(password)
+        if debug:
+            print(f"DEBUG: Constructed DATABASE_URL from env vars", file=sys.stderr)
+        return db_url
+
+    # Last resort: return template (will fail at connection time)
+    return "postgresql://postgres:@localhost:5433/postgres?sslmode=disable"
+
+
 def get_litellm_command() -> str:
     """Get litellm command from environment or default.
 
@@ -92,12 +130,12 @@ def get_litellm_command() -> str:
 
 
 def get_pid_file() -> Path:
-    """Get PID file path."""
+    """Deprecated: proxy now runs in container. PID files no longer used."""
     return get_state_dir() / "proxy.pid"
 
 
 def get_log_file() -> Path:
-    """Get log file path.
+    """Deprecated: use get_proxy_logs() for container logs.
 
     Uses LITELLM_LOG_FILE env var if set, otherwise defaults to /var/log/litellm-proxy.log.
     Falls back to state directory if /var/log is not writable.
@@ -123,8 +161,11 @@ def get_log_file() -> Path:
 
 
 def get_config_file() -> Path:
-    """Get generated LiteLLM config file path."""
-    return get_state_dir() / "litellm_config.yaml"
+    """Get generated LiteLLM config file path.
+
+    Config is stored in the config dir so docker-compose can mount it.
+    """
+    return _get_config_dir() / "litellm_config.yaml"
 
 
 def _require_httpx() -> None:
@@ -159,7 +200,8 @@ class DbStatus:
 class ProxyStatus:
     """Proxy status information."""
     running: bool
-    pid: int | None = None
+    pid: int | None = None  # Deprecated: kept for backward compat
+    container_id: str | None = None
     healthy: bool = False
     url: str = DEFAULT_PROXY_URL
     model_count: int = 0
@@ -218,20 +260,6 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
 
     # Import here to avoid circular imports
     from .profiles import load_model_definitions
-    from .config import load_secrets
-
-    # Load secrets from config file
-    try:
-        secrets = load_secrets(debug=False)
-        env_vars = secrets.to_env()
-        # Update environment with loaded secrets
-        for key, value in env_vars.items():
-            if key not in os.environ:
-                os.environ[key] = value
-    except Exception as e:
-        # Secrets file may not exist or be empty, continue with existing env vars
-        if "--debug" in sys.argv or "-d" in sys.argv:
-            print(f"Warning: Could not load secrets: {e}", file=sys.stderr)
 
     # Build model list
     if model_defs is None:
@@ -242,20 +270,9 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
         # Hydrate provided model defs
         model_list = [_hydrate_model_dict(m) for m in model_defs]
 
-    # Get database URL from environment or use default
-    # Format: postgresql://user:password@host:port/database
-    db_url = os.environ.get(
-        "LITELLM_DATABASE_URL",
-        "postgresql://postgres:${RUN_CLAUDE_TIMESCALEDB_PASSWORD}@localhost:5433/postgres?sslmode=disable"
-    )
-
-    # Expand environment variables in database URL
-    if "${" in db_url and "}" in db_url:
-        import re
-        def expand_var(match):
-            var_name = match.group(1)
-            return os.environ.get(var_name, match.group(0))
-        db_url = re.sub(r'\$\{([^}]+)\}', expand_var, db_url)
+    # Get database URL (loaded from .env at CLI startup)
+    debug = "--debug" in sys.argv or "-d" in sys.argv
+    db_url = get_database_url(debug=debug)
 
     print(f"Database connection string: {db_url}", file=sys.stderr)
 
@@ -280,11 +297,16 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
             "run_claude.callbacks.ProviderCompatCallback",
         ]
 
+    # NOTE: database_url is intentionally NOT included in the config file.
+    # In container mode, DATABASE_URL is set via docker-compose environment
+    # (pointing to timescaledb:5432 on the internal network).
+    # In local mode, it's read from the DATABASE_URL env var loaded from .env.
+    # Embedding localhost:5433 here would break the container (which needs
+    # the internal docker network hostname).
     config = {
         "litellm_settings": litellm_settings,
         "general_settings": {
             "master_key": master_key,
-            "database_url": db_url,
         },
         "model_list": model_list,
     }
@@ -391,42 +413,46 @@ def health_check(timeout: float = HEALTH_CHECK_TIMEOUT, wait_for_recovery: bool 
 
 
 def is_proxy_running() -> bool:
-    """Check if proxy process is running."""
-    pid_file = get_pid_file()
-    if not pid_file.exists():
+    """Check if LiteLLM proxy container is running."""
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Running}}", LITELLM_CONTAINER_NAME],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return result.returncode == 0 and result.stdout.strip().lower() == "true"
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 
+
+def get_proxy_container_id() -> str | None:
+    """Get LiteLLM proxy container ID if it exists."""
     try:
-        pid = int(pid_file.read_text().strip())
-        # Check if process exists
-        os.kill(pid, 0)
-        return True
-    except (ValueError, ProcessLookupError, PermissionError):
-        # PID file stale, clean up
-        pid_file.unlink(missing_ok=True)
-        return False
+        result = subprocess.run(
+            ["docker", "inspect", "-f", "{{.Id}}", LITELLM_CONTAINER_NAME],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()[:12]
+        return None
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
 
 
 def get_proxy_pid() -> int | None:
-    """Get proxy PID if running."""
-    pid_file = get_pid_file()
-    if not pid_file.exists():
-        return None
-
-    try:
-        pid = int(pid_file.read_text().strip())
-        os.kill(pid, 0)  # Check if process exists
-        return pid
-    except (ValueError, ProcessLookupError, PermissionError):
-        return None
+    """Deprecated: proxy now runs in a container. Returns None."""
+    return None
 
 
 def start_proxy(config_path: str | None = None, wait: bool = True, empty_config: bool = False, no_db: bool = False, debug: bool = False) -> bool:
     """
-    Start LiteLLM proxy.
+    Start LiteLLM proxy via docker compose.
 
     Args:
-        config_path: Path to LiteLLM config file. If None, generates one.
+        config_path: Deprecated. Config is generated to a fixed location.
         wait: Wait for proxy to become healthy
         empty_config: If True, generate config with empty model list.
                      Models are loaded on-demand via ensure_models().
@@ -439,75 +465,74 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
     if is_proxy_running() and health_check():
         return True
 
-    # Auto-start database container unless disabled
-    if not no_db:
-        # Ensure infrastructure is installed
-        if not is_infrastructure_installed():
-            if debug:
-                print("Installing infrastructure...", file=sys.stderr)
-            install_infrastructure(debug=debug)
-
-        # Start database if not running
-        if not is_db_container_running():
-            print("Starting database container...", file=sys.stderr)
-            if not start_db_container(wait=True, debug=debug):
-                print("Error: Failed to start database container", file=sys.stderr)
-                print("Is Docker running?", file=sys.stderr)
-                return False
-        elif debug:
-            print("Database container already running", file=sys.stderr)
-
-    state_dir = get_state_dir()
-    state_dir.mkdir(parents=True, exist_ok=True)
-
-    pid_file = get_pid_file()
-    log_file = get_log_file()
-
-    # Generate config if not provided
-    if config_path is None:
-        # Use empty model list if empty_config=True (for startup)
-        # Otherwise load all models (for restart operations)
-        model_defs = [] if empty_config else None
-        config_path = str(generate_litellm_config(model_defs=model_defs))
-
-    # Build command
-    litellm_cmd = get_litellm_command()
-    cmd = [litellm_cmd, "--host", DEFAULT_PROXY_HOST, "--port", str(DEFAULT_PROXY_PORT)]
-    cmd.extend(["--config", config_path])
-
-    # Start proxy in background
-    try:
-        # Clone parent environment with additional flags for proxy
-        env = os.environ.copy()
-        env["STORE_MODEL_IN_DB"] = "True"
-        env['USE_PRISMA_MIGRATE'] = "True"
-        # Set master key if not already set
-        if "LITELLM_MASTER_KEY" not in env:
-            env["LITELLM_MASTER_KEY"] = get_master_key()
-
-        print(f"LiteLLM proxy logs saved to: {log_file}", file=sys.stderr)
-        print(f"Master key configured: {env.get('LITELLM_MASTER_KEY', 'NOT SET')}", file=sys.stderr)
-        print(f"To run litellm locally for debugging, run:", file=sys.stderr)
-        print(f" LITELLM_MASTER_KEY={env.get('LITELLM_MASTER_KEY', 'NOT SET')} STORE_MODEL_IN_DB=True USE_PRISMA_MIGRATE=False {' '.join(cmd)}", file=sys.stderr)
-        with open(log_file, "a") as log:
-            proc = subprocess.Popen(
-                cmd,
-                stdout=log,
-                stderr=log,
-                start_new_session=True,
-                env=env,
-            )
-    except (FileNotFoundError, PermissionError) as e:
-        # litellm not installed or not accessible
+    # Check Docker availability
+    if not is_docker_available():
+        print("Error: Docker not found. Please install Docker.", file=sys.stderr)
+        return False
+    if not is_docker_running():
+        print("Error: Docker daemon not running. Please start Docker.", file=sys.stderr)
         return False
 
-    # Write PID file
-    pid_file.write_text(str(proc.pid))
+    # Ensure infrastructure is installed
+    if not is_infrastructure_installed():
+        if debug:
+            print("Installing infrastructure...", file=sys.stderr)
+        install_infrastructure(debug=debug)
 
-    # Update state
-    state = load_state()
-    state.proxy_pid = proc.pid
-    save_state(state)
+    # Generate litellm_config.yaml to config dir (skip if already present)
+    config_file = get_config_file()
+    if not config_file.exists() or empty_config:
+        model_defs = [] if empty_config else None
+        generate_litellm_config(model_defs=model_defs)
+
+    services_dir = get_services_dir()
+    config_dir = _get_config_dir()
+    env_file = config_dir / ".env"
+
+    # Build compose command
+    cmd = _compose_cmd(services_dir, env_file)
+
+    # Build image if needed
+    if debug:
+        print("Building LiteLLM image...", file=sys.stderr)
+    try:
+        result = subprocess.run(
+            cmd + ["build", "--quiet", "litellm"],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if result.returncode != 0 and debug:
+            print(f"Build warning: {result.stderr}", file=sys.stderr)
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        print(f"Error building image: {e}", file=sys.stderr)
+        return False
+
+    # Start services
+    services = ["litellm"] if no_db else []  # empty = all services
+    try:
+        result = subprocess.run(
+            cmd + ["up", "-d"] + services,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode != 0:
+            print(f"Error starting services:", file=sys.stderr)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
+            return False
+        if debug and result.stdout:
+            print(result.stdout, file=sys.stderr)
+    except subprocess.TimeoutExpired:
+        print("Error: Timed out starting services", file=sys.stderr)
+        return False
+    except FileNotFoundError:
+        print("Error: docker compose not found", file=sys.stderr)
+        return False
+
+    print(f"LiteLLM proxy starting via docker compose...", file=sys.stderr)
+    print(f"  View logs: docker logs -f {LITELLM_CONTAINER_NAME}", file=sys.stderr)
 
     if wait:
         # Wait for proxy to become healthy
@@ -515,8 +540,6 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
             if health_check():
                 return True
             time.sleep(HEALTH_CHECK_INTERVAL)
-
-        # Proxy didn't become healthy
         return False
 
     return True
@@ -524,85 +547,73 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
 
 def stop_proxy() -> bool:
     """
-    Stop the proxy.
+    Stop the LiteLLM proxy container.
 
     Returns:
         True if proxy was stopped successfully
-        False if process couldn't be stopped
+        False if container couldn't be stopped
     """
-    pid = get_proxy_pid()
+    if not is_proxy_running():
+        return True
 
-    if pid is None:
-        # No PID file, check if process is running by command
+    services_dir = get_services_dir()
+    compose_file = services_dir / "docker-compose.yaml"
+
+    if not compose_file.exists():
+        # No compose file, try direct container stop
         try:
-            result = subprocess.run(
-                ["pgrep", "-f", "litellm.*--host.*--port"],
+            subprocess.run(
+                ["docker", "stop", LITELLM_CONTAINER_NAME],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=30,
             )
-            if result.returncode == 0:
-                # Found running litellm process
-                pids = result.stdout.strip().split("\n")
-                print(f"Found running proxy process(es). Run one of:", file=sys.stderr)
-                for p in pids:
-                    print(f"  kill {p}", file=sys.stderr)
-                return False
             return True
         except (FileNotFoundError, subprocess.TimeoutExpired):
-            # pgrep not available or timeout, assume no process
-            return True
+            return False
+
+    env_file = _get_config_dir() / ".env"
+    cmd = _compose_cmd(services_dir, env_file)
 
     try:
-        os.kill(pid, signal.SIGTERM)
-
-        # Wait for process to exit
-        for _ in range(10):
-            try:
-                os.kill(pid, 0)
-                time.sleep(0.5)
-            except ProcessLookupError:
-                # Process exited successfully
-                get_pid_file().unlink(missing_ok=True)
-                state = load_state()
-                state.proxy_pid = None
-                save_state(state)
-                return True
-
-        # Process didn't exit, try SIGKILL
-        print(f"Process {pid} didn't exit after SIGTERM, trying SIGKILL...", file=sys.stderr)
-        os.kill(pid, signal.SIGKILL)
-        time.sleep(0.5)
-
-        try:
-            os.kill(pid, 0)
-            # Still running
-            print(f"Failed to kill process {pid}", file=sys.stderr)
+        result = subprocess.run(
+            cmd + ["stop", "litellm"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode != 0:
+            print(f"Error stopping proxy container:", file=sys.stderr)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
             return False
-        except ProcessLookupError:
-            # Finally killed
-            get_pid_file().unlink(missing_ok=True)
-            state = load_state()
-            state.proxy_pid = None
-            save_state(state)
-            return True
-
-    except ProcessLookupError:
-        # Process already exited
-        get_pid_file().unlink(missing_ok=True)
-        state = load_state()
-        state.proxy_pid = None
-        save_state(state)
         return True
-    except PermissionError:
-        print(f"Permission denied stopping process {pid}", file=sys.stderr)
+    except subprocess.TimeoutExpired:
+        print("Error: Timed out stopping proxy container", file=sys.stderr)
         return False
+    except FileNotFoundError:
+        print("Error: docker compose not found", file=sys.stderr)
+        return False
+
+
+def get_proxy_logs(lines: int = 100) -> str:
+    """Get recent logs from the LiteLLM proxy container."""
+    try:
+        result = subprocess.run(
+            ["docker", "logs", "--tail", str(lines), LITELLM_CONTAINER_NAME],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return result.stdout + result.stderr
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return ""
 
 
 def get_status() -> ProxyStatus:
     """Get proxy status."""
-    pid = get_proxy_pid()
-    running = pid is not None
+    running = is_proxy_running()
+    container_id = get_proxy_container_id() if running else None
     healthy = health_check() if running else False
 
     model_count = 0
@@ -615,7 +626,7 @@ def get_status() -> ProxyStatus:
 
     return ProxyStatus(
         running=running,
-        pid=pid,
+        container_id=container_id,
         healthy=healthy,
         url=get_proxy_url(),
         model_count=model_count,
@@ -942,33 +953,8 @@ def test_db_connection(debug: bool = False) -> bool:
     Returns:
         True if database connection successful
     """
-    # Load secrets from config file
-    try:
-        from .config import load_secrets
-        secrets = load_secrets(debug=False)
-        env_vars = secrets.to_env()
-        # Update environment with loaded secrets
-        for key, value in env_vars.items():
-            if key not in os.environ:
-                os.environ[key] = value
-    except Exception as e:
-        # Secrets file may not exist or be empty, continue with existing env vars
-        if debug:
-            print(f"Warning: Could not load secrets: {e}", file=sys.stderr)
-
-    # Get database URL from environment or use default
-    db_url = os.environ.get(
-        "LITELLM_DATABASE_URL",
-        "postgresql://postgres:${RUN_CLAUDE_TIMESCALEDB_PASSWORD}@localhost:5433/postgres"
-    )
-
-    # Expand environment variables in database URL
-    if "${" in db_url and "}" in db_url:
-        import re
-        def expand_var(match):
-            var_name = match.group(1)
-            return os.environ.get(var_name, match.group(0))
-        db_url = re.sub(r'\$\{([^}]+)\}', expand_var, db_url)
+    # Get database URL (loaded from .env at CLI startup)
+    db_url = get_database_url(debug=debug)
 
     print(f"Database connection string (expanded): {db_url}", file=sys.stderr)
 
@@ -1050,12 +1036,16 @@ def test_db_connection(debug: bool = False) -> bool:
 # =============================================================================
 
 CONTAINER_NAME = "run-claude-timescaledb"
-COMPOSE_PROJECT = "run-claude-infra"
+
+
+def get_services_dir() -> Path:
+    """Get the infrastructure services directory (docker-compose, Dockerfile)."""
+    return _get_config_dir() / "services"
 
 
 def get_dep_dir() -> Path:
-    """Get the infrastructure dependency directory in state."""
-    return get_state_dir() / "dep"
+    """Deprecated: use get_services_dir(). Kept for backward compatibility."""
+    return get_services_dir()
 
 
 def get_builtin_dep_dir() -> Path:
@@ -1093,7 +1083,10 @@ def is_docker_running() -> bool:
 
 def install_infrastructure(force: bool = False, debug: bool = False) -> bool:
     """
-    Install docker-compose files to state directory.
+    Install docker-compose files and Dockerfile to services directory.
+
+    Target: ~/.config/run-claude/services/
+    Source: built-in dep/ directory from package.
 
     Args:
         force: Overwrite existing files
@@ -1104,14 +1097,24 @@ def install_infrastructure(force: bool = False, debug: bool = False) -> bool:
     """
     import shutil
 
-    dep_dir = get_dep_dir()
+    services_dir = get_services_dir()
     builtin_dep = get_builtin_dep_dir()
 
+    # Auto-migrate from old location (~/.local/state/run-claude/dep/)
+    old_dep = get_state_dir() / "dep"
+    if old_dep.exists() and not services_dir.exists():
+        try:
+            shutil.move(str(old_dep), str(services_dir))
+            print(f"Migrated infrastructure: {old_dep} -> {services_dir}", file=sys.stderr)
+        except (OSError, shutil.Error) as e:
+            if debug:
+                print(f"Warning: Could not migrate old dep dir: {e}", file=sys.stderr)
+
     # Check if already installed
-    compose_file = dep_dir / "docker-compose.yaml"
+    compose_file = services_dir / "docker-compose.yaml"
     if compose_file.exists() and not force:
         if debug:
-            print(f"Infrastructure already installed at {dep_dir}", file=sys.stderr)
+            print(f"Infrastructure already installed at {services_dir}", file=sys.stderr)
         return True
 
     # Check if built-in dep directory exists
@@ -1119,29 +1122,29 @@ def install_infrastructure(force: bool = False, debug: bool = False) -> bool:
         print(f"Error: Built-in dep directory not found: {builtin_dep}", file=sys.stderr)
         return False
 
-    # Create state directory if needed
-    dep_dir.mkdir(parents=True, exist_ok=True)
+    # Create services directory
+    services_dir.mkdir(parents=True, exist_ok=True)
 
-    # Copy compose files
+    # Files to copy from built-in dep/
+    files_to_copy = [
+        "docker-compose.yaml",
+        "docker-compose.override.yaml",
+        "litellm.Dockerfile",
+        ".envrc",
+    ]
+
     try:
-        # Copy docker-compose.yaml
-        src_compose = builtin_dep / "docker-compose.yaml"
-        if src_compose.exists():
-            shutil.copy2(src_compose, dep_dir / "docker-compose.yaml")
-            if debug:
-                print(f"Installed: {dep_dir / 'docker-compose.yaml'}", file=sys.stderr)
-
-        # Copy docker-compose.override.yaml
-        src_override = builtin_dep / "docker-compose.override.yaml"
-        if src_override.exists():
-            shutil.copy2(src_override, dep_dir / "docker-compose.override.yaml")
-            if debug:
-                print(f"Installed: {dep_dir / 'docker-compose.override.yaml'}", file=sys.stderr)
+        for filename in files_to_copy:
+            src = builtin_dep / filename
+            if src.exists():
+                shutil.copy2(src, services_dir / filename)
+                if debug:
+                    print(f"Installed: {services_dir / filename}", file=sys.stderr)
 
         # Copy config directory if it exists
         src_config = builtin_dep / "config"
         if src_config.exists():
-            dst_config = dep_dir / "config"
+            dst_config = services_dir / "config"
             if dst_config.exists() and force:
                 shutil.rmtree(dst_config)
             if not dst_config.exists():
@@ -1157,8 +1160,8 @@ def install_infrastructure(force: bool = False, debug: bool = False) -> bool:
 
 
 def is_infrastructure_installed() -> bool:
-    """Check if infrastructure is installed in state directory."""
-    compose_file = get_dep_dir() / "docker-compose.yaml"
+    """Check if infrastructure is installed in services directory."""
+    compose_file = get_services_dir() / "docker-compose.yaml"
     return compose_file.exists()
 
 
@@ -1287,26 +1290,16 @@ def start_db_container(wait: bool = True, debug: bool = False) -> bool:
             print("Database container already running", file=sys.stderr)
         return True
 
-    dep_dir = get_dep_dir()
-    config_dir = _get_config_dir()
-    env_file = config_dir / ".env"
+    services_dir = get_services_dir()
+    env_file = _get_config_dir() / ".env"
 
-    # Build compose command
-    cmd = [
-        "docker", "compose",
-        "-f", str(dep_dir / "docker-compose.yaml"),
-        "-f", str(dep_dir / "docker-compose.override.yaml"),
-        "-p", COMPOSE_PROJECT,
-    ]
-
-    # Add env file if it exists
-    if env_file.exists():
-        cmd.extend(["--env-file", str(env_file)])
-    else:
+    if not env_file.exists():
         print(f"Warning: .env file not found at {env_file}", file=sys.stderr)
         print("Run 'run-claude secrets export' to create it", file=sys.stderr)
 
-    cmd.extend(["up", "-d"])
+    # Build compose command
+    cmd = _compose_cmd(services_dir, env_file)
+    cmd.extend(["up", "-d", "timescaledb"])
 
     if debug:
         print(f"Running: {' '.join(cmd)}", file=sys.stderr)
@@ -1360,20 +1353,16 @@ def stop_db_container(remove: bool = False, debug: bool = False) -> bool:
             print("Docker not available", file=sys.stderr)
         return True  # Nothing to stop
 
-    dep_dir = get_dep_dir()
-    compose_file = dep_dir / "docker-compose.yaml"
+    services_dir = get_services_dir()
+    compose_file = services_dir / "docker-compose.yaml"
 
     if not compose_file.exists():
         if debug:
             print("No compose file found, nothing to stop", file=sys.stderr)
         return True
 
-    # Build compose command
-    cmd = [
-        "docker", "compose",
-        "-f", str(compose_file),
-        "-p", COMPOSE_PROJECT,
-    ]
+    env_file = _get_config_dir() / ".env"
+    cmd = _compose_cmd(services_dir, env_file)
 
     if remove:
         cmd.extend(["down", "-v"])  # Remove volumes too
@@ -1454,34 +1443,10 @@ def run_prisma_migrate(debug: bool = False) -> bool:
     Returns:
         True if migration succeeded
     """
-    import re
     import shlex
 
-    # Load secrets from config file (same as generate_litellm_config)
-    try:
-        from .config import load_secrets
-        secrets = load_secrets(debug=False)
-        env_vars = secrets.to_env()
-        # Update environment with loaded secrets
-        for key, value in env_vars.items():
-            if key not in os.environ:
-                os.environ[key] = value
-    except Exception as e:
-        if debug:
-            print(f"Warning: Could not load secrets: {e}", file=sys.stderr)
-
-    # Get database URL from environment or use default (same as generate_litellm_config)
-    db_url = os.environ.get(
-        "LITELLM_DATABASE_URL",
-        "postgresql://postgres:${RUN_CLAUDE_TIMESCALEDB_PASSWORD}@localhost:5433/postgres?sslmode=disable"
-    )
-
-    # Expand environment variables in database URL
-    if "${" in db_url and "}" in db_url:
-        def expand_var(match):
-            var_name = match.group(1)
-            return os.environ.get(var_name, match.group(0))
-        db_url = re.sub(r'\$\{([^}]+)\}', expand_var, db_url)
+    # Get database URL (loaded from .env at CLI startup)
+    db_url = get_database_url(debug=debug)
 
     print(f"Database URL: {db_url}", file=sys.stderr)
 

@@ -10,13 +10,18 @@ This document describes the folder structure and file organization of the run-cl
 
 ```
 /github/infra/run-claude/
-├── docs/                    # Documentation
+├── docs/                    # Documentation → See below
 ├── dep/                     # Infrastructure dependencies (Docker)
+├── dist/                    # Build output directory
 ├── hooks/                   # Shell integration hooks
 ├── playground/              # Test directories for validation
-├── run_claude/              # Main Python package
+├── run_claude/              # Main Python package → See below
+├── scripts/                 # Utility scripts → See below
 ├── templates/               # Template files for direnv
 ├── tests/                   # Test suite
+├── .envrc                   # direnv configuration
+├── .python-version          # Python version for runtime
+├── .tool-versions           # asdf version manager config
 ├── Makefile                 # Build automation
 ├── profiles.yaml            # Profile definitions
 ├── pyproject.toml           # Python project configuration
@@ -26,6 +31,21 @@ This document describes the folder structure and file organization of the run-cl
 ├── SECRETS_ADVANCED.md      # Advanced secrets management
 ├── SECRETS_QUICKSTART.md    # Quick reference for secrets
 └── with-agent-shim          # Wrapper script for running with profiles
+```
+
+## `/docs` - Documentation
+
+Project documentation and architectural references.
+
+```
+docs/
+├── PROJ-ARCH.md             # Architecture documentation
+├── PROJ-LAYOUT.md           # This file - project structure guide
+├── PRD-AUTO-INFRA.md        # Product requirements for auto-infra
+└── claude/                  # Claude AI integration documentation
+    ├── tools.md             # Tool specifications
+    ├── tools.summary.md     # Quick reference for tools
+    └── tools/               # Tool implementation details
 ```
 
 ## `/run_claude` - Main Package
@@ -41,6 +61,7 @@ The core Python package implementing the agent shim controller.
 | `profiles.py` | ~674 | Profile loading and management system |
 | `proxy.py` | ~866 | LiteLLM proxy lifecycle management |
 | `state.py` | ~177 | Persistent state management (tokens, refcounts) |
+| `callbacks/` | - | Provider compatibility layer |
 
 ### Key Module Responsibilities
 
@@ -49,6 +70,17 @@ The core Python package implementing the agent shim controller.
 - **proxy.py**: LiteLLM proxy start/stop, health checks, model registration via API
 - **state.py**: Token tracking, model refcounting, lease scheduling (delayed deletion)
 - **config.py**: Secrets file loading, template generation, `.env` export
+- **callbacks/provider_compat.py**: Provider compatibility adapters and normalization
+
+### `/run_claude/callbacks` - Provider Compatibility
+
+```
+callbacks/
+├── __init__.py             # Package initialization
+└── provider_compat.py      # Provider compatibility layer (~270 lines)
+```
+
+Handles provider-specific quirks and normalization for different AI service providers.
 
 ## `/dep` - Infrastructure Dependencies
 
@@ -92,6 +124,15 @@ templates/
 
 - `{{TOKEN}}`: Replaced with SHA256 hash of directory path (16 hex chars)
 - `{{PROFILE}}`: Replaced with selected profile name
+
+## `/scripts` - Utility Scripts
+
+Supporting scripts for the project.
+
+```
+scripts/
+└── run-litellm-proxy       # LiteLLM proxy service wrapper
+```
 
 ## `/hooks` - Shell Integration
 
