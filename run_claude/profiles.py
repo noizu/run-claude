@@ -757,6 +757,15 @@ def get_profile_path(name: str) -> Path | None:
     return None
 
 
+def clear_caches() -> None:
+    """Clear all in-process caches for model definitions and profiles."""
+    global _model_definitions_cache, _profiles_cache, _loaded_model_files, _loaded_profile_files
+    _model_definitions_cache = None
+    _profiles_cache.clear()
+    _loaded_model_files = []
+    _loaded_profile_files = {}
+
+
 def get_loaded_files() -> dict[str, list[Path]]:
     """
     Get the paths to the loaded profiles and models files.

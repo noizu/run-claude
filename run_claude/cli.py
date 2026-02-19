@@ -39,6 +39,7 @@ def main() -> int:
     enter_p.add_argument("token", help="Directory token")
     enter_p.add_argument("profile", help="Profile name")
     enter_p.add_argument("--dir", help="Directory path (default: cwd)")
+    enter_p.add_argument("--refresh", action="store_true", help="Force reload model definitions and re-register with proxy")
 
     # leave
     leave_p = subparsers.add_parser("leave", help="Leave a shimmed directory")
@@ -106,6 +107,7 @@ def main() -> int:
     #run_p.add_argument("keyword", choices=["with"], help="Keyword 'with' to specify profile")
     run_p.add_argument("profile", help="Profile name")
     run_p.add_argument("cmd", nargs=argparse.REMAINDER, help="Command to run (default: claude)")
+    run_p.add_argument("--refresh", action="store_true", help="Force reload model definitions and re-register with proxy")
 
     # install - create user config templates and infrastructure
     install_p = subparsers.add_parser("install", help="Create user config templates for profiles and models")
@@ -166,9 +168,14 @@ def cmd_enter(args: argparse.Namespace) -> int:
     from . import state, profiles, proxy
 
     debug = getattr(args, 'debug', False)
+    refresh = getattr(args, 'refresh', False)
     token = args.token
     profile_name = args.profile
     directory = args.dir or os.getcwd()
+
+    if refresh:
+        print("[REFRESH] Clearing model/profile caches", file=sys.stderr)
+        profiles.clear_caches()
 
     # Load profile
     profile = profiles.load_profile(profile_name, debug=debug)
@@ -191,7 +198,7 @@ def cmd_enter(args: argparse.Namespace) -> int:
     elif model_defs:
         # Add any missing models via API (no restart needed)
         # Wait for recovery if proxy is not immediately healthy
-        added, skipped = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=True)
+        added, skipped = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=True, force=refresh)
         if debug and added > 0:
             print(f"Added {added} model(s) to proxy", file=sys.stderr)
 
@@ -501,7 +508,16 @@ def cmd_run(args: argparse.Namespace) -> int:
     from . import profiles, proxy
 
     debug = getattr(args, 'debug', False)
+    # argparse.REMAINDER absorbs --refresh into args.cmd; extract it manually
+    refresh = getattr(args, 'refresh', False)
+    if hasattr(args, 'cmd') and '--refresh' in args.cmd:
+        args.cmd = [a for a in args.cmd if a != '--refresh']
+        refresh = True
     profile_name = args.profile
+
+    if refresh:
+        print("[REFRESH] Clearing model/profile caches", file=sys.stderr)
+        profiles.clear_caches()
 
     profile = profiles.load_profile(profile_name, debug=debug)
     if profile is None:
@@ -539,7 +555,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         # Proxy already running, add any missing models via API
         # Wait for recovery if proxy is not immediately healthy
         if model_defs:
-            added, skipped = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=True)
+            added, skipped = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=True, force=refresh)
             if debug and added > 0:
                 print(f"Added {added} model(s) to proxy", file=sys.stderr)
 

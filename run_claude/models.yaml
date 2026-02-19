@@ -258,45 +258,60 @@ model_list:
 
   - model_name: "zai/haiku"
     litellm_params:
-      model: zai/glm-4.7
+      model: anthropic/glm-5
       api_key: os.environ/ZAI_API_KEY
-      drop_params: true
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "low"
+      extra_headers:
+        anthropic-product: claude_code
 
   - model_name: "zai/sonnet"
     litellm_params:
-      model: zai/glm-4.7
+      model: anthropic/glm-5
       api_key: os.environ/ZAI_API_KEY
-      drop_params: true
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "medium"
+      extra_headers:
+        anthropic-product: claude_code
 
   - model_name: "zai/opus"
     litellm_params:
-      model: zai/glm-4.7
+      model: anthropic/glm-5
       api_key: os.environ/ZAI_API_KEY
-      drop_params: true
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
 
   # Alias for zai/opus - high quality
   - model_name: "ultra"
     litellm_params:
-      model: zai/glm-4.7
+      model: anthropic/glm-5
       api_key: os.environ/ZAI_API_KEY
-      drop_params: true
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
 
   # Alias for zai/opus - cheap option
   - model_name: "cheap"
     litellm_params:
-      model: zai/glm-4.7
+      model: anthropic/glm-5
       api_key: os.environ/ZAI_API_KEY
-      drop_params: true
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
 
 
 

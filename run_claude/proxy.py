@@ -677,6 +677,18 @@ def get_model_ids() -> set[str]:
     return ids
 
 
+def _get_existing_model_map() -> dict[str, str]:
+    """Get map of model_name → model_info.id for all registered models."""
+    models = list_models()
+    result = {}
+    for m in models:
+        name = m.get("model_name")
+        uid = m.get("model_info", {}).get("id")
+        if name and uid:
+            result[name] = uid
+    return result
+
+
 def add_model(model_def: dict[str, Any], debug: bool = False) -> bool:
     """
     Add a model to the proxy.
@@ -872,7 +884,12 @@ def wipe_all_models(debug: bool = False) -> tuple[int, int]:
     return (deleted, failed)
 
 
-def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_for_recovery: bool = False) -> tuple[int, int]:
+def ensure_models(
+    model_defs: list[dict[str, Any]],
+    debug: bool = False,
+    wait_for_recovery: bool = False,
+    force: bool = False,
+) -> tuple[int, int]:
     """
     Ensure models are registered with proxy.
 
@@ -880,11 +897,12 @@ def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_fo
         model_defs: List of model definitions
         debug: If True, print debug info for each model
         wait_for_recovery: If True, wait for proxy to recover before returning
+        force: If True, delete and re-add models that are already registered
 
     Returns:
         Tuple of (added_count, skipped_count)
     """
-    print(f"[ENSURE_MODELS] Processing {len(model_defs)} model(s)", file=sys.stderr)
+    print(f"[ENSURE_MODELS] Processing {len(model_defs)} model(s) (force={force})", file=sys.stderr)
 
     # Log all model definitions in YAML format
     if model_defs and yaml is not None:
@@ -897,7 +915,13 @@ def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_fo
     if wait_for_recovery:
         health_check(wait_for_recovery=True, max_retries=HEALTH_CHECK_RETRIES)
 
-    existing = get_model_ids()
+    if force:
+        existing_map = _get_existing_model_map()
+        existing = set(existing_map.keys())
+    else:
+        existing = get_model_ids()
+        existing_map = {}
+
     if existing:
         print(f"[INFO] {len(existing)} model(s) already registered", file=sys.stderr)
 
@@ -908,9 +932,16 @@ def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_fo
     for model_def in model_defs:
         model_name = model_def.get("model_name", "")
         if model_name in existing:
-            print(f"[SKIP] Model '{model_name}' already registered", file=sys.stderr)
-            skipped += 1
-            continue
+            if force:
+                uid = existing_map.get(model_name)
+                if uid:
+                    print(f"[REFRESH] Deleting existing model '{model_name}' (id={uid})", file=sys.stderr)
+                    delete_model(uid)
+                # Fall through to re-add below
+            else:
+                print(f"[SKIP] Model '{model_name}' already registered", file=sys.stderr)
+                skipped += 1
+                continue
 
         if add_model(model_def, debug=debug):
             added += 1
@@ -967,45 +998,26 @@ def test_db_connection(debug: bool = False) -> bool:
         return False
 
     # Parse connection string
-    # Format: postgresql://user:password@host:port/database
+    # Format: postgresql://user:password@host:port/database[?options]
     try:
-        # Simple parser for postgresql URLs
-        if not db_url.startswith("postgresql://"):
+        from urllib.parse import urlparse
+
+        parsed = urlparse(db_url)
+        if parsed.scheme not in ("postgresql", "postgres"):
             if debug:
                 print(f"Invalid database URL format: {db_url}", file=sys.stderr)
             return False
 
-        # Remove scheme
-        conn_str = db_url.replace("postgresql://", "")
-
-        # Split credentials and host info
-        if "@" not in conn_str:
-            if debug:
-                print("Invalid database URL: missing host", file=sys.stderr)
-            return False
-
-        creds, host_info = conn_str.split("@", 1)
-        user, password = creds.split(":", 1) if ":" in creds else (creds, "")
-
-        # Split host and port/database
-        if "/" in host_info:
-            host_port, database = host_info.split("/", 1)
-        else:
-            host_port = host_info
-            database = "postgres"
-
-        # Split host and port
-        if ":" in host_port:
-            host, port = host_port.split(":", 1)
-            port = int(port)
-        else:
-            host = host_port
-            port = 5432
-
+        host = parsed.hostname or "localhost"
+        port = parsed.port or 5432
+        user = parsed.username or "postgres"
         # Expand environment variables in password
+        password = parsed.password or ""
         if password.startswith("${") and password.endswith("}"):
             env_var = password[2:-1]
             password = os.environ.get(env_var, "")
+        # lstrip('/') handles the leading slash urlparse leaves on the path
+        database = (parsed.path or "/postgres").lstrip("/") or "postgres"
 
         if debug:
             print(f"Testing database connection to {host}:{port}/{database}...", file=sys.stderr)

@@ -35,7 +35,7 @@ ENV STORE_MODEL_IN_DB="True"
 ENV USE_PRISMA_MIGRATE="True"
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
-    CMD curl -sf http://localhost:4444/health || exit 1
+    CMD curl -sf -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" http://localhost:4444/health || exit 1
 
 EXPOSE 4444
 
