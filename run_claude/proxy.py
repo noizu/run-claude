@@ -479,6 +479,13 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
             print("Installing infrastructure...", file=sys.stderr)
         install_infrastructure(debug=debug)
 
+    # Ensure database is running (unless explicitly skipped)
+    if not no_db and not is_db_container_running():
+        print("Starting database container...", file=sys.stderr)
+        if not start_db_container(wait=True, debug=debug):
+            print("Error: Failed to start database container", file=sys.stderr)
+            return False
+
     # Generate litellm_config.yaml to config dir (skip if already present)
     config_file = get_config_file()
     if not config_file.exists() or empty_config:
@@ -493,8 +500,7 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
     cmd = _compose_cmd(services_dir, env_file)
 
     # Build image if needed
-    if debug:
-        print("Building LiteLLM image...", file=sys.stderr)
+    print("Building LiteLLM image...", file=sys.stderr)
     try:
         result = subprocess.run(
             cmd + ["build", "--quiet", "litellm"],
@@ -502,17 +508,17 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
             text=True,
             timeout=300,
         )
-        if result.returncode != 0 and debug:
+        if result.returncode != 0:
             print(f"Build warning: {result.stderr}", file=sys.stderr)
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
         print(f"Error building image: {e}", file=sys.stderr)
         return False
 
-    # Start services
-    services = ["litellm"] if no_db else []  # empty = all services
+    # Start litellm service (DB is managed explicitly above or skipped via --no-db)
+    print("Starting LiteLLM container...", file=sys.stderr)
     try:
         result = subprocess.run(
-            cmd + ["up", "-d"] + services,
+            cmd + ["up", "-d", "litellm"],
             capture_output=True,
             text=True,
             timeout=120,
