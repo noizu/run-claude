@@ -103,6 +103,11 @@ model_list:
   # reasoning_effort must be in additional_drop_params for models that
   # don't support it, because the Anthropic adapter converts
   # thinking → reasoning_effort before drop_params takes effect.
+  #
+  # Cerebras is highly flaky — very generous timeouts and retries.
+  # timeout/stream_timeout: 600s (max tolerance for slow/hung responses)
+  # num_retries: 10 (aggressive retries on transient 5xx / timeout errors)
+  # allowed_fails: 10, cooldown_time: 5 (very short cooldown, recover ASAP)
 
   # gpt-oss-120b
   - model_name: "cerebras/gpt-oss-120b"
@@ -111,6 +116,11 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   - model_name: "cerebras/gpt-oss-120b:instant"
     litellm_params:
@@ -118,6 +128,11 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   - model_name: "cerebras/gpt-oss-120b:thinking"
     litellm_params:
@@ -126,6 +141,11 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "low"
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   - model_name: "cerebras/gpt-oss-120b:thinking-medium"
     litellm_params:
@@ -134,6 +154,11 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "medium"
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   - model_name: "cerebras/gpt-oss-120b:thinking-high"
     litellm_params:
@@ -142,6 +167,11 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "high"
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   # llama-3.3-70b
   - model_name: "cerebras/llama-3.3-70b"
@@ -150,6 +180,11 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   # llama3.1-8b
   - model_name: "cerebras/llama3.1-8b"
@@ -158,6 +193,11 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   # qwen-3-235b-a22b-instruct-2507
   - model_name: "cerebras/qwen-3-235b-a22b-instruct-2507"
@@ -166,6 +206,11 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   # qwen-3-32b
   - model_name: "cerebras/qwen-3-32b"
@@ -174,6 +219,11 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   # zai-glm-4.7
   - model_name: "cerebras/zai-glm-4.7"
@@ -182,6 +232,11 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   - model_name: "cerebras/zai-glm-4.7:instant"
     litellm_params:
@@ -189,6 +244,11 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   - model_name: "cerebras/zai-glm-4.7:thinking"
     litellm_params:
@@ -197,6 +257,11 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "low"
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   - model_name: "cerebras/zai-glm-4.7:thinking-medium"
     litellm_params:
@@ -205,6 +270,11 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "medium"
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   - model_name: "cerebras/zai-glm-4.7:thinking-high"
     litellm_params:
@@ -213,6 +283,11 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "high"
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   # cerebras/pro - alias for zai-glm-4.7 with subscription key
   - model_name: "cerebras_pro"
@@ -221,6 +296,11 @@ model_list:
       api_key: os.environ/CEREBRAS_SUB_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   - model_name: "cerebras_pro_instant"
     litellm_params:
@@ -228,6 +308,11 @@ model_list:
       api_key: os.environ/CEREBRAS_SUB_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
 # Named
 
@@ -238,6 +323,11 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
       temperature: 0.5
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   - model_name: "cerebras-pro/sonnet"
     litellm_params:
@@ -245,6 +335,11 @@ model_list:
       api_key: os.environ/CEREBRAS_SUB_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
   - model_name: "cerebras-pro/opus"
     litellm_params:
@@ -252,6 +347,11 @@ model_list:
       api_key: os.environ/CEREBRAS_SUB_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
 
 # Zai - Named
 
