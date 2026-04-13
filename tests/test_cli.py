@@ -63,18 +63,18 @@ class TestEnvCommand:
         assert "ANTHROPIC_DEFAULT_SONNET_MODEL=" in output
         assert "ANTHROPIC_DEFAULT_HAIKU_MODEL=" in output
 
-    def test_env_cerebras_sub_profile_uses_pro_models(self, capsys):
-        """cerebras-sub profile should map to cerebras/pro model variants."""
-        with patch("sys.argv", ["run-claude", "env", "cerebras-sub"]):
+    def test_env_cerebras_pro_profile_uses_pro_models(self, capsys):
+        """cerebras-pro profile should map to cerebras-pro model variants."""
+        with patch("sys.argv", ["run-claude", "env", "cerebras-pro"]):
             result = main()
         assert result == 0
         captured = capsys.readouterr()
         output = captured.out
 
-        # cerebras-sub uses cerebras/pro with thinking tiers
-        assert "ANTHROPIC_DEFAULT_OPUS_MODEL=cerebras/pro:thinking-high" in output
-        assert "ANTHROPIC_DEFAULT_SONNET_MODEL=cerebras/pro:thinking-medium" in output
-        assert "ANTHROPIC_DEFAULT_HAIKU_MODEL=cerebras/pro:instant" in output
+        # cerebras-pro uses cerebras-pro/ model tiers
+        assert "ANTHROPIC_DEFAULT_OPUS_MODEL=cerebras-pro/opus" in output
+        assert "ANTHROPIC_DEFAULT_SONNET_MODEL=cerebras-pro/sonnet" in output
+        assert "ANTHROPIC_DEFAULT_HAIKU_MODEL=cerebras-pro/haiku" in output
 
     def test_env_export_flag_adds_export_prefix(self, capsys):
         """env --export should prefix lines with 'export'."""

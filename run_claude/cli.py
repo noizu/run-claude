@@ -944,7 +944,7 @@ def cmd_install(args: argparse.Namespace) -> int:
 
     # Install hooks.yaml template
     hooks_dst = config_dir / "hooks.yaml"
-    hooks_src = Path(__file__).parent / "hooks.yaml"
+    hooks_src = profiles.get_builtin_dir() / "hooks.yaml"
     if (not hooks_dst.exists() or args.force) and hooks_src.exists():
         import shutil
         shutil.copy2(hooks_src, hooks_dst)

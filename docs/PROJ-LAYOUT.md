@@ -17,6 +17,7 @@ run-claude/
 ├── playground/              # Test directories for profile switching
 ├── run_claude/              # Main Python package → [layout/run-claude-package.md](layout/run-claude-package.md)
 │   ├── callbacks/           #   Provider compatibility (runs in proxy venv)
+│   ├── defaults/            #   Built-in config files (models, profiles, hooks)
 │   └── hooks/               #   Lifecycle hook system (chain, loader, builtins)
 ├── scripts/                 # Utility scripts
 ├── templates/               # direnv templates (envrc.tmpl, envrc.user.tmpl)
@@ -27,7 +28,6 @@ run-claude/
 ├── .tool-versions           # asdf version manager config
 ├── CLAUDE.md                # Claude Code project instructions
 ├── Makefile                 # Build automation (test, install, refresh)
-├── profiles.yaml            # Built-in profile definitions
 ├── pyproject.toml           # Python project config (hatchling)
 ├── uv.lock                  # Dependency lockfile
 ├── README.md                # User guide

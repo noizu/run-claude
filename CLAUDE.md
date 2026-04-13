@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **run-claude** is an agent shim controller that provides directory-aware model routing via a LiteLLM proxy. When you `cd` into a directory that declares a profile, the required models are added to a running LiteLLM proxy and environment variables are set so Claude Code (or other tools) route through it.
 
 **Two-layer configuration:**
-1. **Model Definitions** (`models.yaml`) — standalone LiteLLM model configs
-2. **Profiles** (`profiles.yaml`) — lightweight references to model definitions mapping opus/sonnet/haiku tiers
+1. **Model Definitions** (`defaults/models.yaml`) — standalone LiteLLM model configs
+2. **Profiles** (`defaults/profiles.yaml`) — lightweight references to model definitions mapping opus/sonnet/haiku tiers
 
 For detailed architecture with data flow diagrams, see `docs/PROJ-ARCH.md`.
 For full project layout, see `docs/PROJ-LAYOUT.md`.
@@ -47,7 +47,10 @@ run_claude/
 ├── state.py         # JSON state persistence: tokens, refcounts, leases, janitor
 ├── proxy.py         # LiteLLM proxy lifecycle: start/stop, health, model API calls
 ├── profiles.py      # Profile/model loading & resolution from YAML
-├── models.yaml      # Built-in model definitions (LiteLLM configs)
+├── defaults/
+│   ├── models.yaml  # Built-in model definitions (LiteLLM configs)
+│   ├── profiles.yaml# Built-in profile definitions
+│   └── hooks.yaml   # Built-in hook definitions
 ├── callbacks/
 │   └── provider_compat.py  # Custom LiteLLM callback: strips unsupported fields
 │                            # for strict providers (Groq, Cerebras, Together, Anyscale)
@@ -99,7 +102,7 @@ run_claude/
 
 - Entry point: `run_claude.cli:main` (registered as `run-claude` console script)
 - Lazy imports in `proxy.py` (`httpx`, `yaml`) with fallback to `None` for build-time safety
-- `profiles.yaml` and `templates/` are force-included in the wheel via hatch config
+- `defaults/` (containing `profiles.yaml`, `models.yaml`, `hooks.yaml`) and `templates/` are force-included in the wheel via hatch config
 - `callbacks/provider_compat.py` runs inside the LiteLLM proxy process (separate venv at `~/.local/share/litellm/.venv`), not the main run-claude process
 - First-run initialization: `ensure_initialized()` checks `~/.config/run-claude/.initialized` marker, copies built-in profiles/models to user config if missing
 

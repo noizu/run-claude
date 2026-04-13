@@ -53,7 +53,7 @@ _USER_MODELS_TEMPLATE = """\
 # User model definitions for run-claude
 #
 # Models defined here override built-in models with the same name.
-# Built-in models are in: <install>/run_claude/models.yaml
+# Built-in models are in: <install>/run_claude/defaults/models.yaml
 #
 # Format:
 # model_list:
@@ -82,7 +82,7 @@ _USER_PROFILES_TEMPLATE = """\
 # User profiles for run-claude
 #
 # Profiles defined here override built-in profiles with the same name.
-# Built-in profiles are in: <install>/profiles.yaml
+# Built-in profiles are in: <install>/run_claude/defaults/profiles.yaml
 #
 # Profile search order (first match wins):
 # 1. ~/.config/run-claude/user.profiles.yaml  (highest priority overrides)
@@ -134,7 +134,7 @@ def _do_first_run_init(config_dir: Path, marker: Path) -> None:
 
     # Create hooks.yaml from built-in template
     hooks_dst = config_dir / "hooks.yaml"
-    hooks_src = Path(__file__).parent / "hooks.yaml"
+    hooks_src = get_builtin_dir() / "hooks.yaml"
     if not hooks_dst.exists() and hooks_src.exists():
         import shutil
         shutil.copy2(hooks_src, hooks_dst)
@@ -158,13 +158,8 @@ def get_config_dir() -> Path:
 
 
 def get_builtin_dir() -> Path:
-    """Get built-in directory (shipped with tool)."""
-    pkg_dir = Path(__file__).parent
-    # When running from source, profiles.yaml is in parent directory
-    if (pkg_dir.parent / "profiles.yaml").exists():
-        return pkg_dir.parent
-    # When installed via pip, profiles.yaml is inside the package
-    return pkg_dir
+    """Get built-in defaults directory (shipped with tool)."""
+    return Path(__file__).parent / "defaults"
 
 
 def get_user_profiles_file() -> Path:
@@ -235,7 +230,7 @@ def _get_profiles_files(debug: bool = False) -> list[Path]:
 
 def get_builtin_models_file() -> Path:
     """Get built-in models definitions file (shipped with tool)."""
-    return Path(__file__).parent / "models.yaml"
+    return get_builtin_dir() / "models.yaml"
 
 
 def get_user_models_file() -> Path:

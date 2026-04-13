@@ -10,7 +10,7 @@ graph TD
     CLI --> |state operations| STATE
     CLI --> |start/stop| PROXY
 
-    PROFILES[Profiles Management<br/><i>profiles.py</i>] --> YAML[<i>YAML Files</i><br/>profiles.yaml<br/>models.yaml]
+    PROFILES[Profiles Management<br/><i>profiles.py</i>] --> YAML[<i>YAML Files</i><br/>defaults/profiles.yaml<br/>defaults/models.yaml]
     STATE[State Management<br/><i>state.py</i>] --> STATEFILE[<i>state.json</i>]
     PROXY[Proxy Management<br/><i>proxy.py</i>] --> HOOKS[Hook System<br/><i>hooks/</i>]
     HOOKS --> COMPAT[Provider Compat<br/><i>callbacks/provider_compat.py</i>]
@@ -65,8 +65,8 @@ Multi-file configuration with fallthrough. File search order (first match wins):
 
 1. `~/.config/run-claude/user.profiles.yaml` (highest priority)
 2. `~/.config/run-claude/profiles.yaml`
-3. `<package>/user.profiles.yaml`
-4. `<package>/profiles.yaml` (lowest priority)
+3. `<package>/defaults/user.profiles.yaml`
+4. `<package>/defaults/profiles.yaml` (lowest priority)
 
 Key data structures: `ModelDef` (model name + litellm params), `ProfileMeta` (name + opus/sonnet/haiku model refs), `Profile` (meta + resolved model list).
 
