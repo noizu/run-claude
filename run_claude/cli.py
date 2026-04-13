@@ -20,12 +20,9 @@ def main() -> int:
     from . import profiles, config
     profiles.ensure_initialized()
 
-    # Load .env into os.environ BEFORE anything else that might need env vars
+    # Load secrets and .env into os.environ (unified credential chain)
     debug = "--debug" in sys.argv or "-d" in sys.argv
-    config.load_env_file(debug=debug)
-
-    # Ensure secrets template exists (passwords auto-generated)
-    config.ensure_secrets_template(debug=debug)
+    config.ensure_secrets_and_env(debug=debug)
 
     parser = argparse.ArgumentParser(
         prog="run-claude",
@@ -125,6 +122,10 @@ def main() -> int:
     secrets_sub.add_parser("path", help="Show secrets file path")
     secrets_sub.add_parser("export", help="Export secrets to .env file for docker compose")
 
+    # setup - interactive setup wizard
+    setup_p = subparsers.add_parser("setup", help="Interactive setup wizard for API keys and credentials")
+    setup_p.add_argument("--reconfigure", "-r", action="store_true", help="Reconfigure existing setup")
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -158,6 +159,8 @@ def main() -> int:
         return cmd_install(args)
     elif args.command == "secrets":
         return cmd_secrets(args)
+    elif args.command == "setup":
+        return cmd_setup(args)
     else:
         parser.print_help()
         return 1
@@ -1041,6 +1044,21 @@ def cmd_secrets(args: argparse.Namespace) -> int:
 
     else:
         print("Usage: run-claude secrets {init|path|export}")
+        return 1
+
+
+def cmd_setup(args: argparse.Namespace) -> int:
+    """Handle setup command — interactive wizard."""
+    from . import config
+
+    debug = getattr(args, 'debug', False)
+    reconfigure = getattr(args, 'reconfigure', False)
+
+    try:
+        config.run_setup_wizard(reconfigure=reconfigure, debug=debug)
+        return 0
+    except (KeyboardInterrupt, EOFError):
+        print("\n\n  Setup cancelled.\n")
         return 1
 
 

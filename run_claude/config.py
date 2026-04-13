@@ -7,6 +7,7 @@ Supports both environment variables and dictionary access patterns.
 
 from __future__ import annotations
 
+import getpass
 import os
 import secrets
 import sys
@@ -266,8 +267,9 @@ def create_secrets_template(generate_passwords: bool = True, expand_vars: bool =
 # - Restrict file permissions to owner only
 # - Keep backups in secure location
 #
-# After editing, run: run-claude secrets export
-# This generates the .env file used by Docker Compose and the CLI.
+# Quick setup: run `run-claude setup` for an interactive wizard.
+# Manual edit: after editing this file, run `run-claude secrets export`
+# to generate the .env file used by Docker Compose.
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # REQUIRED: Set your API key
@@ -298,12 +300,44 @@ LITELLM_MASTER_KEY: "{master_key}"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # OPTIONAL PROVIDER KEYS
+# Uncomment and fill in keys for providers you want to use.
+# See available profiles with: run-claude profiles list
+# Tip: run `run-claude setup` for an interactive wizard.
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+# OpenAI — https://platform.openai.com/api-keys
 # OPENAI_API_KEY: ""
+
+# Google Gemini — https://aistudio.google.com/apikey
+# GEMINI_API_KEY: ""
+
+# Cerebras — https://cloud.cerebras.ai/
 # CEREBRAS_API_KEY: ""
+# CEREBRAS_SUB_KEY: ""
+
+# Z.AI
+# ZAI_API_KEY: ""
+# ZAI_SUB_KEY: ""
+
+# Groq — https://console.groq.com/keys
 # GROQ_API_KEY: ""
-# TOGETHER_API_KEY: ""
+
+# xAI Grok — https://console.x.ai/
+# GROK_API_KEY: ""
+
+# DeepSeek — https://platform.deepseek.com/api-keys
+# DEEPSEEK_API_KEY: ""
+
+# Mistral — https://console.mistral.ai/api-keys/
+# MISTRAL_API_KEY: ""
+
+# Perplexity — https://www.perplexity.ai/settings/api
+# PERPLEXITY_API_KEY: ""
+
+# Azure OpenAI — https://portal.azure.com/
+# AZURE_OPENAI_API_KEY: ""
+# AZURE_OPENAI_ENDPOINT: ""
+# AZURE_OPENAI_API_VERSION: "2024-02-15-preview"
 """
     return template
 
@@ -349,7 +383,7 @@ def ensure_secrets_template(force: bool = False, generate_passwords: bool = True
 
     print(f"Created secrets template: {secrets_file}", file=sys.stderr)
     print(f"Secure passwords generated automatically.", file=sys.stderr)
-    print(f"Please edit {secrets_file} and add your ANTHROPIC_API_KEY", file=sys.stderr)
+    print(f"Run `run-claude setup` to configure API keys interactively.", file=sys.stderr)
 
     return secrets_file
 
@@ -408,3 +442,353 @@ def export_env_file(debug: bool = False) -> Path:
     except Exception as e:
         print(f"Error exporting secrets: {e}", file=sys.stderr)
         raise
+
+
+# ---------------------------------------------------------------------------
+# Provider registry — shared by setup wizard and secrets template
+# ---------------------------------------------------------------------------
+
+PROVIDERS: list[dict[str, Any]] = [
+    {"key": "ANTHROPIC_API_KEY", "name": "Anthropic", "url": "https://console.anthropic.com/api_keys", "required": True},
+    {"key": "OPENAI_API_KEY", "name": "OpenAI", "url": "https://platform.openai.com/api-keys"},
+    {"key": "GEMINI_API_KEY", "name": "Google Gemini", "url": "https://aistudio.google.com/apikey"},
+    {"key": "CEREBRAS_API_KEY", "name": "Cerebras", "url": "https://cloud.cerebras.ai/"},
+    {"key": "CEREBRAS_SUB_KEY", "name": "Cerebras Pro (subscription)", "url": "https://cloud.cerebras.ai/"},
+    {"key": "ZAI_API_KEY", "name": "Z.AI", "url": ""},
+    {"key": "ZAI_SUB_KEY", "name": "Z.AI Pro (subscription)", "url": ""},
+    {"key": "GROQ_API_KEY", "name": "Groq", "url": "https://console.groq.com/keys"},
+    {"key": "GROK_API_KEY", "name": "xAI Grok", "url": "https://console.x.ai/"},
+    {"key": "DEEPSEEK_API_KEY", "name": "DeepSeek", "url": "https://platform.deepseek.com/api-keys"},
+    {"key": "MISTRAL_API_KEY", "name": "Mistral", "url": "https://console.mistral.ai/api-keys/"},
+    {"key": "PERPLEXITY_API_KEY", "name": "Perplexity", "url": "https://www.perplexity.ai/settings/api"},
+]
+
+# Placeholder values that indicate unconfigured keys
+_PLACEHOLDER_VALUES = {"sk-your-key-here", "", "your-key-here"}
+
+
+def _is_placeholder(value: str | None) -> bool:
+    """Check if a secret value is a placeholder (not actually configured)."""
+    return value is None or value.strip() in _PLACEHOLDER_VALUES
+
+
+# ---------------------------------------------------------------------------
+# Phase 1: Fix credential loading chain
+# ---------------------------------------------------------------------------
+
+def load_secrets_into_env(debug: bool = False) -> dict[str, str]:
+    """Load .secrets YAML directly into os.environ.
+
+    This is the core fix for the broken credential chain: secrets go
+    directly into the process environment without requiring the .env
+    intermediary.
+
+    Does NOT override existing environment variables.
+
+    Returns dict of loaded key-value pairs.
+    """
+    secrets_file = get_secrets_file()
+    if not secrets_file.exists():
+        if debug:
+            print(f"DEBUG: .secrets not found, skipping env load", file=sys.stderr)
+        return {}
+
+    try:
+        cfg = load_secrets(debug=debug)
+        env_vars = cfg.to_env()
+
+        loaded = {}
+        for key, value in env_vars.items():
+            if key not in os.environ:
+                os.environ[key] = value
+                loaded[key] = value
+
+        # Also derive DATABASE_URL if we have the password
+        db_password = env_vars.get("RUN_CLAUDE_TIMESCALEDB_PASSWORD", "")
+        if db_password and not _is_placeholder(db_password):
+            db_url = construct_database_url(db_password)
+            for derived_key in ("LITELLM_DATABASE_URL", "DATABASE_URL"):
+                if derived_key not in os.environ:
+                    os.environ[derived_key] = db_url
+                    loaded[derived_key] = db_url
+
+        if debug:
+            print(f"DEBUG: Loaded {len(loaded)} secrets into env", file=sys.stderr)
+
+        return loaded
+
+    except Exception as e:
+        if debug:
+            print(f"DEBUG: Error loading secrets into env: {e}", file=sys.stderr)
+        return {}
+
+
+def _auto_export_env_if_stale(debug: bool = False) -> bool:
+    """Auto-export .env from .secrets if stale or missing.
+
+    Keeps the .env file in sync for Docker Compose without requiring
+    manual `run-claude secrets export`.
+
+    Returns True if export happened.
+    """
+    secrets_file = get_secrets_file()
+    env_file = get_env_file()
+
+    if not secrets_file.exists():
+        return False
+
+    needs_export = False
+    if not env_file.exists():
+        needs_export = True
+    else:
+        try:
+            if secrets_file.stat().st_mtime > env_file.stat().st_mtime:
+                needs_export = True
+        except OSError:
+            needs_export = True
+
+    if needs_export:
+        try:
+            export_env_file(debug=debug)
+            if debug:
+                print(f"DEBUG: Auto-exported .env (secrets were newer)", file=sys.stderr)
+            return True
+        except Exception as e:
+            if debug:
+                print(f"DEBUG: Auto-export failed: {e}", file=sys.stderr)
+            return False
+
+    return False
+
+
+def ensure_secrets_and_env(debug: bool = False) -> None:
+    """Unified startup orchestrator for credentials.
+
+    Replaces the fragmented init sequence in main(). Correct order:
+    1. Ensure .secrets template exists (so file is there before load)
+    2. Load .secrets directly into os.environ
+    3. Auto-export .env if stale (for Docker Compose)
+    4. Load .env for any additional vars (backward compat)
+    """
+    # 1. Create .secrets if missing (first run)
+    ensure_secrets_template(debug=debug)
+
+    # 2. Load secrets into process environment
+    load_secrets_into_env(debug=debug)
+
+    # 3. Keep .env in sync for Docker Compose
+    _auto_export_env_if_stale(debug=debug)
+
+    # 4. Pick up any .env-only vars (backward compat)
+    load_env_file(debug=debug)
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: Interactive setup wizard
+# ---------------------------------------------------------------------------
+
+def _mask_key(value: str) -> str:
+    """Mask an API key for display, showing first 8 and last 4 chars."""
+    if len(value) > 12:
+        return value[:8] + "..." + value[-4:]
+    return "****"
+
+
+def _provider_status(key: str, secrets: dict[str, str]) -> str:
+    """Return status string for a provider key."""
+    config_val = secrets.get(key)
+    env_val = os.environ.get(key)
+    has_config = not _is_placeholder(config_val)
+    has_env = env_val is not None and not _is_placeholder(env_val)
+
+    if has_config:
+        return f"configured ({_mask_key(config_val)})"  # type: ignore[arg-type]
+    elif has_env:
+        return f"in env ({_mask_key(env_val)})"  # type: ignore[arg-type]
+    else:
+        return "not set"
+
+
+def _print_provider_menu(secrets: dict[str, str]) -> None:
+    """Print the numbered provider menu with status indicators."""
+    print(f"\n  {'#':<4} {'Provider':<28} {'Status'}")
+    print(f"  {'─' * 4} {'─' * 28} {'─' * 24}")
+    for i, provider in enumerate(PROVIDERS, 1):
+        key = provider["key"]
+        name = provider["name"]
+        required = " *" if provider.get("required") else ""
+        status = _provider_status(key, secrets)
+
+        # Color-code status
+        if status.startswith("configured"):
+            marker = "+"
+        elif status.startswith("in env"):
+            marker = "~"
+        else:
+            marker = " "
+
+        print(f"  {i:<4} {marker} {name + required:<26} {status}")
+
+    print(f"\n  * = recommended    + = configured    ~ = found in environment")
+    print(f"  Enter number to configure, 'done' to save and exit, 'q' to quit without saving")
+
+
+def run_setup_wizard(reconfigure: bool = False, debug: bool = False) -> Path:
+    """Interactive menu-driven setup wizard for API keys and credentials.
+
+    Shows a numbered list of providers with their current status.
+    User picks a number to configure, enters the key, returns to the menu.
+    Type 'done' to save, 'q' to quit without saving.
+
+    Args:
+        reconfigure: If True, allow editing existing configuration
+        debug: Enable debug output
+
+    Returns path to the written .secrets file.
+    """
+    secrets_file = get_secrets_file()
+    current_secrets: dict[str, str] = {}
+
+    # Load existing secrets
+    if secrets_file.exists():
+        try:
+            cfg = load_secrets(debug=debug)
+            current_secrets = cfg.to_env()
+        except Exception:
+            pass
+
+    # Banner
+    print(f"\n{'=' * 60}")
+    print(f"  run-claude Setup Wizard")
+    print(f"{'=' * 60}")
+
+    # Menu loop
+    while True:
+        _print_provider_menu(current_secrets)
+
+        try:
+            choice = input("\n  > ").strip().lower()
+        except EOFError:
+            choice = "q"
+
+        if choice in ("q", "quit"):
+            print("\n  Quit without saving.\n")
+            return secrets_file
+
+        if choice in ("done", "d", ""):
+            break
+
+        # Parse number
+        try:
+            idx = int(choice) - 1
+            if idx < 0 or idx >= len(PROVIDERS):
+                print(f"  Invalid number. Enter 1-{len(PROVIDERS)}.")
+                continue
+        except ValueError:
+            print(f"  Enter a number (1-{len(PROVIDERS)}), 'done', or 'q'.")
+            continue
+
+        provider = PROVIDERS[idx]
+        key = provider["key"]
+        name = provider["name"]
+        url = provider.get("url", "")
+
+        print(f"\n  ── {name} ──")
+        if url:
+            print(f"  Get key from: {url}")
+
+        # Show current sources
+        config_val = current_secrets.get(key)
+        env_val = os.environ.get(key)
+        has_config = not _is_placeholder(config_val)
+        has_env = env_val is not None and not _is_placeholder(env_val)
+
+        if has_env and not has_config:
+            masked = _mask_key(env_val)  # type: ignore[arg-type]
+            try:
+                answer = input(f"  Found in environment ({masked}). Use it? [Y/n/enter manually]: ").strip().lower()
+            except EOFError:
+                answer = ""
+            if answer in ("", "y", "yes"):
+                current_secrets[key] = env_val  # type: ignore[assignment]
+                print(f"  Saved from environment.")
+                continue
+            elif answer in ("n", "no"):
+                # Remove the key if user explicitly declines
+                current_secrets.pop(key, None)
+                print(f"  Cleared.")
+                continue
+            # else: fall through to manual entry
+
+        if has_config:
+            masked = _mask_key(config_val)  # type: ignore[arg-type]
+            print(f"  Currently: {masked}")
+            print(f"  Enter new key, press Enter to keep, or 'clear' to remove.")
+
+        value = getpass.getpass(f"  API key: ")
+
+        if value.strip().lower() == "clear":
+            current_secrets.pop(key, None)
+            print(f"  Cleared {name}.")
+        elif value:
+            current_secrets[key] = value
+            print(f"  Saved {name}.")
+        elif has_config:
+            print(f"  Kept existing value.")
+        else:
+            print(f"  Skipped.")
+
+    # Auto-generate infrastructure secrets (preserve existing)
+    for infra_key, generator in [
+        ("RUN_CLAUDE_TIMESCALEDB_PASSWORD", generate_random_password),
+        ("LITELLM_MASTER_KEY", generate_master_key),
+    ]:
+        if not current_secrets.get(infra_key) or _is_placeholder(current_secrets.get(infra_key)):
+            current_secrets[infra_key] = generator()
+
+    # Write .secrets YAML
+    _require_yaml()
+    secrets_file.parent.mkdir(parents=True, exist_ok=True)
+
+    lines = [
+        "# run-claude Secrets Configuration",
+        "# Generated by: run-claude setup",
+        f"# Location: {secrets_file}",
+        "# Permissions: chmod 600 (owner read/write only)",
+        "",
+    ]
+    for k, v in current_secrets.items():
+        lines.append(f'{k}: "{v}"')
+
+    secrets_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    try:
+        secrets_file.chmod(0o600)
+    except OSError:
+        pass
+
+    # Export .env and load into current process
+    try:
+        export_env_file(debug=debug)
+    except Exception:
+        pass
+    load_secrets_into_env(debug=debug)
+
+    # Summary
+    configured = [p["name"] for p in PROVIDERS if not _is_placeholder(current_secrets.get(p["key"]))]
+    not_set = [p["name"] for p in PROVIDERS if _is_placeholder(current_secrets.get(p["key"]))]
+
+    print(f"\n{'─' * 60}")
+    print(f"  Setup complete!")
+    print(f"{'─' * 60}")
+    if configured:
+        print(f"\n  Configured: {', '.join(configured)}")
+    if not_set:
+        print(f"  Not set:    {', '.join(not_set)}")
+    print(f"\n  Secrets:    {secrets_file}")
+    print(f"  Env file:   {get_env_file()}")
+    print(f"\n  Next steps:")
+    print(f"    run-claude proxy start    # Start the LiteLLM proxy")
+    print(f"    run-claude status         # Check current state")
+    print(f"    run-claude setup          # Reconfigure later\n")
+
+    return secrets_file

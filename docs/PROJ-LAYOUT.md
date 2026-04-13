@@ -1,30 +1,34 @@
 # Project Layout
 
-This document describes the folder structure and file organization of the run-claude project.
+Navigable map of the run-claude project structure.
 
-## Overview
-
-**run-claude** is an agent shim controller that enables directory-aware model routing via LiteLLM proxy. It turns folder context into live inference overrides, allowing users to switch between different AI model providers based on their current directory.
-
-## Root Level
+## Root
 
 ```
-/github/infra/run-claude/
-├── docs/                    # Documentation → See below
-├── dep/                     # Infrastructure dependencies (Docker)
-├── dist/                    # Build output directory
-├── hooks/                   # Shell integration hooks
-├── playground/              # Test directories for validation
-├── run_claude/              # Main Python package → See below
-├── scripts/                 # Utility scripts → See below
-├── templates/               # Template files for direnv
-├── tests/                   # Test suite
+run-claude/
+├── .claude/                 # Claude Code config (agents, commands, settings)
+├── docs/                    # Documentation → [layout/docs.md](layout/docs.md)
+│   ├── arch/                #   Extracted architecture details
+│   ├── layout/              #   Extracted layout details
+│   ├── PRDs/                #   Product requirement documents (19 files)
+│   └── claude/              #   Claude AI tool specifications
+├── dep/                     # Infrastructure (Docker) → See below
+├── hooks/                   # Shell integration hooks → See below
+├── playground/              # Test directories for profile switching
+├── run_claude/              # Main Python package → [layout/run-claude-package.md](layout/run-claude-package.md)
+│   ├── callbacks/           #   Provider compatibility (runs in proxy venv)
+│   └── hooks/               #   Lifecycle hook system (chain, loader, builtins)
+├── scripts/                 # Utility scripts
+├── templates/               # direnv templates (envrc.tmpl, envrc.user.tmpl)
+├── tests/                   # Test suite → See below
 ├── .envrc                   # direnv configuration
+├── .gitignore               # Git ignore rules
 ├── .python-version          # Python version for runtime
 ├── .tool-versions           # asdf version manager config
-├── Makefile                 # Build automation
-├── profiles.yaml            # Profile definitions
-├── pyproject.toml           # Python project configuration
+├── CLAUDE.md                # Claude Code project instructions
+├── Makefile                 # Build automation (test, install, refresh)
+├── profiles.yaml            # Built-in profile definitions
+├── pyproject.toml           # Python project config (hatchling)
 ├── uv.lock                  # Dependency lockfile
 ├── README.md                # User guide
 ├── SECRETS.md               # Secrets configuration guide
@@ -33,230 +37,65 @@ This document describes the folder structure and file organization of the run-cl
 └── with-agent-shim          # Wrapper script for running with profiles
 ```
 
-## `/docs` - Documentation
-
-Project documentation and architectural references.
-
-```
-docs/
-├── PROJ-ARCH.md             # Architecture documentation
-├── PROJ-LAYOUT.md           # This file - project structure guide
-├── PRD-AUTO-INFRA.md        # Product requirements for auto-infra
-└── claude/                  # Claude AI integration documentation
-    ├── tools.md             # Tool specifications
-    ├── tools.summary.md     # Quick reference for tools
-    └── tools/               # Tool implementation details
-```
-
-## `/run_claude` - Main Package
-
-The core Python package implementing the agent shim controller.
-
-| File | Lines | Purpose |
-|------|-------|---------|
-| `__init__.py` | ~8 | Package initialization, version declaration |
-| `cli.py` | ~766 | Command-line interface and command dispatch |
-| `config.py` | ~322 | Secrets management and configuration loading |
-| `models.yaml` | ~450 | Built-in LiteLLM model definitions |
-| `profiles.py` | ~674 | Profile loading and management system |
-| `proxy.py` | ~866 | LiteLLM proxy lifecycle management |
-| `state.py` | ~177 | Persistent state management (tokens, refcounts) |
-| `callbacks/` | - | Provider compatibility layer |
-
-### Key Module Responsibilities
-
-- **cli.py**: Entry point with commands: `enter`, `leave`, `janitor`, `set-folder`, `status`, `env`, `proxy`, `profiles`, `models`, `install`, `secrets`, `with`
-- **profiles.py**: Multi-file profile loading with fallthrough, model resolution
-- **proxy.py**: LiteLLM proxy start/stop, health checks, model registration via API
-- **state.py**: Token tracking, model refcounting, lease scheduling (delayed deletion)
-- **config.py**: Secrets file loading, template generation, `.env` export
-- **callbacks/provider_compat.py**: Provider compatibility adapters and normalization
-
-### `/run_claude/callbacks` - Provider Compatibility
-
-```
-callbacks/
-├── __init__.py             # Package initialization
-└── provider_compat.py      # Provider compatibility layer (~270 lines)
-```
-
-Handles provider-specific quirks and normalization for different AI service providers.
-
-## `/dep` - Infrastructure Dependencies
-
-Docker Compose configuration for containerized services.
+## dep/ — Infrastructure
 
 ```
 dep/
-├── docker-compose.yaml           # Main TimescaleDB service definition
-├── docker-compose.override.yaml  # Development overrides (port 5433)
+├── docker-compose.yaml           # TimescaleDB service definition
+├── docker-compose.override.yaml  # Dev overrides (port 5433)
+├── litellm.Dockerfile            # Custom LiteLLM proxy image
+├── .envrc                        # direnv for dep directory
 └── config/
     └── timescaledb/
-        └── init-databases.sql    # Database initialization (vector, pg_trgm extensions)
+        └── init-databases.sql    # DB init (vector, pg_trgm extensions)
 ```
 
-### Services
+Service: TimescaleDB `timescale/timescaledb:2.23.1-pg17`, container `run-claude-timescaledb`, volume `timescaledb-data`, network `run-claude-network`, dev port `5433:5432`.
 
-- **TimescaleDB**: `timescale/timescaledb:2.23.1-pg17`
-  - Container: `run-claude-timescaledb`
-  - Volume: `timescaledb-data` (persistent)
-  - Network: `run-claude-network` (bridge)
-  - Dev port: `5433:5432`
-
-### Environment Files
-
-The compose file loads secrets from:
-1. `$RUN_CLAUDE_HOME/.env`
-2. `$XDG_CONFIG_HOME/run-claude/.env`
-3. `~/.config/run-claude/.env` (default)
-
-## `/templates` - Environment Templates
-
-Template files for direnv configuration.
-
-```
-templates/
-├── envrc.tmpl       # Template for .envrc (auto-generated)
-└── envrc.user.tmpl  # Template for .envrc.user (user-editable)
-```
-
-### Placeholder Substitution
-
-- `{{TOKEN}}`: Replaced with SHA256 hash of directory path (16 hex chars)
-- `{{PROFILE}}`: Replaced with selected profile name
-
-## `/scripts` - Utility Scripts
-
-Supporting scripts for the project.
-
-```
-scripts/
-└── run-litellm-proxy       # LiteLLM proxy service wrapper
-```
-
-## `/hooks` - Shell Integration
-
-Shell hooks for automatic profile switching via PROMPT_COMMAND/precmd.
+## hooks/ — Shell Integration
 
 ```
 hooks/
-├── bash_hook.sh   # Bash prompt hook (PROMPT_COMMAND)
+├── bash_hook.sh   # Bash PROMPT_COMMAND hook
 ├── zsh_hook.zsh   # Zsh precmd hook
 └── install.sh     # Hook installation script
 ```
 
-### Hook Behavior
+Detects `AGENT_SHIM_TOKEN` changes via direnv, calls `run-claude enter/leave`, runs janitor periodically.
 
-1. Detect `AGENT_SHIM_TOKEN` changes (set by direnv)
-2. Call `run-claude enter` when entering shimmed directory
-3. Call `run-claude leave` when leaving
-4. Run janitor periodically for cleanup
-
-## `/playground` - Test Directories
-
-Pre-configured directories for testing profile switching.
+## scripts/
 
 ```
-playground/
-├── README.md              # Testing documentation
-├── test-switching.sh      # Automated test script
-├── cerebras-project/      # Cerebras profile test dir
-├── groq-project/          # Groq profile test dir
-├── local-project/         # Local (Ollama) profile test dir
-└── multi-project/         # Multi-provider test dir
+scripts/
+├── run-litellm-proxy    # LiteLLM proxy service wrapper
+└── run-litellm-local    # Local LiteLLM runner
 ```
 
-Each project contains:
-- `.envrc`: Sets `AGENT_SHIM_TOKEN`, sources user config
-- `.envrc.user`: Sets `AGENT_SHIM_PROFILE`
-- `.gitignore`: Excludes envrc files
-
-## `/tests` - Test Suite
+## tests/
 
 ```
 tests/
-├── __init__.py     # Package marker
-└── test_cli.py     # CLI command tests
+├── __init__.py          # Package marker
+├── test_cli.py          # CLI command tests (entry point, env, profiles)
+├── test_callbacks.py    # Provider compatibility callback tests
+└── test_hooks.py        # Hook system tests
 ```
 
-### Test Coverage
+## playground/
 
-- `TestMain`: Entry point tests
-- `TestEnvCommand`: Environment variable output tests
-- `TestProfilesCommand`: Profile management tests
+Pre-configured directories for testing profile switching: `cerebras-project/`, `groq-project/`, `local-project/`, `multi-project/`. Each contains `.envrc`, `.envrc.user`, `.gitignore`.
 
-## Configuration Files
+## XDG Runtime Paths
 
-### `profiles.yaml` (Root)
+| Type | Default Path |
+|------|-------------|
+| Config | `~/.config/run-claude/` (.secrets, .env, profiles, models, .initialized) |
+| State | `~/.local/state/run-claude/` (state.json, proxy.pid, proxy.log, litellm_config.yaml) |
 
-Main profile configuration defining 14+ built-in profiles:
+## Key Files Requiring Setup
 
-- **anthropic**: Native Claude models
-- **openai**: GPT models
-- **cerebras**, **cerebras2**, **cerebras-pro**: Fast inference
-- **groq**, **groq2**: Ultra-fast inference
-- **gemini**: Google Gemini
-- **azure**: Azure OpenAI
-- **grok**: xAI Grok
-- **deepseek**: DeepSeek models
-- **mistral**: Mistral AI
-- **perplexity**: Search-augmented
-- **local**: Ollama/vLLM
-
-### `pyproject.toml`
-
-Python project metadata:
-- Version: 0.1.2
-- Entry point: `run_claude.cli:main`
-- Dependencies: pyyaml, httpx, prisma, psycopg2-binary
-
-### `Makefile`
-
-Build targets:
-- `test`: Run pytest
-- `test-cov`: Run with coverage
-- `coverage-html`: Generate HTML report
-- `install`: Install via uv
-- `refresh`: Force reinstall
-
-## XDG-Compliant Paths
-
-The project follows XDG Base Directory Specification:
-
-| Type | Default Path | Env Override |
-|------|--------------|--------------|
-| Config | `~/.config/run-claude/` | `XDG_CONFIG_HOME` |
-| State | `~/.local/state/run-claude/` | `XDG_STATE_HOME` |
-
-### Config Directory Contents
-
-```
-~/.config/run-claude/
-├── .secrets            # API keys and passwords (YAML)
-├── .env                # Exported secrets for Docker
-├── .initialized        # First-run marker
-├── profiles.yaml       # User profiles
-├── user.profiles.yaml  # User override profiles
-└── models.yaml         # User model definitions
-```
-
-### State Directory Contents
-
-```
-~/.local/state/run-claude/
-├── state.json          # Application state (tokens, refcounts)
-├── proxy.pid           # Running proxy PID
-├── proxy.log           # Proxy output log
-└── litellm_config.yaml # Generated LiteLLM configuration
-```
-
-## Generated Files
-
-Files created by `run-claude set-folder <profile>`:
-
-```
-<project>/
-├── .envrc              # Auto-generated direnv config
-├── .envrc.user         # User-editable profile selection
-└── .gitignore          # Updated to exclude .envrc.user
-```
+| File | Action |
+|------|--------|
+| `~/.config/run-claude/.secrets` | Auto-created on first run; add API keys |
+| `.envrc` | Run `direnv allow` in project root |
+| Shell hooks | Run `hooks/install.sh` for auto-switching |

@@ -58,7 +58,7 @@ _setup_httpx_logging()
 DEFAULT_PROXY_HOST = "127.0.0.1"
 DEFAULT_PROXY_PORT = 4444
 DEFAULT_PROXY_URL = f"http://{DEFAULT_PROXY_HOST}:{DEFAULT_PROXY_PORT}"
-DEFAULT_MASTER_KEY = "sk-litellm-master-key-12345"
+_OLD_DEFAULT_MASTER_KEY = "sk-litellm-master-key-12345"  # deprecated, reject if seen
 DEFAULT_LITELLM_COMMAND = "litellm"
 
 HEALTH_CHECK_TIMEOUT = 60.0
@@ -88,8 +88,13 @@ def get_proxy_url() -> str:
 
 
 def get_master_key() -> str:
-    """Get proxy master key from environment or default."""
-    return os.environ.get("LITELLM_MASTER_KEY", DEFAULT_MASTER_KEY)
+    """Get proxy master key from environment. Fails if not configured."""
+    key = os.environ.get("LITELLM_MASTER_KEY")
+    if not key:
+        print("Error: LITELLM_MASTER_KEY not set.", file=sys.stderr)
+        print("Run 'run-claude setup' to configure credentials.", file=sys.stderr)
+        raise SystemExit(1)
+    return key
 
 
 def get_api_key() -> str:
@@ -119,6 +124,47 @@ def get_database_url(debug: bool = False) -> str:
 
     # Last resort: return template (will fail at connection time)
     return "postgresql://postgres:@localhost:5433/postgres?sslmode=disable"
+
+
+# Known provider API key env vars (for preflight check)
+_PROVIDER_API_KEYS = [
+    "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY",
+    "CEREBRAS_API_KEY", "CEREBRAS_SUB_KEY", "ZAI_API_KEY", "ZAI_SUB_KEY",
+    "GROQ_API_KEY", "GROK_API_KEY", "DEEPSEEK_API_KEY",
+    "MISTRAL_API_KEY", "PERPLEXITY_API_KEY",
+    "AZURE_OPENAI_API_KEY",
+]
+
+
+def preflight_check(debug: bool = False) -> list[str]:
+    """Validate credentials before proxy start.
+
+    Returns list of problem strings. Empty list = all good.
+    Problems containing 'BLOCKING' should prevent proxy start.
+    """
+    problems = []
+
+    # Check master key
+    master_key = os.environ.get("LITELLM_MASTER_KEY")
+    if not master_key:
+        problems.append("BLOCKING: LITELLM_MASTER_KEY is not set")
+    elif master_key == _OLD_DEFAULT_MASTER_KEY:
+        problems.append("BLOCKING: LITELLM_MASTER_KEY is the old insecure default — regenerate it")
+
+    # Check database password
+    db_pass = os.environ.get("RUN_CLAUDE_TIMESCALEDB_PASSWORD")
+    if not db_pass:
+        problems.append("BLOCKING: RUN_CLAUDE_TIMESCALEDB_PASSWORD is not set")
+
+    # Check at least one provider API key (warn only)
+    has_provider = any(os.environ.get(k) for k in _PROVIDER_API_KEYS)
+    if not has_provider:
+        problems.append("WARNING: No provider API keys configured — models will fail at request time")
+
+    if problems:
+        problems.append("Run 'run-claude setup' to configure credentials.")
+
+    return problems
 
 
 def get_litellm_command() -> str:
@@ -462,6 +508,23 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
     Returns:
         True if proxy started successfully
     """
+    # Pre-flight credential validation
+    problems = preflight_check(debug=debug)
+    if problems:
+        blocking = [p for p in problems if p.startswith("BLOCKING:")]
+        warnings = [p for p in problems if p.startswith("WARNING:")]
+        suggestions = [p for p in problems if not p.startswith(("BLOCKING:", "WARNING:"))]
+
+        for w in warnings:
+            print(f"  {w}", file=sys.stderr)
+        for b in blocking:
+            print(f"  {b}", file=sys.stderr)
+        for s in suggestions:
+            print(f"  {s}", file=sys.stderr)
+
+        if blocking:
+            return False
+
     if is_proxy_running() and health_check():
         return True
 

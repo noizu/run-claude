@@ -35,7 +35,7 @@ cerebras:
 # Cerebras2 - Alternative Cerebras config with GLM
 cerebras2:
   name: "Cerebras (GLM)"
-  opus_model: "cerebras/zai-glm-4.6"
+  opus_model: "cerebras/zai-glm-4.7"
   sonnet_model: "cerebras/gpt-oss-120b"
   haiku_model: "cerebras/qwen-3-32b"
 
@@ -66,6 +66,10 @@ zai-pro:
   opus_model: "zai/opus"
   sonnet_model: "zai/sonnet"
   haiku_model: "zai/haiku"
+  extended:
+    - "zai/opus[1m]"
+    - "zai/sonnet[1m]"
+    - "zai/haiku[1m]"
 
 
 # glm 4.7 group
@@ -97,9 +101,9 @@ groq-mix:
   haiku_model: "groq.qwen3-32b"
   extended:
     - "groq.llama-3.3-70b"
-    - "groq.llama-3.1-8b"
-    - "groq.llama-4-scout"
-    - "groq.llama-4-maverick"
+    - "groq-llama-3.1-8b"
+    - "groq-llama-4-scout"
+    - "groq-llama-4-maverick"
 
 # Gemini - Google AI models
 gemini:

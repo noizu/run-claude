@@ -358,7 +358,7 @@ model_list:
 
   - model_name: "zai/haiku"
     litellm_params:
-      model: anthropic/glm-5
+      model: anthropic/glm-5-turbo
       api_key: os.environ/ZAI_API_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -380,7 +380,40 @@ model_list:
 
   - model_name: "zai/opus"
     litellm_params:
+      model: anthropic/glm-5.1
+      api_key: os.environ/ZAI_API_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+
+  - model_name: "zai/haiku[1m]"
+    litellm_params:
+      model: anthropic/glm-5-turbo
+      api_key: os.environ/ZAI_API_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+      extra_headers:
+        anthropic-product: claude_code
+
+  - model_name: "zai/sonnet[1m]"
+    litellm_params:
       model: anthropic/glm-5
+      api_key: os.environ/ZAI_API_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+      extra_headers:
+        anthropic-product: claude_code
+
+  - model_name: "zai/opus[1m]"
+    litellm_params:
+      model: anthropic/glm-5.1
       api_key: os.environ/ZAI_API_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
