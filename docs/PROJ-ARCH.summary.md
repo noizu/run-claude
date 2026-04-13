@@ -4,7 +4,7 @@ run-claude is an agent shim controller providing directory-aware model routing v
 
 ## Components
 
-- **CLI** (`cli.py`): Entry point with subcommands — enter, leave, janitor, set-folder, status, env, proxy, db, profiles, models, with, install, secrets.
+- **CLI** (`cli.py`): Entry point with subcommands — enter, leave, janitor, set-folder, status, env, proxy, db, profiles, models, with, install, secrets, setup.
 - **Profiles** (`profiles.py`): Multi-file YAML profile loading with fallthrough (user override > user > built-in). Profiles map opus/sonnet/haiku tiers to model definitions.
 - **State** (`state.py`): JSON persistence for tokens, refcounts, model leases, and proxy PID.
 - **Proxy** (`proxy.py`): LiteLLM proxy lifecycle — start/stop, health checks, model registration via HTTP API.

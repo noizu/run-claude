@@ -57,6 +57,7 @@ graph TD
 | `with` | Run command with profile environment |
 | `install` | Install built-in assets |
 | `secrets` | Secrets management (init/path/export) |
+| `setup` | Interactive setup wizard for API keys |
 
 ### Profile System
 

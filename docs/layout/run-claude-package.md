@@ -7,10 +7,10 @@ The core Python package implementing the agent shim controller.
 | File | Lines | Purpose |
 |------|-------|---------|
 | `__init__.py` | ~7 | Package initialization, version |
-| `cli.py` | ~1048 | CLI entry point, command dispatch (argparse) |
-| `config.py` | ~410 | Secrets management, .env generation, YAML parsing |
+| `cli.py` | ~1066 | CLI entry point, command dispatch (argparse) |
+| `config.py` | ~794 | Secrets management, .env generation, YAML parsing |
 | `profiles.py` | ~778 | Profile loading with fallthrough, model resolution |
-| `proxy.py` | ~1546 | LiteLLM proxy lifecycle, health checks, model API |
+| `proxy.py` | ~1609 | LiteLLM proxy lifecycle, health checks, model API |
 | `state.py` | ~176 | JSON state persistence (tokens, refcounts, leases) |
 | `models.yaml` | ~798 | Built-in LiteLLM model definitions |
 | `hooks.yaml` | - | Hook configuration for lifecycle events |
