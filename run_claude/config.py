@@ -14,6 +14,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote as _urlquote
 
 try:
     import yaml
@@ -157,8 +158,14 @@ def construct_database_url(
     user: str = "postgres",
     database: str = "postgres",
 ) -> str:
-    """Build fully-expanded DATABASE_URL. Single source of truth."""
-    return f"postgresql://{user}:{password}@{host}:{port}/{database}?sslmode=disable"
+    """Build fully-expanded DATABASE_URL. Single source of truth.
+
+    Password is percent-encoded so special characters (# & $ @ / ? etc.)
+    do not break URL parsers like Prisma's P1013.
+    """
+    enc_user = _urlquote(user, safe="")
+    enc_pass = _urlquote(password, safe="")
+    return f"postgresql://{enc_user}:{enc_pass}@{host}:{port}/{database}?sslmode=disable"
 
 
 def generate_master_key() -> str:
@@ -188,16 +195,18 @@ def validate_env(required: list[str] | None = None) -> list[str]:
 def generate_random_password(length: int = 32) -> str:
     """Generate a cryptographically secure random password.
 
+    Uses only alphanumeric characters so the password is safe to embed
+    in URLs, shell commands, and docker-compose variable substitution
+    without escaping. 62^32 ~= 190 bits of entropy.
+
     Args:
         length: Password length (default 32 characters)
 
     Returns:
-        Random password with mixed case, numbers, and symbols
+        Random alphanumeric password
     """
-    # Use secure random generator
-    alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
-    password = ''.join(secrets.choice(alphabet) for _ in range(length))
-    return password
+    alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 
 def load_secrets(debug: bool = False) -> SecretsConfig:
@@ -421,9 +430,16 @@ def export_env_file(debug: bool = False) -> Path:
             env_vars["LITELLM_DATABASE_URL"] = db_url
             env_vars["DATABASE_URL"] = db_url
             env_vars["POSTGRES_PASSWORD"] = db_password
+            # URL-encoded form for compose-side substitution into URLs.
+            env_vars["RUN_CLAUDE_TIMESCALEDB_PASSWORD_ENC"] = _urlquote(db_password, safe="")
 
-        # Write .env file - Docker Compose will load automatically
-        lines = [f"{key}={value}" for key, value in env_vars.items()]
+        # Write .env file - Docker Compose will load automatically.
+        # Values are single-quoted so special chars (# $ & etc.) survive
+        # docker-compose --env-file parsing without being interpreted as
+        # comments or variable references.
+        def _fmt(v: str) -> str:
+            return "'" + str(v).replace("'", "'\\''") + "'"
+        lines = [f"{key}={_fmt(value)}" for key, value in env_vars.items()]
         env_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
         # Restrict permissions for .env file too
@@ -511,6 +527,10 @@ def load_secrets_into_env(debug: bool = False) -> dict[str, str]:
                 if derived_key not in os.environ:
                     os.environ[derived_key] = db_url
                     loaded[derived_key] = db_url
+            enc_key = "RUN_CLAUDE_TIMESCALEDB_PASSWORD_ENC"
+            if enc_key not in os.environ:
+                os.environ[enc_key] = _urlquote(db_password, safe="")
+                loaded[enc_key] = os.environ[enc_key]
 
         if debug:
             print(f"DEBUG: Loaded {len(loaded)} secrets into env", file=sys.stderr)

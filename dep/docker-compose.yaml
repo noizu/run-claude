@@ -65,9 +65,11 @@ services:
       - ${RUN_CLAUDE_HOME:-$HOME/.config/run-claude}/.env
     environment:
       - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
-      # Override host-side DB URLs from .env with container-internal address
-      - DATABASE_URL=postgresql://postgres:${RUN_CLAUDE_TIMESCALEDB_PASSWORD}@timescaledb:5432/postgres
-      - LITELLM_DATABASE_URL=postgresql://postgres:${RUN_CLAUDE_TIMESCALEDB_PASSWORD}@timescaledb:5432/postgres
+      # Override host-side DB URLs from .env with container-internal address.
+      # Use the URL-encoded password so special characters (# & $ etc.) don't
+      # break Prisma's URL parser (error P1013).
+      - DATABASE_URL=postgresql://postgres:${RUN_CLAUDE_TIMESCALEDB_PASSWORD_ENC}@timescaledb:5432/postgres
+      - LITELLM_DATABASE_URL=postgresql://postgres:${RUN_CLAUDE_TIMESCALEDB_PASSWORD_ENC}@timescaledb:5432/postgres
       - STORE_MODEL_IN_DB=True
       - USE_PRISMA_MIGRATE=True
     volumes:
