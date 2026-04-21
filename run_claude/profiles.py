@@ -521,6 +521,17 @@ def _is_profile_disabled(profile_data: dict[str, Any] | None) -> bool:
 _profiles_cache: dict[Path, dict[str, Any]] = {}
 
 
+def clear_caches() -> None:
+    """Clear all in-memory caches for model and profile definitions."""
+    global _model_definitions_cache, _loaded_model_files
+    _model_definitions_cache = None
+    try:
+        _loaded_model_files.clear()
+    except Exception:
+        pass
+    _profiles_cache.clear()
+
+
 def _load_profiles_file(path: Path, debug: bool = False) -> dict[str, Any]:
     """Load and cache a profiles.yaml file."""
     if path in _profiles_cache:

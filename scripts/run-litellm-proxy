@@ -32,7 +32,16 @@ if [[ ! -d "$VENV" ]]; then
   mkdir -p "$LITELLM_HOME"
   uv venv --python 3.13 "$VENV"
   source "$VENV/bin/activate"
-  uv pip install 'litellm[proxy]' litellm-proxy-extras psycopg2-binary prometheus_client opentelemetry-api opentelemetry-sdk
+
+  # Install the locally patched litellm from repos/litellm (required)
+  LITELLM_PATCHED="${RUN_CLAUDE_PKG_PATH:+${RUN_CLAUDE_PKG_PATH}/repos/litellm}"
+  if [[ -z "$LITELLM_PATCHED" || ! -f "$LITELLM_PATCHED/pyproject.toml" ]]; then
+    echo "Error: patched litellm not found. Set RUN_CLAUDE_PKG_PATH so that \$RUN_CLAUDE_PKG_PATH/repos/litellm exists." >&2
+    exit 1
+  fi
+  echo "Installing patched litellm from: $LITELLM_PATCHED"
+  uv pip install -e "${LITELLM_PATCHED}[proxy]"
+  uv pip install litellm-proxy-extras psycopg2-binary prometheus_client opentelemetry-api opentelemetry-sdk
   uv pip install prisma
 
   # Install run_claude for custom callbacks (provider compatibility for Groq, Cerebras, etc.)

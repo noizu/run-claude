@@ -19,6 +19,7 @@ dependencies = [
 
 [project.scripts]
 run-claude = "run_claude.cli:main"
+run-open-code = "run_claude.opencode_cli:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -31,6 +32,9 @@ packages = ["run_claude"]
 "profiles.yaml" = "run_claude/profiles.yaml"
 "templates" = "run_claude/templates"
 "dep" = "run_claude/dep"
+
+[tool.uv.sources]
+litellm = { path = "repos/litellm", editable = true }
 
 [dependency-groups]
 dev = [

@@ -3,4 +3,9 @@ htmlcov
 .envrc
 __pycache__/
 __pycache__
-#*.pyc
+*.pyc
+.DS_Store
+.nvimlog
+.pytest_cache/
+.venv/
+dist/

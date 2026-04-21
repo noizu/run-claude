@@ -66,7 +66,8 @@ setup-litellm:
 		uv venv --python 3.11 "$${VENV}"; \
 	fi; \
 	. "$${VENV}/bin/activate" && \
-	uv pip install 'litellm[proxy]' litellm-proxy-extras psycopg2-binary prometheus_client opentelemetry-api opentelemetry-sdk && \
+	uv pip install -e "$(CURDIR)/repos/litellm[proxy]" && \
+	uv pip install litellm-proxy-extras psycopg2-binary prometheus_client opentelemetry-api opentelemetry-sdk && \
 	uv pip install prisma==0.11.0 && \
 	uv pip install -e "$(CURDIR)" && \
 	echo "$(CURDIR)" > "$${VENV}/.run_claude_installed"

@@ -36,6 +36,7 @@ def main() -> int:
     enter_p.add_argument("token", help="Directory token")
     enter_p.add_argument("profile", help="Profile name")
     enter_p.add_argument("--dir", help="Directory path (default: cwd)")
+    enter_p.add_argument("--refresh", action="store_true", help="Force reload model definitions and re-register with proxy")
 
     # leave
     leave_p = subparsers.add_parser("leave", help="Leave a shimmed directory")
@@ -103,6 +104,7 @@ def main() -> int:
     #run_p.add_argument("keyword", choices=["with"], help="Keyword 'with' to specify profile")
     run_p.add_argument("profile", help="Profile name")
     run_p.add_argument("cmd", nargs=argparse.REMAINDER, help="Command to run (default: claude)")
+    run_p.add_argument("--refresh", action="store_true", help="Force reload model definitions and re-register with proxy")
 
     # install - create user config templates and infrastructure
     install_p = subparsers.add_parser("install", help="Create user config templates for profiles and models")
@@ -162,9 +164,14 @@ def cmd_enter(args: argparse.Namespace) -> int:
     from . import state, profiles, proxy
 
     debug = getattr(args, 'debug', False)
+    refresh = getattr(args, 'refresh', False)
     token = args.token
     profile_name = args.profile
     directory = args.dir or os.getcwd()
+
+    if refresh:
+        print("[REFRESH] Clearing model/profile caches", file=sys.stderr)
+        profiles.clear_caches()
 
     # Load profile
     profile = profiles.load_profile(profile_name, debug=debug)
@@ -187,7 +194,7 @@ def cmd_enter(args: argparse.Namespace) -> int:
     elif model_defs:
         # Add any missing models via API (no restart needed)
         # Wait for recovery if proxy is not immediately healthy
-        added, skipped = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=True)
+        added, skipped = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=True, force=refresh)
         if debug and added > 0:
             print(f"Added {added} model(s) to proxy", file=sys.stderr)
 
@@ -492,79 +499,18 @@ def cmd_env(args: argparse.Namespace) -> int:
 
 def cmd_run(args: argparse.Namespace) -> int:
     """Handle run command - execute a command with profile environment."""
-    import subprocess
-    from . import profiles, proxy
+    from . import agent_runner
 
     debug = getattr(args, 'debug', False)
-    profile_name = args.profile
 
-    profile = profiles.load_profile(profile_name, debug=debug)
-    if profile is None:
-        print(f"Error: Profile not found: {profile_name}", file=sys.stderr)
-        return 1
+    # Configure for Claude/Anthropic API
+    agent_config = agent_runner.AgentConfig(
+        agent_name="claude",
+        default_cmd=["claude"],
+        env_vars_fn=agent_runner.build_env_vars_anthropic,
+    )
 
-    # Log profile selection and models
-    print(f"[PROFILE_SELECTED] '{profile_name}' ({profile.meta.name})", file=sys.stderr)
-    print(f"[MODELS_FOR_REGISTRATION] {len(profile.model_list)} models:", file=sys.stderr)
-    for m in profile.model_list:
-        print(f"  - {m.model_name}", file=sys.stderr)
-
-    # Verify profile has models resolved
-    if not profile.model_list:
-        print(f"Warning: Profile '{profile_name}' has no models resolved.", file=sys.stderr)
-        print(f"  Check that model definitions exist for:", file=sys.stderr)
-        if profile.meta.opus_model:
-            print(f"    opus_model: {profile.meta.opus_model}", file=sys.stderr)
-        if profile.meta.sonnet_model:
-            print(f"    sonnet_model: {profile.meta.sonnet_model}", file=sys.stderr)
-        if profile.meta.haiku_model:
-            print(f"    haiku_model: {profile.meta.haiku_model}", file=sys.stderr)
-
-    # Get model definitions for config generation
-    model_defs = [m.to_dict() for m in profile.model_list]
-
-    # Ensure proxy is running with profile's models
-    if not proxy.is_proxy_running():
-        # Start proxy with profile's models in config
-        config_path = str(proxy.generate_litellm_config(model_defs=model_defs)) if model_defs else None
-        if not proxy.start_proxy(config_path=config_path):
-            print("Error: Failed to start proxy", file=sys.stderr)
-            return 1
-    else:
-        # Proxy already running, add any missing models via API
-        # Wait for recovery if proxy is not immediately healthy
-        if model_defs:
-            added, skipped = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=True)
-            if debug and added > 0:
-                print(f"Added {added} model(s) to proxy", file=sys.stderr)
-
-    # Build environment
-    env = os.environ.copy()
-    env["ANTHROPIC_AUTH_TOKEN"] = proxy.get_api_key()
-    env["ANTHROPIC_BASE_URL"] = proxy.get_proxy_url()
-    env["API_TIMEOUT_MS"] = "3000000"
-
-    if profile.meta.haiku_model:
-        env["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = profile.meta.haiku_model
-    if profile.meta.sonnet_model:
-        env["ANTHROPIC_DEFAULT_SONNET_MODEL"] = profile.meta.sonnet_model
-    if profile.meta.opus_model:
-        env["ANTHROPIC_DEFAULT_OPUS_MODEL"] = profile.meta.opus_model
-
-    # Determine command to run
-    cmd = args.cmd if args.cmd else ["claude"]
-
-    cmd_status(args)
-
-    # Execute
-    try:
-        result = subprocess.run(cmd, env=env)
-        return result.returncode
-    except FileNotFoundError:
-        print(f"Error: Command not found: {cmd[0]}", file=sys.stderr)
-        return 1
-    except KeyboardInterrupt:
-        return 130
+    return agent_runner.cmd_run_agent(args, agent_config, debug=debug)
 
 
 def cmd_proxy(args: argparse.Namespace) -> int:

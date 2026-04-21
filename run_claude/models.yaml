@@ -23,6 +23,25 @@ model_list:
       model: anthropic/claude-3-5-haiku-20241022
       api_key: os.environ/ANTHROPIC_API_KEY
 
+  # Anthropic - OpenAI v1 endpoint format
+  - model_name: "claude-opus-4-20250514-oa"
+    litellm_params:
+      model: openai/claude-opus-4-20250514
+      api_key: os.environ/ANTHROPIC_API_KEY
+      api_base: https://api.anthropic.com/v1
+
+  - model_name: "claude-sonnet-4-20250514-oa"
+    litellm_params:
+      model: openai/claude-sonnet-4-20250514
+      api_key: os.environ/ANTHROPIC_API_KEY
+      api_base: https://api.anthropic.com/v1
+
+  - model_name: "claude-3-5-haiku-20241022-oa"
+    litellm_params:
+      model: openai/claude-3-5-haiku-20241022
+      api_key: os.environ/ANTHROPIC_API_KEY
+      api_base: https://api.anthropic.com/v1
+
   # ==========================================================================
   # OpenAI
   # ==========================================================================
@@ -245,6 +264,7 @@ model_list:
       api_base: https://api.cerebras.ai/v1
       drop_params: true
       additional_drop_params: ["context_management"]
+      supports_responses_api: false
       temperature: 0.5
 
   - model_name: "cerebras-pro/sonnet"
@@ -254,8 +274,9 @@ model_list:
       api_base: https://api.cerebras.ai/v1
       drop_params: true
       additional_drop_params: ["context_management"]
+      supports_responses_api: false
 
-     
+
   - model_name: "cerebras-pro/opus"
     litellm_params:
       model: openai/zai-glm-4.7
@@ -263,31 +284,68 @@ model_list:
       api_base: https://api.cerebras.ai/v1
       drop_params: true
       additional_drop_params: ["context_management"]
+      supports_responses_api: false
+      clear_thinking: false
+
+  # 1M-context aliases: Claude Code v2.1.116+ appends "[1m]" to model names when
+  # it detects the 1M-context variant. The backend (Cerebras zai-glm-4.7) is the
+  # same model; register the aliases so requests route correctly.
+  - model_name: "cerebras-pro/haiku[1m]"
+    litellm_params:
+      model: openai/zai-glm-4.7
+      api_key: os.environ/CEREBRAS_SUB_KEY
+      api_base: https://api.cerebras.ai/v1
+      drop_params: true
+      additional_drop_params: ["context_management"]
+      supports_responses_api: false
+      temperature: 0.5
+
+  - model_name: "cerebras-pro/sonnet[1m]"
+    litellm_params:
+      model: openai/zai-glm-4.7
+      api_key: os.environ/CEREBRAS_SUB_KEY
+      api_base: https://api.cerebras.ai/v1
+      drop_params: true
+      additional_drop_params: ["context_management"]
+      supports_responses_api: false
+
+  - model_name: "cerebras-pro/opus[1m]"
+    litellm_params:
+      model: openai/zai-glm-4.7
+      api_key: os.environ/CEREBRAS_SUB_KEY
+      api_base: https://api.cerebras.ai/v1
+      drop_params: true
+      additional_drop_params: ["context_management"]
+      supports_responses_api: false
       clear_thinking: false
 
 # Zai - Named
 
 
+  # Uses Z.AI's Anthropic-compatible endpoint (coding subscription)
   - model_name: "zai/haiku"
     litellm_params:
-      model: zai/glm-4.7
-      api_key: os.environ/ZAI_API_KEY
+      model: anthropic/glm-4.7
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
       drop_params: true
       additional_drop_params: ["context_management"]
       reasoning_effort: "low"
 
   - model_name: "zai/sonnet"
     litellm_params:
-      model: zai/glm-4.7
-      api_key: os.environ/ZAI_API_KEY
+      model: anthropic/glm-4.7
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
       drop_params: true
       additional_drop_params: ["context_management"]
       reasoning_effort: "medium"
 
   - model_name: "zai/opus"
     litellm_params:
-      model: zai/glm-4.7
-      api_key: os.environ/ZAI_API_KEY
+      model: anthropic/glm-4.7
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
       drop_params: true
       additional_drop_params: ["context_management"]
       reasoning_effort: "high"
@@ -295,8 +353,9 @@ model_list:
   # Alias for zai/opus - high quality
   - model_name: "ultra"
     litellm_params:
-      model: zai/glm-4.7
-      api_key: os.environ/ZAI_API_KEY
+      model: anthropic/glm-4.7
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
       drop_params: true
       additional_drop_params: ["context_management"]
       reasoning_effort: "high"
@@ -304,13 +363,42 @@ model_list:
   # Alias for zai/opus - cheap option
   - model_name: "cheap"
     litellm_params:
-      model: zai/glm-4.7
-      api_key: os.environ/ZAI_API_KEY
+      model: anthropic/glm-4.7
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
       drop_params: true
       additional_drop_params: ["context_management"]
       reasoning_effort: "high"
 
+# Zai - OpenAI v1 endpoint format (Named)
+# Uses Z.AI's coding PAAS endpoint (OpenAI-compatible, coding subscription)
 
+  - model_name: "zai-oa/haiku"
+    litellm_params:
+      model: openai/glm-4.7
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management"]
+      reasoning_effort: "low"
+
+  - model_name: "zai-oa/sonnet"
+    litellm_params:
+      model: openai/glm-4.7
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management"]
+      reasoning_effort: "medium"
+
+  - model_name: "zai-oa/opus"
+    litellm_params:
+      model: openai/glm-4.7
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management"]
+      reasoning_effort: "high"
 
 
 # Groq - Named

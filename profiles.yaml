@@ -45,6 +45,12 @@ cerebras-pro:
   opus_model: "cerebras-pro/opus"
   sonnet_model: "cerebras-pro/sonnet"
   haiku_model: "cerebras-pro/haiku"
+  # Claude Code v2.1.116+ appends "[1m]" for the 1M-context variants; register
+  # aliases so those requests route instead of timing out.
+  extended:
+    - "cerebras-pro/opus[1m]"
+    - "cerebras-pro/sonnet[1m]"
+    - "cerebras-pro/haiku[1m]"
 
 groq-pro:
   name: "Groq Equivalent"
@@ -67,6 +73,12 @@ zai-pro:
   sonnet_model: "zai/sonnet"
   haiku_model: "zai/haiku"
 
+# Z.AI Subscription - OpenAI v1 endpoint format
+zai-oa:
+  name: "Zai Subscription (OpenAI v1)"
+  opus_model: "zai-oa/opus"
+  sonnet_model: "zai-oa/sonnet"
+  haiku_model: "zai-oa/haiku"
 
 # glm 4.7 group
 fast-glm:

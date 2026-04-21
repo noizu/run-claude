@@ -74,8 +74,18 @@ def get_proxy_url() -> str:
 
 
 def get_master_key() -> str:
-    """Get proxy master key from environment or default."""
-    return os.environ.get("LITELLM_MASTER_KEY", DEFAULT_MASTER_KEY)
+    """Get proxy master key from environment, secrets file, or default."""
+    if "LITELLM_MASTER_KEY" in os.environ:
+        return os.environ["LITELLM_MASTER_KEY"]
+    try:
+        from .config import load_secrets
+        secrets = load_secrets(debug=False)
+        env_vars = secrets.to_env()
+        if "LITELLM_MASTER_KEY" in env_vars:
+            return env_vars["LITELLM_MASTER_KEY"]
+    except Exception:
+        pass
+    return DEFAULT_MASTER_KEY
 
 
 def get_api_key() -> str:
@@ -861,7 +871,7 @@ def wipe_all_models(debug: bool = False) -> tuple[int, int]:
     return (deleted, failed)
 
 
-def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_for_recovery: bool = False) -> tuple[int, int]:
+def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_for_recovery: bool = False, force: bool = False) -> tuple[int, int]:
     """
     Ensure models are registered with proxy.
 
@@ -869,11 +879,12 @@ def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_fo
         model_defs: List of model definitions
         debug: If True, print debug info for each model
         wait_for_recovery: If True, wait for proxy to recover before returning
+        force: If True, delete existing registrations by name before re-adding
 
     Returns:
         Tuple of (added_count, skipped_count)
     """
-    print(f"[ENSURE_MODELS] Processing {len(model_defs)} model(s)", file=sys.stderr)
+    print(f"[ENSURE_MODELS] Processing {len(model_defs)} model(s) (force={force})", file=sys.stderr)
 
     # Log all model definitions in YAML format
     if model_defs and yaml is not None:
@@ -885,6 +896,16 @@ def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_fo
     # If wait_for_recovery enabled, wait for proxy to become healthy
     if wait_for_recovery:
         health_check(wait_for_recovery=True, max_retries=HEALTH_CHECK_RETRIES)
+
+    # When forcing, delete any existing registrations matching the names we're about to add
+    if force:
+        target_names = {m.get("model_name", "") for m in model_defs if m.get("model_name")}
+        for existing_model in list_models():
+            name = existing_model.get("model_name")
+            model_id = existing_model.get("model_info", {}).get("id")
+            if name in target_names and model_id:
+                print(f"[FORCE] Deleting existing '{name}' ({model_id})", file=sys.stderr)
+                delete_model(model_id)
 
     existing = get_model_ids()
     if existing:
