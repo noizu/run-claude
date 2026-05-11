@@ -179,7 +179,7 @@ def transform_request_for_provider(
     # Clean kwargs - remove any provider-specific fields at top level
     cleaned_kwargs = {
         k: v for k, v in kwargs.items()
-        if k not in {"provider_specific_fields", "cache_control"}
+        if k not in {"provider_specific_fields", "cache_control", "output_config"}
     }
 
     return cleaned_messages, cleaned_tools, cleaned_kwargs
@@ -233,7 +233,7 @@ class ProviderCompatCallback(CustomLogger):
             data["tools"] = _clean_tools_definition(data["tools"])
 
         # Remove top-level problematic fields
-        for field in ["provider_specific_fields", "cache_control"]:
+        for field in ["provider_specific_fields", "cache_control", "output_config"]:
             data.pop(field, None)
 
         return data
@@ -306,7 +306,7 @@ def standardize_request(litellm_params: dict[str, Any]) -> dict[str, Any]:
         kwargs["tools"] = _clean_tools_definition(kwargs["tools"])
 
     # Remove problematic top-level fields
-    for field in ["provider_specific_fields", "cache_control"]:
+    for field in ["provider_specific_fields", "cache_control", "output_config"]:
         kwargs.pop(field, None)
 
     litellm_params["kwargs"] = kwargs

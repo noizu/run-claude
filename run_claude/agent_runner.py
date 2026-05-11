@@ -108,19 +108,24 @@ def cmd_run_agent(
     model_defs = [m.to_dict() for m in profile.model_list]
 
     # Ensure proxy is running with profile's models
-    if not proxy.is_proxy_running():
-        # Start proxy with profile's models in config
-        config_path = str(proxy.generate_litellm_config(model_defs=model_defs)) if model_defs else None
-        if not proxy.start_proxy(config_path=config_path):
-            print("Error: Failed to start proxy", file=sys.stderr)
-            return 1
-    else:
-        # Proxy already running, add any missing models via API
-        # Wait for recovery if proxy is not immediately healthy
-        if model_defs:
-            added, skipped = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=True, force=refresh)
-            if debug and added > 0:
-                print(f"Added {added} model(s) to proxy", file=sys.stderr)
+    # start_proxy handles: stale PIDs, unhealthy state, and retries on transient failures
+    config_path = str(proxy.generate_litellm_config(model_defs=model_defs)) if model_defs else None
+    if not proxy.start_proxy(config_path=config_path, debug=debug):
+        print("Error: Failed to start proxy after retries", file=sys.stderr)
+        log_lines = proxy.tail_proxy_log(20)
+        if log_lines:
+            print("  Recent proxy log output:", file=sys.stderr)
+            for line in log_lines:
+                print(f"    {line}", file=sys.stderr)
+        else:
+            print(f"  No log output found at {proxy.get_log_file()}", file=sys.stderr)
+        return 1
+
+    # Proxy is running and healthy — ensure models are registered
+    if model_defs:
+        added, skipped = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=True, force=refresh)
+        if debug and added > 0:
+            print(f"Added {added} model(s) to proxy", file=sys.stderr)
 
     # Build environment
     env = os.environ.copy()

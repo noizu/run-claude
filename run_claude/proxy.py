@@ -400,6 +400,45 @@ def health_check(timeout: float = HEALTH_CHECK_TIMEOUT, wait_for_recovery: bool 
             time.sleep(HEALTH_CHECK_INTERVAL)
 
 
+def _tail_file(path: Path, n: int = 20) -> list[str]:
+    """Return the last n lines of a file."""
+    if not path.exists():
+        return []
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        return lines[-n:]
+    except OSError:
+        return []
+
+
+def tail_proxy_log(n: int = 30) -> list[str]:
+    """Return the last n lines of the proxy log file."""
+    return _tail_file(get_log_file(), n)
+
+
+def _check_process_alive(proc: subprocess.Popen, log_file: Path, tail_lines: int = 20) -> dict | None:
+    """Check if a subprocess is still alive.
+
+    Returns None if alive, or a dict with exit_code and log_tail if dead.
+    """
+    rc = proc.poll()
+    if rc is None:
+        return None
+    return {"exit_code": rc, "log_tail": _tail_file(log_file, tail_lines)}
+
+
+def _report_process_death(death: dict, context: str = "Proxy process died") -> None:
+    """Print diagnostic info about a dead process."""
+    code = death["exit_code"]
+    print(f"Error: {context} (exit code {code})", file=sys.stderr)
+    if code == 127:
+        print("  The litellm command was not found or failed to execute.", file=sys.stderr)
+    if death["log_tail"]:
+        print("  Last log lines:", file=sys.stderr)
+        for line in death["log_tail"]:
+            print(f"    {line}", file=sys.stderr)
+
+
 def is_proxy_running() -> bool:
     """Check if proxy process is running."""
     pid_file = get_pid_file()
@@ -431,9 +470,84 @@ def get_proxy_pid() -> int | None:
         return None
 
 
+STARTUP_MAX_RETRIES = 3
+STARTUP_RETRY_DELAY = 5.0
+
+
+def _classify_startup_failure(log_file: Path) -> str:
+    """Classify proxy startup failure from log tail.
+
+    Returns:
+        'db_auth' - database authentication failed (may be transient on fresh container)
+        'db_connect' - database connection refused (container not ready)
+        'port_in_use' - address already in use
+        'permanent' - non-retryable error
+        'unknown' - couldn't classify
+    """
+    lines = _tail_file(log_file, 50)
+    text = "\n".join(lines)
+    if "P1000" in text or "Authentication failed" in text:
+        return "db_auth"
+    if "Connection refused" in text and "database" in text.lower():
+        return "db_connect"
+    if "Address already in use" in text or "address already in use" in text:
+        return "port_in_use"
+    if "command not found" in text or "No such file" in text:
+        return "permanent"
+    return "unknown"
+
+
+def _stop_stale_proxy() -> None:
+    """Stop a proxy that is running but unhealthy, cleaning up PID state."""
+    pid = get_proxy_pid()
+    if pid is not None:
+        print(f"[RECOVERY] Stopping unhealthy proxy (PID {pid})", file=sys.stderr)
+        stop_proxy()
+    else:
+        # No PID but port might be held — try to find and kill
+        try:
+            result = subprocess.run(
+                ["lsof", "-ti", f":{DEFAULT_PROXY_PORT}"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                for pid_str in result.stdout.strip().split("\n"):
+                    try:
+                        stale_pid = int(pid_str.strip())
+                        print(f"[RECOVERY] Killing stale process on port {DEFAULT_PROXY_PORT} (PID {stale_pid})", file=sys.stderr)
+                        os.kill(stale_pid, signal.SIGTERM)
+                    except (ValueError, ProcessLookupError):
+                        pass
+                time.sleep(1.0)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+
+
+def _launch_proxy_process(cmd: list[str], env: dict[str, str], log_file: Path) -> subprocess.Popen | None:
+    """Launch the proxy subprocess. Returns Popen or None on failure."""
+    litellm_cmd = cmd[0]
+    try:
+        with open(log_file, "a") as log:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=log,
+                stderr=log,
+                start_new_session=True,
+                env=env,
+            )
+        return proc
+    except (FileNotFoundError, PermissionError) as e:
+        print(f"Error: Cannot start litellm proxy: {e}", file=sys.stderr)
+        print(f"  Ensure '{litellm_cmd}' is installed and on PATH, or set LITELLM_COMMAND.", file=sys.stderr)
+        return None
+
+
 def start_proxy(config_path: str | None = None, wait: bool = True, empty_config: bool = False, no_db: bool = False, debug: bool = False) -> bool:
     """
-    Start LiteLLM proxy.
+    Start LiteLLM proxy with automatic error recovery.
+
+    Handles stale PIDs, unhealthy proxy states, and transient startup failures
+    (e.g. DB not ready) with retry logic.
 
     Args:
         config_path: Path to LiteLLM config file. If None, generates one.
@@ -446,7 +560,14 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
     Returns:
         True if proxy started successfully
     """
-    if is_proxy_running() and health_check():
+    # Handle running-but-unhealthy state: stop before restarting
+    if is_proxy_running():
+        if health_check():
+            return True
+        print("[STARTUP] Proxy running but unhealthy, stopping before restart", file=sys.stderr)
+        _stop_stale_proxy()
+    elif health_check():
+        # No PID but port responds — stale state, record it
         return True
 
     # Auto-start database container unless disabled
@@ -475,8 +596,6 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
 
     # Generate config if not provided
     if config_path is None:
-        # Use empty model list if empty_config=True (for startup)
-        # Otherwise load all models (for restart operations)
         model_defs = [] if empty_config else None
         config_path = str(generate_litellm_config(model_defs=model_defs))
 
@@ -485,51 +604,93 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
     cmd = [litellm_cmd, "--host", DEFAULT_PROXY_HOST, "--port", str(DEFAULT_PROXY_PORT)]
     cmd.extend(["--config", config_path])
 
-    # Start proxy in background
-    try:
-        # Clone parent environment with additional flags for proxy
-        env = os.environ.copy()
-        env["STORE_MODEL_IN_DB"] = "True"
-        env['USE_PRISMA_MIGRATE'] = "True"
-        # Set master key if not already set
-        if "LITELLM_MASTER_KEY" not in env:
-            env["LITELLM_MASTER_KEY"] = get_master_key()
+    # Build environment
+    env = os.environ.copy()
+    env["STORE_MODEL_IN_DB"] = "True"
+    env['USE_PRISMA_MIGRATE'] = "True"
+    if "LITELLM_MASTER_KEY" not in env:
+        env["LITELLM_MASTER_KEY"] = get_master_key()
 
-        print(f"LiteLLM proxy logs saved to: {log_file}", file=sys.stderr)
-        print(f"Master key configured: {env.get('LITELLM_MASTER_KEY', 'NOT SET')}", file=sys.stderr)
-        print(f"To run litellm locally for debugging, run:", file=sys.stderr)
-        print(f" LITELLM_MASTER_KEY={env.get('LITELLM_MASTER_KEY', 'NOT SET')} STORE_MODEL_IN_DB=True USE_PRISMA_MIGRATE=False {' '.join(cmd)}", file=sys.stderr)
-        with open(log_file, "a") as log:
-            proc = subprocess.Popen(
-                cmd,
-                stdout=log,
-                stderr=log,
-                start_new_session=True,
-                env=env,
-            )
-    except (FileNotFoundError, PermissionError) as e:
-        # litellm not installed or not accessible
-        return False
+    print(f"LiteLLM proxy logs saved to: {log_file}", file=sys.stderr)
+    print(f"Master key configured: {env.get('LITELLM_MASTER_KEY', 'NOT SET')}", file=sys.stderr)
+    print(f"To run litellm locally for debugging, run:", file=sys.stderr)
+    print(f" LITELLM_MASTER_KEY={env.get('LITELLM_MASTER_KEY', 'NOT SET')} STORE_MODEL_IN_DB=True USE_PRISMA_MIGRATE=False {' '.join(cmd)}", file=sys.stderr)
 
-    # Write PID file
-    pid_file.write_text(str(proc.pid))
+    # Retry loop for transient failures (DB not ready, auth race, etc.)
+    last_failure_class = "unknown"
+    for attempt in range(1, STARTUP_MAX_RETRIES + 1):
+        if attempt > 1:
+            print(f"[STARTUP] Attempt {attempt}/{STARTUP_MAX_RETRIES} (previous failure: {last_failure_class})", file=sys.stderr)
 
-    # Update state
-    state = load_state()
-    state.proxy_pid = proc.pid
-    save_state(state)
+            # For port-in-use, clean up before retrying
+            if last_failure_class == "port_in_use":
+                _stop_stale_proxy()
 
-    if wait:
+            # For DB issues, wait for container to settle
+            if last_failure_class in ("db_auth", "db_connect") and not no_db:
+                print(f"[STARTUP] Waiting {STARTUP_RETRY_DELAY}s for database to settle...", file=sys.stderr)
+                if not is_db_container_healthy():
+                    wait_for_db_healthy(timeout=30.0, debug=debug)
+                time.sleep(STARTUP_RETRY_DELAY)
+
+        proc = _launch_proxy_process(cmd, env, log_file)
+        if proc is None:
+            return False  # permanent failure (binary not found)
+
+        # Write PID file
+        pid_file.write_text(str(proc.pid))
+        st = load_state()
+        st.proxy_pid = proc.pid
+        save_state(st)
+
+        # Early liveness gate: catch immediate crashes
+        time.sleep(2.0)
+        death = _check_process_alive(proc, log_file)
+        if death is not None:
+            pid_file.unlink(missing_ok=True)
+            st.proxy_pid = None
+            save_state(st)
+            last_failure_class = _classify_startup_failure(log_file)
+            _report_process_death(death, f"Proxy process exited immediately ({last_failure_class})")
+            if last_failure_class == "permanent":
+                return False
+            continue  # retry
+
+        if not wait:
+            return True
+
         # Wait for proxy to become healthy
+        became_healthy = False
         for _ in range(HEALTH_CHECK_RETRIES):
             if health_check():
-                return True
+                became_healthy = True
+                break
+            death = _check_process_alive(proc, log_file)
+            if death is not None:
+                pid_file.unlink(missing_ok=True)
+                st = load_state()
+                st.proxy_pid = None
+                save_state(st)
+                last_failure_class = _classify_startup_failure(log_file)
+                _report_process_death(death, f"Proxy process died during startup ({last_failure_class})")
+                break
             time.sleep(HEALTH_CHECK_INTERVAL)
 
-        # Proxy didn't become healthy
-        return False
+        if became_healthy:
+            return True
 
-    return True
+        # Process still alive but never became healthy
+        if death is None:
+            print("[STARTUP] Proxy process alive but not healthy after timeout", file=sys.stderr)
+            last_failure_class = "timeout"
+            stop_proxy()
+
+        if last_failure_class == "permanent":
+            return False
+        # Otherwise loop and retry
+
+    print(f"[STARTUP] All {STARTUP_MAX_RETRIES} attempts failed (last: {last_failure_class})", file=sys.stderr)
+    return False
 
 
 def stop_proxy() -> bool:

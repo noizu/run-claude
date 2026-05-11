@@ -121,7 +121,7 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking"]
+      additional_drop_params: ["context_management", "thinking", "output_config"]
 
   - model_name: "cerebras/gpt-oss-120b:instant"
     litellm_params:
@@ -129,7 +129,7 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking"]
+      additional_drop_params: ["context_management", "thinking", "output_config"]
 
   - model_name: "cerebras/gpt-oss-120b:thinking"
     litellm_params:
@@ -137,7 +137,7 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       reasoning_effort: "low"
 
   - model_name: "cerebras/gpt-oss-120b:thinking-medium"
@@ -146,7 +146,7 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       reasoning_effort: "medium"
 
   - model_name: "cerebras/gpt-oss-120b:thinking-high"
@@ -155,7 +155,7 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       reasoning_effort: "high"
 
   # llama-3.3-70b
@@ -165,7 +165,7 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking"]
+      additional_drop_params: ["context_management", "thinking", "output_config"]
 
   # llama3.1-8b
   - model_name: "cerebras/llama3.1-8b"
@@ -174,7 +174,7 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking"]
+      additional_drop_params: ["context_management", "thinking", "output_config"]
 
   # qwen-3-235b-a22b-instruct-2507
   - model_name: "cerebras/qwen-3-235b-a22b-instruct-2507"
@@ -183,7 +183,7 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking"]
+      additional_drop_params: ["context_management", "thinking", "output_config"]
 
   # qwen-3-32b
   - model_name: "cerebras/qwen-3-32b"
@@ -192,7 +192,7 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking"]
+      additional_drop_params: ["context_management", "thinking", "output_config"]
 
   # zai-glm-4.7
   - model_name: "cerebras/zai-glm-4.7"
@@ -201,7 +201,7 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking"]
+      additional_drop_params: ["context_management", "thinking", "output_config"]
 
   - model_name: "cerebras/zai-glm-4.7:instant"
     litellm_params:
@@ -209,7 +209,7 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking"]
+      additional_drop_params: ["context_management", "thinking", "output_config"]
 
   - model_name: "cerebras/zai-glm-4.7:thinking"
     litellm_params:
@@ -217,7 +217,7 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       reasoning_effort: "low"
 
   - model_name: "cerebras/zai-glm-4.7:thinking-medium"
@@ -226,7 +226,7 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       reasoning_effort: "medium"
 
   - model_name: "cerebras/zai-glm-4.7:thinking-high"
@@ -235,7 +235,7 @@ model_list:
       api_key: os.environ/CEREBRAS_API_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       reasoning_effort: "high"
 
   # cerebras/pro - alias for zai-glm-4.7 with subscription key
@@ -245,7 +245,7 @@ model_list:
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking"]
+      additional_drop_params: ["context_management", "thinking", "output_config"]
 
   - model_name: "cerebras_pro_instant"
     litellm_params:
@@ -253,7 +253,7 @@ model_list:
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking"]
+      additional_drop_params: ["context_management", "thinking", "output_config"]
 
 # Named
 
@@ -263,7 +263,7 @@ model_list:
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       supports_responses_api: false
       temperature: 0.5
 
@@ -273,7 +273,7 @@ model_list:
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       supports_responses_api: false
 
 
@@ -283,7 +283,7 @@ model_list:
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       supports_responses_api: false
       clear_thinking: false
 
@@ -296,7 +296,7 @@ model_list:
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       supports_responses_api: false
       temperature: 0.5
 
@@ -306,7 +306,7 @@ model_list:
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       supports_responses_api: false
 
   - model_name: "cerebras-pro/opus[1m]"
@@ -315,7 +315,7 @@ model_list:
       api_key: os.environ/CEREBRAS_SUB_KEY
       api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       supports_responses_api: false
       clear_thinking: false
 
@@ -329,7 +329,7 @@ model_list:
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       reasoning_effort: "low"
 
   - model_name: "zai/sonnet"
@@ -338,7 +338,7 @@ model_list:
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       reasoning_effort: "medium"
 
   - model_name: "zai/opus"
@@ -347,7 +347,7 @@ model_list:
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       reasoning_effort: "high"
 
   # Alias for zai/opus - high quality
@@ -357,7 +357,7 @@ model_list:
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       reasoning_effort: "high"
 
   # Alias for zai/opus - cheap option
@@ -367,7 +367,7 @@ model_list:
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       reasoning_effort: "high"
 
 # Zai - OpenAI v1 endpoint format (Named)
@@ -379,7 +379,7 @@ model_list:
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/coding/paas/v4
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       reasoning_effort: "low"
 
   - model_name: "zai-oa/sonnet"
@@ -388,7 +388,7 @@ model_list:
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/coding/paas/v4
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       reasoning_effort: "medium"
 
   - model_name: "zai-oa/opus"
@@ -397,7 +397,7 @@ model_list:
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/coding/paas/v4
       drop_params: true
-      additional_drop_params: ["context_management"]
+      additional_drop_params: ["context_management", "output_config"]
       reasoning_effort: "high"
 
 
