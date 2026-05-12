@@ -61,7 +61,7 @@ DEFAULT_PROXY_HOST = "127.0.0.1"
 DEFAULT_PROXY_PORT = 4444
 DEFAULT_PROXY_URL = f"http://{DEFAULT_PROXY_HOST}:{DEFAULT_PROXY_PORT}"
 DEFAULT_MASTER_KEY = "sk-litellm-master-key-12345"
-DEFAULT_LITELLM_COMMAND = "litellm"
+DEFAULT_LITELLM_COMMAND = "run-litellm-proxy"
 
 HEALTH_CHECK_TIMEOUT = 60.0
 HEALTH_CHECK_RETRIES = 30
@@ -492,7 +492,7 @@ def _classify_startup_failure(log_file: Path) -> str:
         return "db_connect"
     if "Address already in use" in text or "address already in use" in text:
         return "port_in_use"
-    if "command not found" in text or "No such file" in text:
+    if "command not found" in text or "No such file" in text or "ModuleNotFoundError" in text or "FATAL:" in text:
         return "permanent"
     return "unknown"
 

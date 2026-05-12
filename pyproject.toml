@@ -20,6 +20,7 @@ dependencies = [
 [project.scripts]
 run-claude = "run_claude.cli:main"
 run-open-code = "run_claude.opencode_cli:main"
+run-litellm-proxy = "run_claude.litellm_proxy:main"
 
 [build-system]
 requires = ["hatchling"]
