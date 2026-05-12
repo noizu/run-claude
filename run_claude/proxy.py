@@ -274,7 +274,7 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
     master_key = get_master_key()
 
     # Check if callbacks should be enabled (default: enabled)
-    enable_callbacks = False # os.environ.get("LITELLM_ENABLE_CALLBACKS", "true").lower() in ("true", "1", "yes")
+    enable_callbacks = os.environ.get("LITELLM_ENABLE_CALLBACKS", "true").lower() in ("true", "1", "yes")
 
     litellm_settings = {
         "drop_params": True,
