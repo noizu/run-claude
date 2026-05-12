@@ -1,4 +1,4 @@
-.PHONY: help test test-cov coverage coverage-html coverage-xml clean install dev refresh setup-litellm
+.PHONY: help compile test test-cov coverage coverage-html coverage-xml clean install dev refresh setup-litellm
 
 help:
 	@echo "Available targets:"
@@ -12,6 +12,9 @@ help:
 	@echo "  refresh       Reinstall the tool (force refresh cache)"
 	@echo "  dev           Install dev dependencies"
 	@echo "  setup-litellm Setup litellm venv with custom callbacks"
+
+compile:
+	@true
 
 test:
 	uv run pytest
