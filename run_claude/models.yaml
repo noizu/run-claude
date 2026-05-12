@@ -285,7 +285,6 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "output_config"]
       supports_responses_api: false
-      clear_thinking: false
 
   # 1M-context aliases: Claude Code v2.1.116+ appends "[1m]" to model names when
   # it detects the 1M-context variant. The backend (Cerebras zai-glm-4.7) is the
@@ -317,7 +316,6 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "output_config"]
       supports_responses_api: false
-      clear_thinking: false
 
 # Zai - Named
 

@@ -39,6 +39,11 @@ CONTENT_STRIP_FIELDS = {
     "cache_control",
 }
 
+# Fields to strip from the message dict itself (not content blocks)
+MESSAGE_STRIP_FIELDS = {
+    "thinking_blocks",
+}
+
 
 def _get_provider_from_model(model: str) -> str | None:
     """Extract provider name from model string (e.g., 'groq/llama3-8b' -> 'groq')."""
@@ -81,7 +86,7 @@ def _clean_tool_use_blocks(messages: list[dict[str, Any]]) -> list[dict[str, Any
     cleaned_messages = []
 
     for msg in messages:
-        msg_copy = msg.copy()
+        msg_copy = {k: v for k, v in msg.items() if k not in MESSAGE_STRIP_FIELDS}
         content = msg_copy.get("content")
 
         if isinstance(content, list):
