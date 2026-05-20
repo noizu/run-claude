@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git submodule *)",
+      "Read(//Users/keithbrings/.local/share/litellm/.venv/**)",
+      "Bash(/Users/keithbrings/.config/uv/tools/run-claude/bin/python3 *)"
+    ]
+  }
+}
