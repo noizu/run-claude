@@ -45,6 +45,10 @@ cerebras-pro:
   opus_model: "cerebras-pro/opus"
   sonnet_model: "cerebras-pro/sonnet"
   haiku_model: "cerebras-pro/haiku"
+  extended:
+    - "cerebras-pro/opus[1m]"
+    - "cerebras-pro/sonnet[1m]"
+    - "cerebras-pro/haiku[1m]"
 
 groq-pro:
   name: "Groq Equivalent"

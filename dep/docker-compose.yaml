@@ -32,7 +32,8 @@ services:
 
   # TimescaleDB - PostgreSQL for application data
   timescaledb:
-    image: timescale/timescaledb:2.23.1-pg17
+    image: timescale/timescaledb-ha:pg17
+    platform: ${DOCKER_PLATFORM:-linux/arm64}
     container_name: run-claude-timescaledb
     hostname: timescaledb
     env_file:

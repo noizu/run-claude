@@ -353,6 +353,43 @@ model_list:
     allowed_fails: 10
     cooldown_time: 5
 
+  - model_name: "cerebras-pro/haiku[1m]"
+    litellm_params:
+      model: cerebras/zai-glm-4.7
+      api_key: os.environ/CEREBRAS_SUB_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort", "thinking_blocks"]
+      temperature: 0.5
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
+
+  - model_name: "cerebras-pro/sonnet[1m]"
+    litellm_params:
+      model: cerebras/zai-glm-4.7
+      api_key: os.environ/CEREBRAS_SUB_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
+
+  - model_name: "cerebras-pro/opus[1m]"
+    litellm_params:
+      model: cerebras/zai-glm-4.7
+      api_key: os.environ/CEREBRAS_SUB_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
+
 # Zai - Named
 
 
