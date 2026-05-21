@@ -1032,7 +1032,7 @@ def wipe_all_models(debug: bool = False) -> tuple[int, int]:
     return (deleted, failed)
 
 
-def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_for_recovery: bool = False, force: bool = False) -> tuple[int, int]:
+def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_for_recovery: bool = False, force: bool = False) -> tuple[int, int, int]:
     """
     Ensure models are registered with proxy.
 
@@ -1091,7 +1091,7 @@ def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_fo
     # Always show summary
     print(f"[SUMMARY] Added: {added}, Skipped: {skipped}, Failed: {failed}", file=sys.stderr)
 
-    return added, skipped
+    return added, skipped, failed
 
 
 def regenerate_config_and_restart() -> bool:

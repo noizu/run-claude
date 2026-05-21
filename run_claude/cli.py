@@ -194,9 +194,12 @@ def cmd_enter(args: argparse.Namespace) -> int:
     elif model_defs:
         # Add any missing models via API (no restart needed)
         # Wait for recovery if proxy is not immediately healthy
-        added, skipped = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=True, force=refresh)
+        added, skipped, failed = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=True, force=refresh)
         if debug and added > 0:
             print(f"Added {added} model(s) to proxy", file=sys.stderr)
+        if failed > 0 and added == 0 and skipped == 0:
+            print(f"Error: All {failed} model(s) failed to register", file=sys.stderr)
+            return 1
 
     # Update state
     st = state.load_state()
