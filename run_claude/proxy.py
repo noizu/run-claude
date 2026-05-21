@@ -588,6 +588,12 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
         elif debug:
             print("Database container already running", file=sys.stderr)
 
+    # Auto-migrate database schema if needed
+    if not no_db:
+        if not _db_schema_exists(debug=debug):
+            print("Database schema not found, running migration...", file=sys.stderr)
+            run_prisma_migrate(debug=debug)
+
     state_dir = get_state_dir()
     state_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1615,12 +1621,59 @@ def get_db_status() -> DbStatus:
 DEFAULT_PRISMA_COMMAND = "prisma"
 
 
+def _db_schema_exists(debug: bool = False) -> bool:
+    """Check if the LiteLLM schema tables exist in the database."""
+    import re
+    try:
+        from .config import load_secrets
+        secrets = load_secrets(debug=False)
+        for key, value in secrets.to_env().items():
+            if key not in os.environ:
+                os.environ[key] = value
+    except Exception:
+        pass
+
+    db_url = os.environ.get(
+        "LITELLM_DATABASE_URL",
+        "postgresql://postgres:${RUN_CLAUDE_TIMESCALEDB_PASSWORD}@localhost:5433/postgres?sslmode=disable"
+    )
+    if "${" in db_url and "}" in db_url:
+        def expand_var(match):
+            var_name = match.group(1)
+            return os.environ.get(var_name, match.group(0))
+        db_url = re.sub(r'\$\{([^}]+)\}', expand_var, db_url)
+
+    try:
+        import psycopg2
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
+        cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'LiteLLM_ProxyModelTable')")
+        exists = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return exists
+    except Exception as e:
+        if debug:
+            print(f"Schema check failed: {e}", file=sys.stderr)
+        return False
+
+
 def get_prisma_command() -> str:
     """Get prisma command from environment or default.
 
     On NixOS systems, use PRISMA_COMMAND to specify the command (e.g., 'uv run prisma').
+    When installed as a uv tool, resolves prisma from the same venv as the running process.
     """
-    return os.environ.get("PRISMA_COMMAND", DEFAULT_PRISMA_COMMAND)
+    from_env = os.environ.get("PRISMA_COMMAND")
+    if from_env:
+        return from_env
+    import shutil
+    if shutil.which("prisma"):
+        return "prisma"
+    venv_prisma = Path(sys.executable).parent / "prisma"
+    if venv_prisma.exists():
+        return str(venv_prisma)
+    return DEFAULT_PRISMA_COMMAND
 
 
 def run_prisma_migrate(debug: bool = False) -> bool:
@@ -1705,7 +1758,7 @@ def run_prisma_migrate(debug: bool = False) -> bool:
     # Get prisma command - supports custom command via PRISMA_COMMAND env var
     prisma_cmd = get_prisma_command()
     # Split command in case it's "uv run prisma" or similar
-    cmd = shlex.split(prisma_cmd) + ["db", "push", f"--schema={schema_path}"]
+    cmd = shlex.split(prisma_cmd) + ["db", "push", "--skip-generate", f"--schema={schema_path}"]
 
     if debug:
         print(f"Running: {' '.join(cmd)}", file=sys.stderr)
