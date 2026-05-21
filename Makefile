@@ -49,8 +49,7 @@ clean:
 	rm -rf build/
 
 install:
-	uv tool install .
-
+	uv tool install . --force --refresh
 refresh:
 	rm -rf ${HOME}/.local/share/uv/tools/run-claude
 	uv tool install . --refresh --force --verbose
