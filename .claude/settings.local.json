@@ -3,7 +3,12 @@
     "allow": [
       "Bash(git submodule *)",
       "Read(//Users/keithbrings/.local/share/litellm/.venv/**)",
-      "Bash(/Users/keithbrings/.config/uv/tools/run-claude/bin/python3 *)"
+      "Bash(/Users/keithbrings/.config/uv/tools/run-claude/bin/python3 *)",
+      "Bash(run-claude restart *)",
+      "Bash(run-claude proxy *)",
+      "Bash(kill -9 19402)",
+      "Bash(make refresh *)",
+      "Bash(run-claude enter *)"
     ]
   }
 }

@@ -12,8 +12,11 @@ from .provider_compat import (
     STRICT_PROVIDERS,
 )
 
+provider_compat_callback = ProviderCompatCallback()
+
 __all__ = [
     "ProviderCompatCallback",
+    "provider_compat_callback",
     "standardize_request",
     "transform_request_for_provider",
     "STRICT_PROVIDERS",

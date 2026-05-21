@@ -287,7 +287,7 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
     # Add provider compatibility callbacks for strict providers (Groq, Cerebras, etc.)
     if enable_callbacks:
         litellm_settings["callbacks"] = [
-            "run_claude.callbacks.ProviderCompatCallback",
+            "run_claude.callbacks.provider_compat_callback",
         ]
 
     config = {
