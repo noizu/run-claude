@@ -8,7 +8,12 @@ Handles request transformations for providers with strict input requirements
 from __future__ import annotations
 
 import copy
+import json
+import logging
+import os
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 
 try:
@@ -18,6 +23,62 @@ except ImportError:
     # Fallback for when litellm isn't installed (e.g., during package build)
     CustomLogger = object
     UserAPIKeyAuth = Any
+
+
+def _get_compat_logger() -> logging.Logger:
+    """Get or create a file logger for strict provider errors."""
+    logger = logging.getLogger("run_claude.provider_compat")
+    if logger.handlers:
+        return logger
+
+    xdg_state = os.environ.get("XDG_STATE_HOME")
+    state_dir = Path(xdg_state) / "run-claude" if xdg_state else Path.home() / ".local" / "state" / "run-claude"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    log_path = state_dir / "provider-compat.log"
+
+    handler = logging.FileHandler(log_path)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    return logger
+
+
+def _fingerprint_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Build a structural fingerprint of messages for diagnostics.
+
+    Returns a list of per-message summaries showing role, top-level keys,
+    and content block types — enough to see what the provider rejected
+    without logging actual content.
+    """
+    fingerprints = []
+    for i, msg in enumerate(messages):
+        fp: dict[str, Any] = {
+            "idx": i,
+            "role": msg.get("role"),
+            "keys": sorted(k for k in msg if k not in ("role", "content")),
+        }
+        content = msg.get("content")
+        if isinstance(content, list):
+            fp["content_blocks"] = [
+                {"type": b.get("type"), "keys": sorted(b.keys())}
+                if isinstance(b, dict) else type(b).__name__
+                for b in content
+            ]
+        elif isinstance(content, str):
+            fp["content_type"] = "string"
+        elif isinstance(content, dict):
+            fp["content_type"] = "dict"
+            fp["content_keys"] = sorted(content.keys())
+        fingerprints.append(fp)
+    return fingerprints
+
+
+def _fingerprint_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Summarize top-level kwargs keys and selected values."""
+    skip = {"messages", "input", "original_response", "litellm_params",
+            "complete_input_dict", "api_key", "additional_args"}
+    return {k: type(v).__name__ for k, v in kwargs.items() if k not in skip}
 
 
 # Providers that need special handling
@@ -39,9 +100,19 @@ CONTENT_STRIP_FIELDS = {
     "cache_control",
 }
 
-# Fields to strip from the message dict itself (not content blocks)
+# Fields to strip from the message dict itself (not content blocks).
+# These are response-only fields that no provider expects to receive back —
+# stripped universally, not just for strict providers.
 MESSAGE_STRIP_FIELDS = {
     "thinking_blocks",
+    "reasoning_content",
+}
+
+# Content block types to drop entirely from message content arrays.
+# These are response-only blocks (thinking/reasoning) that should not be
+# sent back in conversation history.
+CONTENT_DROP_TYPES = {
+    "thinking",
 }
 
 
@@ -50,6 +121,24 @@ def _get_provider_from_model(model: str) -> str | None:
     if "/" in model:
         return model.split("/")[0].lower()
     return None
+
+
+def _is_strict_provider(model: str) -> bool:
+    """Check if the model belongs to a strict provider.
+
+    Handles both litellm model strings (e.g., 'cerebras/zai-glm-4.7')
+    and model group names (e.g., 'cerebras-pro/opus') by checking if
+    the extracted provider starts with any known strict provider name.
+    """
+    provider = _get_provider_from_model(model)
+    if provider is None:
+        return False
+    if provider in STRICT_PROVIDERS:
+        return True
+    for sp in STRICT_PROVIDERS:
+        if provider.startswith(sp):
+            return True
+    return False
 
 
 def _strip_fields_from_content(content: Any, fields_to_strip: set[str]) -> Any:
@@ -76,12 +165,13 @@ def _strip_fields_from_content(content: Any, fields_to_strip: set[str]) -> Any:
         return content
 
 
-def _clean_tool_use_blocks(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _clean_messages_universal(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
-    Remove problematic fields from tool_use blocks in messages.
+    Strip response-only fields from all messages regardless of provider.
 
-    Some providers (like Groq) return 400 errors when receiving fields
-    like 'provider_specific_fields' in tool_use content blocks.
+    Removes MESSAGE_STRIP_FIELDS (thinking_blocks, reasoning_content) from
+    the message dict and drops CONTENT_DROP_TYPES (thinking) content blocks.
+    These are translation artifacts that no provider expects to receive back.
     """
     cleaned_messages = []
 
@@ -90,20 +180,42 @@ def _clean_tool_use_blocks(messages: list[dict[str, Any]]) -> list[dict[str, Any
         content = msg_copy.get("content")
 
         if isinstance(content, list):
+            cleaned_content = [
+                block for block in content
+                if not (isinstance(block, dict) and block.get("type") in CONTENT_DROP_TYPES)
+            ]
+            msg_copy["content"] = cleaned_content
+
+        cleaned_messages.append(msg_copy)
+
+    return cleaned_messages
+
+
+def _clean_messages_strict(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Additional cleaning for strict providers (Groq, Cerebras, etc.).
+
+    Strips provider_specific_fields/cache_control from tool_use and content
+    blocks. Call after _clean_messages_universal.
+    """
+    cleaned_messages = []
+
+    for msg in messages:
+        content = msg.get("content")
+
+        if isinstance(content, list):
             cleaned_content = []
             for block in content:
                 if isinstance(block, dict):
                     block_type = block.get("type", "")
 
                     if block_type == "tool_use":
-                        # Strip problematic fields from tool_use blocks
                         cleaned_block = {
                             k: v for k, v in block.items()
                             if k not in TOOL_USE_STRIP_FIELDS
                         }
                         cleaned_content.append(cleaned_block)
                     elif block_type in ("text", "image", "image_url"):
-                        # Strip cache_control and similar from content blocks
                         cleaned_block = {
                             k: v for k, v in block.items()
                             if k not in CONTENT_STRIP_FIELDS
@@ -113,12 +225,11 @@ def _clean_tool_use_blocks(messages: list[dict[str, Any]]) -> list[dict[str, Any
                         cleaned_content.append(block)
                 else:
                     cleaned_content.append(block)
-            msg_copy["content"] = cleaned_content
+            msg = {**msg, "content": cleaned_content}
         elif isinstance(content, dict):
-            # Single content block as dict
-            msg_copy["content"] = _strip_fields_from_content(content, TOOL_USE_STRIP_FIELDS | CONTENT_STRIP_FIELDS)
+            msg = {**msg, "content": _strip_fields_from_content(content, TOOL_USE_STRIP_FIELDS | CONTENT_STRIP_FIELDS)}
 
-        cleaned_messages.append(msg_copy)
+        cleaned_messages.append(msg)
 
     return cleaned_messages
 
@@ -169,19 +280,16 @@ def transform_request_for_provider(
     Returns:
         Tuple of (cleaned_messages, cleaned_tools, cleaned_kwargs)
     """
-    provider = _get_provider_from_model(model)
+    # Universal cleaning (all providers)
+    cleaned_messages = _clean_messages_universal(messages)
 
-    # Only transform for strict providers
-    if provider not in STRICT_PROVIDERS:
-        return messages, tools, kwargs
+    # Strict provider cleaning
+    if not _is_strict_provider(model):
+        return cleaned_messages, tools, kwargs
 
-    # Clean messages
-    cleaned_messages = _clean_tool_use_blocks(messages)
-
-    # Clean tools
+    cleaned_messages = _clean_messages_strict(cleaned_messages)
     cleaned_tools = _clean_tools_definition(tools)
 
-    # Clean kwargs - remove any provider-specific fields at top level
     cleaned_kwargs = {
         k: v for k, v in kwargs.items()
         if k not in {"provider_specific_fields", "cache_control", "output_config"}
@@ -220,26 +328,24 @@ class ProviderCompatCallback(CustomLogger):
         This is called by LiteLLM proxy before making the API call.
         """
         model = data.get("model", "")
-        provider = _get_provider_from_model(model)
 
-        # Only transform for strict providers
-        if provider not in STRICT_PROVIDERS:
-            return data
-
-        if self.debug:
-            print(f"[ProviderCompatCallback] Transforming request for {provider}", file=sys.stderr)
-
-        # Transform messages
+        # Universal: strip response-only fields from all providers
         if "messages" in data:
-            data["messages"] = _clean_tool_use_blocks(data["messages"])
+            data["messages"] = _clean_messages_universal(data["messages"])
 
-        # Transform tools
-        if "tools" in data:
-            data["tools"] = _clean_tools_definition(data["tools"])
+        # Strict providers: additional cleaning
+        if _is_strict_provider(model):
+            if self.debug:
+                print(f"[ProviderCompatCallback] Strict transform for {model}", file=sys.stderr)
 
-        # Remove top-level problematic fields
-        for field in ["provider_specific_fields", "cache_control", "output_config"]:
-            data.pop(field, None)
+            if "messages" in data:
+                data["messages"] = _clean_messages_strict(data["messages"])
+
+            if "tools" in data:
+                data["tools"] = _clean_tools_definition(data["tools"])
+
+            for field in ["provider_specific_fields", "cache_control", "output_config"]:
+                data.pop(field, None)
 
         return data
 
@@ -256,8 +362,7 @@ class ProviderCompatCallback(CustomLogger):
         should already be applied.
         """
         if self.debug:
-            provider = _get_provider_from_model(model)
-            if provider in STRICT_PROVIDERS:
+            if _is_strict_provider(model):
                 print(f"[ProviderCompatCallback] Pre-API call to {model}", file=sys.stderr)
 
     def log_success_event(
@@ -270,6 +375,52 @@ class ProviderCompatCallback(CustomLogger):
         """Called on successful API response."""
         pass
 
+    def _log_provider_failure(
+        self,
+        kwargs: dict[str, Any],
+        response_obj: Any,
+        start_time: Any,
+        end_time: Any,
+    ) -> None:
+        """Log detailed diagnostics for provider failures.
+
+        Logs all failures, not just strict providers — Z.AI and other
+        proxied providers surface the same class of field-rejection errors.
+        """
+        model = kwargs.get("model", "")
+
+        logger = _get_compat_logger()
+
+        # Extract error details
+        error_str = ""
+        if hasattr(response_obj, "text"):
+            error_str = response_obj.text
+        elif isinstance(response_obj, Exception):
+            error_str = str(response_obj)
+        elif response_obj is not None:
+            error_str = repr(response_obj)
+
+        # Build fingerprint of what was sent
+        messages = kwargs.get("messages") or kwargs.get("input") or []
+        msg_fp = _fingerprint_messages(messages) if isinstance(messages, list) else str(type(messages))
+        kwarg_fp = _fingerprint_kwargs(kwargs)
+
+        entry = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "model": model,
+            "provider": _get_provider_from_model(model),
+            "error": error_str[:2000],
+            "message_fingerprint": msg_fp,
+            "kwargs_summary": kwarg_fp,
+        }
+
+        litellm_params = kwargs.get("litellm_params", {})
+        if isinstance(litellm_params, dict):
+            entry["drop_params"] = litellm_params.get("drop_params")
+            entry["additional_drop_params"] = litellm_params.get("additional_drop_params")
+
+        logger.info(json.dumps(entry, default=str))
+
     def log_failure_event(
         self,
         kwargs: dict[str, Any],
@@ -278,11 +429,17 @@ class ProviderCompatCallback(CustomLogger):
         end_time: Any,
     ) -> None:
         """Called on failed API response."""
-        if self.debug:
-            model = kwargs.get("model", "")
-            provider = _get_provider_from_model(model)
-            if provider in STRICT_PROVIDERS:
-                print(f"[ProviderCompatCallback] API call failed for {model}", file=sys.stderr)
+        self._log_provider_failure(kwargs, response_obj, start_time, end_time)
+
+    async def async_log_failure_event(
+        self,
+        kwargs: dict[str, Any],
+        response_obj: Any,
+        start_time: Any,
+        end_time: Any,
+    ) -> None:
+        """Called on failed API response (async path)."""
+        self._log_provider_failure(kwargs, response_obj, start_time, end_time)
 
 
 # Standalone function for use as proxy hook (alternative to callback class)
@@ -298,21 +455,20 @@ def standardize_request(litellm_params: dict[str, Any]) -> dict[str, Any]:
     kwargs = litellm_params.get("kwargs", {})
     model = kwargs.get("model", "")
 
-    provider = _get_provider_from_model(model)
-    if provider not in STRICT_PROVIDERS:
-        return litellm_params
-
-    # Transform messages
+    # Universal: strip response-only fields from all providers
     if "messages" in kwargs:
-        kwargs["messages"] = _clean_tool_use_blocks(kwargs["messages"])
+        kwargs["messages"] = _clean_messages_universal(kwargs["messages"])
 
-    # Transform tools
-    if "tools" in kwargs:
-        kwargs["tools"] = _clean_tools_definition(kwargs["tools"])
+    # Strict providers: additional cleaning
+    if _is_strict_provider(model):
+        if "messages" in kwargs:
+            kwargs["messages"] = _clean_messages_strict(kwargs["messages"])
 
-    # Remove problematic top-level fields
-    for field in ["provider_specific_fields", "cache_control", "output_config"]:
-        kwargs.pop(field, None)
+        if "tools" in kwargs:
+            kwargs["tools"] = _clean_tools_definition(kwargs["tools"])
+
+        for field in ["provider_specific_fields", "cache_control", "output_config"]:
+            kwargs.pop(field, None)
 
     litellm_params["kwargs"] = kwargs
     return litellm_params

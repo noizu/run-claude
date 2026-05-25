@@ -69,6 +69,8 @@ def main() -> int:
     proxy_stop_p = proxy_sub.add_parser("stop", help="Stop proxy")
     proxy_stop_p.add_argument("--with-db", action="store_true", help="Also stop database container")
     proxy_stop_p.add_argument("--all", action="store_true", help="Stop everything and remove containers")
+    proxy_restart_p = proxy_sub.add_parser("restart", help="Restart proxy (stop + start)")
+    proxy_restart_p.add_argument("--no-db", action="store_true", help="Don't auto-start database container")
     proxy_sub.add_parser("status", help="Proxy status")
     proxy_sub.add_parser("health", help="Health check")
     proxy_sub.add_parser("db-test", help="Test database connection")
@@ -556,6 +558,20 @@ def cmd_proxy(args: argparse.Namespace) -> int:
 
         return 0
 
+    elif args.proxy_command == "restart":
+        no_db = getattr(args, 'no_db', False)
+        if proxy.is_proxy_running():
+            if not proxy.stop_proxy():
+                print("Failed to stop proxy", file=sys.stderr)
+                return 1
+            print("Proxy stopped")
+        if proxy.start_proxy(empty_config=True, no_db=no_db, debug=debug):
+            print("Proxy started")
+            return 0
+        else:
+            print("Failed to start proxy", file=sys.stderr)
+            return 1
+
     elif args.proxy_command == "status":
         status = proxy.get_status()
 
@@ -610,7 +626,7 @@ def cmd_proxy(args: argparse.Namespace) -> int:
             return 1
 
     else:
-        print("Usage: run-claude proxy {start|stop|status|health|db-test}")
+        print("Usage: run-claude proxy {start|stop|restart|status|health|db-test}")
         return 1
 
 

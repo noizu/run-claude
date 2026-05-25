@@ -7,20 +7,31 @@ The core Python package implementing the agent shim controller.
 | File | Lines | Purpose |
 |------|-------|---------|
 | `__init__.py` | ~7 | Package initialization, version |
-| `cli.py` | ~1066 | CLI entry point, command dispatch (argparse) |
-| `config.py` | ~794 | Secrets management, .env generation, YAML parsing |
-| `profiles.py` | ~778 | Profile loading with fallthrough, model resolution |
-| `proxy.py` | ~1609 | LiteLLM proxy lifecycle, health checks, model API |
+| `cli.py` | ~923 | CLI entry point, command dispatch (argparse) |
+| `config.py` | ~321 | Secrets management, .env generation, YAML parsing |
+| `profiles.py` | ~772 | Profile loading with fallthrough, model resolution |
+| `proxy.py` | ~1798 | LiteLLM proxy lifecycle, health checks, model API |
 | `state.py` | ~176 | JSON state persistence (tokens, refcounts, leases) |
-| `models.yaml` | ~798 | Built-in LiteLLM model definitions |
-| `hooks.yaml` | - | Hook configuration for lifecycle events |
+| `agent_runner.py` | ~166 | Agent execution wrapper for running AI agents |
+| `litellm_proxy.py` | ~150 | LiteLLM proxy helper utilities |
+| `opencode_cli.py` | ~190 | OpenCode CLI integration layer |
+| `models.yaml` | - | Built-in LiteLLM model definitions |
+
+## defaults/
+
+```
+defaults/
+├── models.yaml              # Built-in LiteLLM model definitions
+├── profiles.yaml            # Built-in profile definitions
+└── hooks.yaml               # Built-in hook definitions
+```
 
 ## callbacks/
 
 ```
 callbacks/
 ├── __init__.py              # Package initialization
-└── provider_compat.py       # (~396 lines) Provider compatibility layer
+└── provider_compat.py       # (~318 lines) Provider compatibility layer
 ```
 
 Runs inside the LiteLLM proxy process (separate venv). Strips unsupported fields for strict providers (Groq, Cerebras, Together, Anyscale).

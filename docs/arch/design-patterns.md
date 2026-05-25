@@ -65,3 +65,29 @@ Hooks execute sequentially via `HookChain`. If one hook raises an exception, the
 chain.register(HookEvent.PRE_REQUEST, "strip_fields", strip_provider_fields)
 ctx = await chain.execute(ctx)
 ```
+
+## 8. Strict Provider Detection
+
+`_is_strict_provider(model)` handles both litellm model strings (e.g., `cerebras/zai-glm-4.7`) and model group names (e.g., `cerebras-pro/opus`) by extracting the provider prefix and checking against `STRICT_PROVIDERS`. This replaced direct set membership checks throughout `provider_compat.py`.
+
+```python
+def _is_strict_provider(model: str) -> bool:
+    provider = _get_provider_from_model(model)
+    if provider is None:
+        return False
+    if provider in STRICT_PROVIDERS:
+        return True
+    for sp in STRICT_PROVIDERS:
+        if provider.startswith(sp):
+            return True
+    return False
+```
+
+## 9. Thinking Block Stripping
+
+For strict providers (Groq, Cerebras, Together, Anyscale), thinking blocks are dropped entirely from message content since these providers don't support them. This runs inside `_clean_tool_use_blocks()` which also strips unsupported fields from `tool_use` blocks.
+
+```python
+if block_type == "thinking":
+    continue  # strict providers don't support thinking blocks
+```

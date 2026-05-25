@@ -1,6 +1,6 @@
 # Project Architecture
 
-This document describes the architecture, data flow, and design patterns of the run-claude project.
+run-claude is an agent shim controller providing directory-aware model routing via a LiteLLM proxy. When you `cd` into a directory declaring a profile, the required models are registered with a running LiteLLM proxy and environment variables are set so Claude Code (or other tools) route through it. The system uses a two-layer configuration: **model definitions** (standalone LiteLLM configs in `defaults/models.yaml`) and **profiles** (lightweight references mapping opus/sonnet/haiku tiers to model definitions in `defaults/profiles.yaml`).
 
 ## High-Level Architecture
 
@@ -38,8 +38,6 @@ This document describes the architecture, data flow, and design patterns of the 
 
 Entry point handling all user commands.
 
-**Commands:**
-
 | Command | Handler | Purpose |
 |---------|---------|---------|
 | `enter` | `cmd_enter()` | Register directory + profile + token |
@@ -49,6 +47,7 @@ Entry point handling all user commands.
 | `status` | `cmd_status()` | Show proxy & state status |
 | `env` | `cmd_env()` | Print environment for profile |
 | `proxy` | `cmd_proxy()` | Proxy control (start/stop/status) |
+| `db` | `cmd_db()` | Database management (start/stop/migrate) |
 | `profiles` | `cmd_profiles()` | Profile management |
 | `models` | `cmd_models()` | Model definition management |
 | `with` | `cmd_run()` | Run command with profile |
@@ -57,272 +56,47 @@ Entry point handling all user commands.
 
 ### 2. Profile System (`profiles.py`)
 
-Multi-file configuration with fallthrough loading.
+Multi-file configuration with fallthrough loading. Profiles map opus/sonnet/haiku tiers to model definitions. File search order: user override → user → package user → package built-in (first match wins, `model: null` disables and falls through).
 
-**Data Structures:**
-
-```python
-@dataclass
-class ModelDef:
-    model_name: str
-    litellm_params: dict[str, Any]
-
-@dataclass
-class ProfileMeta:
-    name: str
-    opus_model: str      # Model name for Opus tier
-    sonnet_model: str    # Model name for Sonnet tier
-    haiku_model: str     # Model name for Haiku tier
-
-@dataclass
-class Profile:
-    meta: ProfileMeta
-    model_list: list[ModelDef]
-    source_path: Path | None
-```
-
-**File Search Order (first match wins):**
-
-1. `~/.config/run-claude/user.profiles.yaml` (highest priority)
-2. `~/.config/run-claude/profiles.yaml`
-3. `<package>/user.profiles.yaml`
-4. `<package>/profiles.yaml` (lowest priority)
-
-**Key Functions:**
-
-- `load_profile(name)`: Load profile with fallthrough
-- `resolve_profile_models()`: Convert model names to ModelDef objects
-- `hydrate_model_def()`: Expand `os.environ/VAR` references
-- `list_profiles()`: List available profiles
+Key data structures: `ModelDef` (litellm params), `ProfileMeta` (tier-to-model mapping), `Profile` (meta + resolved model list).
 
 ### 3. State Management (`state.py`)
 
-Persistent state tracking using JSON.
-
-**Data Structures:**
-
-```python
-@dataclass
-class TokenInfo:
-    profile: str
-    last_seen: float  # Unix timestamp
-    directory: str
-
-@dataclass
-class State:
-    proxy_pid: int | None
-    active_tokens: dict[str, TokenInfo]
-    model_refcounts: dict[str, int]
-    model_leases: dict[str, float]  # model -> delete_after epoch
-    last_janitor_run: float
-```
-
-**Storage:** `~/.local/state/run-claude/state.json`
+Persistent JSON state tracking tokens (directory-to-profile mapping), model refcounts, and leases. Stored at `~/.local/state/run-claude/state.json`. The refcount-with-lease pattern prevents model thrashing — models at refcount 0 get a 15-minute grace period before the janitor removes them.
 
 ### 4. Proxy Management (`proxy.py`)
 
-LiteLLM proxy lifecycle and model registration.
-
-**Configuration:**
-
-| Setting | Default |
-|---------|---------|
-| Host | `127.0.0.1` |
-| Port | `4444` |
-| Master Key | `sk-litellm-master-key-12345` |
-| Database | `postgresql://localhost:5433/postgres` |
-
-**Key Functions:**
-
-- `start_proxy()`: Spawn proxy subprocess, wait for health
-- `stop_proxy()`: Graceful shutdown with SIGTERM/SIGKILL
-- `health_check()`: GET `/health` endpoint
-- `add_model()`: POST `/model/new`
-- `delete_model()`: POST `/model/delete`
-- `ensure_models()`: Bulk add models (skip existing)
+LiteLLM proxy lifecycle: start/stop subprocess, health checks (30 retries × 10s), and model registration/deletion via HTTP API. Runs on `127.0.0.1:4444` with generated config at `~/.local/state/run-claude/litellm_config.yaml`.
 
 ### 5. Secrets Management (`config.py`)
 
-Secure credential storage and export.
+Secure credential storage in `~/.config/run-claude/.secrets` (YAML, mode 0600). Exports to `.env` for Docker Compose. Hydrates `os.environ/VAR` references in model definitions at runtime.
 
-**File Location:** `~/.config/run-claude/.secrets` (YAML, mode 0600)
+### 6. Hooks System (`hooks/`)
 
-**Required Secrets:**
+Extensible lifecycle hook system with sequential execution and error isolation. Events: `PRE_REQUEST`, `POST_RESPONSE`, `PRE_TOOL_CALL`, `POST_TOOL_CALL`. YAML-configurable with dynamic module loading. Built-in hooks: `log_request`, `log_response`, `strip_provider_fields`.
 
-- `RUN_CLAUDE_TIMESCALEDB_PASSWORD`
-- `ANTHROPIC_API_KEY`
+### 7. Provider Compat Callback (`callbacks/provider_compat.py`)
 
-**Key Functions:**
-
-- `load_secrets()`: Load YAML secrets file
-- `create_secrets_template()`: Generate documented template
-- `export_env_file()`: Convert to `.env` for Docker
+LiteLLM custom callback that strips unsupported fields for strict providers (Groq, Cerebras, Together, Anyscale). Uses `_is_strict_provider()` to detect provider from model strings (handles both litellm format like `cerebras/zai-glm-4.7` and model group names like `cerebras-pro/opus`). Strips thinking blocks entirely and cleans tool_use fields. Runs inside the LiteLLM proxy process (separate venv), not the main run-claude process.
 
 ## Data Flows
 
-### Directory Enter Flow
+The primary flows are **directory enter** (direnv triggers → load profile → start proxy → register models → set env vars), **directory leave** (decrement refcounts → set leases for cleanup), **janitor cleanup** (expire leases → delete unused models), and **profile resolution** (multi-file fallthrough with env hydration).
 
-```
-User enters directory (via direnv)
-        │
-        ▼
-┌───────────────────────────────────────────┐
-│ .envrc sets AGENT_SHIM_TOKEN              │
-│ .envrc.user sets AGENT_SHIM_PROFILE       │
-│ .envrc evals: run-claude env $PROFILE     │
-└───────────────────┬───────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────┐
-│ Shell hook detects token change           │
-│ Calls: run-claude enter $TOKEN $PROFILE   │
-└───────────────────┬───────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────┐
-│ cli.cmd_enter():                          │
-│   1. Load profile by name                 │
-│   2. Resolve model definitions            │
-│   3. Ensure proxy running                 │
-│   4. Register models with proxy           │
-│   5. Add token to state                   │
-│   6. Increment model refcounts            │
-│   7. Save state                           │
-└───────────────────────────────────────────┘
-```
-
-### Directory Leave Flow
-
-```
-User leaves directory
-        │
-        ▼
-┌───────────────────────────────────────────┐
-│ Shell hook detects token cleared          │
-│ Calls: run-claude leave $TOKEN            │
-└───────────────────┬───────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────┐
-│ cli.cmd_leave():                          │
-│   1. Load state                           │
-│   2. Get token info (profile, models)     │
-│   3. Decrement model refcounts            │
-│   4. If refcount=0: set lease (15 min)    │
-│   5. Remove token from state              │
-│   6. Save state                           │
-└───────────────────────────────────────────┘
-```
-
-### Janitor Cleanup Flow
-
-```
-Periodic janitor run (rate-limited to 1/minute)
-        │
-        ▼
-┌───────────────────────────────────────────┐
-│ cli.cmd_janitor():                        │
-│   1. Load state                           │
-│   2. Get expired leases                   │
-│   3. For each expired model:              │
-│      - Delete from proxy                  │
-│      - Clear lease from state             │
-│   4. Save state                           │
-└───────────────────────────────────────────┘
-```
-
-### Profile Resolution Flow
-
-```
-profiles.load_profile("anthropic")
-        │
-        ▼
-┌───────────────────────────────────────────┐
-│ Search profile files in priority order    │
-│ (user override → user → built-in)         │
-└───────────────────┬───────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────┐
-│ Check if profile disabled (model: null)   │
-│ If disabled, continue to next file        │
-└───────────────────┬───────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────┐
-│ Extract ProfileMeta:                      │
-│   - opus_model: "claude-opus-4-..."       │
-│   - sonnet_model: "claude-sonnet-4-..."   │
-│   - haiku_model: "claude-3-5-haiku-..."   │
-└───────────────────┬───────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────┐
-│ resolve_profile_models():                 │
-│   1. Load model definitions               │
-│   2. For each model name in profile:      │
-│      - Find ModelDef by name              │
-│      - hydrate_model_def() (expand env)   │
-│   3. Return list[ModelDef]                │
-└───────────────────────────────────────────┘
-```
+→ *See [arch/data-flows.md](arch/data-flows.md) for mermaid flow diagrams*
 
 ## Design Patterns
 
-### 1. Stable Token Generation
+Key patterns: stable token generation (SHA256 hash of directory path), refcount with 15-min lease, `os.environ/VAR` hydration, multi-file config fallback with `model: null` disable, first-run initialization, health check with recovery, and hook chain with error isolation.
 
-Directory paths are hashed to create stable, reproducible tokens:
+→ *See [arch/design-patterns.md](arch/design-patterns.md) for details and code examples*
 
-```python
-canonical = directory.resolve()
-token = hashlib.sha256(str(canonical).encode()).hexdigest()[:16]
-```
+## Infrastructure
 
-### 2. Refcount with Lease Pattern
+LiteLLM proxy on `127.0.0.1:4444` backed by TimescaleDB (Docker, port `5433`). XDG-compliant paths: config at `~/.config/run-claude/`, state at `~/.local/state/run-claude/`. Proxy uses Prisma ORM for model registry and request logging. Database extensions: `vector` (embeddings), `pg_trgm` (trigram search).
 
-Prevents model thrashing (rapid add/delete cycles):
-
-```
-Refcount > 0  →  Model is in-use, keep registered
-Refcount = 0  →  Model enters lease period (15 min default)
-Lease expired →  Janitor deletes from proxy
-```
-
-### 3. Environment Variable Hydration
-
-Model definitions reference environment variables with special syntax:
-
-```yaml
-litellm_params:
-  api_key: os.environ/ANTHROPIC_API_KEY
-```
-
-Expanded at runtime before registering with proxy.
-
-### 4. Multi-File Configuration Fallback
-
-Profiles and models use layered configuration:
-
-- **User files** override built-in files
-- **Disabled profiles** (`model: null`) fall through to next source
-- Enables customization without modifying source
-
-### 5. First-Run Initialization
-
-```python
-ensure_initialized()
-  → Check ~/.initialized marker
-  → If missing: copy built-in profiles/models to user config
-  → Create XDG-compliant directories
-```
-
-### 6. Health Check with Recovery
-
-```python
-health_check(wait_for_recovery=True, max_retries=30)
-  → Retry up to 30 times with 10s interval
-  → Allows proxy to stabilize after model registration
-```
+→ *See [arch/infrastructure.md](arch/infrastructure.md) for network diagram, env vars, process lifecycle, and security details*
 
 ## External Dependencies
 
@@ -332,90 +106,3 @@ health_check(wait_for_recovery=True, max_retries=30)
 | `httpx` | HTTP client for proxy API calls |
 | `psycopg2-binary` | PostgreSQL driver for database testing |
 | `prisma` | ORM for LiteLLM proxy (referenced in env) |
-
-## Environment Variables
-
-### Proxy Configuration
-
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `LITELLM_PROXY_URL` | `http://127.0.0.1:4444` | Proxy base URL |
-| `LITELLM_MASTER_KEY` | `sk-litellm-master-key-12345` | Proxy API key |
-| `LITELLM_DATABASE_URL` | See below | Database connection |
-| `STORE_MODEL_IN_DB` | `True` | Enable DB model storage |
-| `USE_PRISMA_MIGRATE` | `True` | Enable migrations |
-
-### Client Environment (exported by `run-claude env`)
-
-| Variable | Purpose |
-|----------|---------|
-| `ANTHROPIC_AUTH_TOKEN` | Proxy master key |
-| `ANTHROPIC_BASE_URL` | Proxy URL |
-| `ANTHROPIC_DEFAULT_OPUS_MODEL` | Profile's opus model |
-| `ANTHROPIC_DEFAULT_SONNET_MODEL` | Profile's sonnet model |
-| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Profile's haiku model |
-| `API_TIMEOUT_MS` | API timeout (3000000ms) |
-
-## Database Schema
-
-TimescaleDB with extensions:
-
-- **vector**: Vector embeddings for LLM context
-- **pg_trgm**: Trigram search for text matching
-
-LiteLLM uses Prisma ORM for:
-
-- Model registry and parameters
-- API key management
-- Request/response logging
-
-## Network Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Host Machine                            │
-│                                                             │
-│  ┌─────────────┐                    ┌─────────────────────┐ │
-│  │   Claude    │ ──HTTP:4444──────► │   LiteLLM Proxy     │ │
-│  │   Client    │                    │   (port 4444)       │ │
-│  └─────────────┘                    └──────────┬──────────┘ │
-│                                                │            │
-│                                     TCP:5433   │            │
-│                                                ▼            │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │              Docker: run-claude-network                 ││
-│  │  ┌───────────────────────────────────────────────────┐  ││
-│  │  │           TimescaleDB Container                    │  ││
-│  │  │           (internal port 5432)                     │  ││
-│  │  │           Volume: timescaledb-data                 │  ││
-│  │  └───────────────────────────────────────────────────┘  ││
-│  └─────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────┘
-```
-
-## Process Lifecycle
-
-### Proxy Startup
-
-1. Generate `litellm_config.yaml` with model definitions
-2. Spawn `litellm --config <path>` subprocess
-3. Wait for health check (30 retries × 10s)
-4. Store PID in `~/.local/state/run-claude/proxy.pid`
-5. Update state with `proxy_pid`
-
-### Proxy Shutdown
-
-1. Read PID from file
-2. Send SIGTERM
-3. Wait for graceful exit (timeout: 5s)
-4. Send SIGKILL if needed
-5. Clean up PID file
-6. Update state
-
-## Security Considerations
-
-- Secrets file uses mode `0600` (owner only)
-- API keys stored in `~/.config/run-claude/.secrets`
-- Environment variables hydrated at runtime (not stored in configs)
-- Proxy runs on localhost only (`127.0.0.1`)
-- Database on non-standard port (`5433`) to avoid conflicts

@@ -10,6 +10,7 @@ from .provider_compat import (
     standardize_request,
     transform_request_for_provider,
     STRICT_PROVIDERS,
+    _is_strict_provider,
 )
 
 provider_compat_callback = ProviderCompatCallback()
