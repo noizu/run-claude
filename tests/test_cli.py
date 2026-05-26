@@ -47,7 +47,6 @@ class TestEnvCommand:
 
         # Should contain base URL and auth token
         assert "ANTHROPIC_BASE_URL=" in output
-        assert "ANTHROPIC_AUTH_TOKEN=" in output
         assert "API_TIMEOUT_MS=" in output
 
     def test_env_outputs_model_mappings(self, capsys):

@@ -76,6 +76,32 @@ zai-pro:
     - "zai/haiku[1m]"
 
 
+# Claude Plan - OAuth Pass-through (Pro/Max subscription)
+claude-plan:
+  name: "Claude Plan (OAuth Pass-through)"
+
+  opus_model: "claude-opus-4-6"
+  sonnet_model: "claude-sonnet-4-6"
+  haiku_model: "claude-haiku-4-5-20251001"
+  extended:
+    - "claude-opus-4-6[1m]"
+    - "claude-sonnet-4-6[1m]"
+    - "claude-haiku-4-5-20251001[1m]"
+    - "claude-opus-4-7"
+    - "claude-opus-4-7[1m]"
+    - "cerebras-pro/opus"
+    - "cerebras-pro/sonnet"
+    - "cerebras-pro/haiku"
+    - "cerebras-pro/opus[1m]"
+    - "cerebras-pro/sonnet[1m]"
+    - "cerebras-pro/haiku[1m]"
+    - "zai/opus"
+    - "zai/sonnet"
+    - "zai/haiku"
+    - "zai/opus[1m]"
+    - "zai/sonnet[1m]"
+    - "zai/haiku[1m]"
+
 # glm 4.7 group
 fast-glm:
   name: "Cerebras Pro Subscription"

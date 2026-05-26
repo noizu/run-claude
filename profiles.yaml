@@ -80,6 +80,100 @@ zai-oa:
   sonnet_model: "zai-oa/sonnet"
   haiku_model: "zai-oa/haiku"
 
+# Claude Plan - OAuth Pass-through (Pro/Max subscription)
+# Anthropic models go directly to api.anthropic.com via front proxy.
+# Non-Anthropic models route through LiteLLM for model translation.
+claude-plan:
+  name: "Claude Plan (OAuth Pass-through)"
+
+  opus_model: "claude-opus-4-6"
+  sonnet_model: "claude-sonnet-4-6"
+  haiku_model: "claude-haiku-4-5-20251001"
+  extended:
+    - "claude-opus-4-6[1m]"
+    - "claude-sonnet-4-6[1m]"
+    - "claude-haiku-4-5-20251001[1m]"
+    - "claude-opus-4-7"
+    - "claude-opus-4-7[1m]"
+    - "cerebras-pro/opus"
+    - "cerebras-pro/sonnet"
+    - "cerebras-pro/haiku"
+    - "cerebras-pro/opus[1m]"
+    - "cerebras-pro/sonnet[1m]"
+    - "cerebras-pro/haiku[1m]"
+    - "zai/opus"
+    - "zai/sonnet"
+    - "zai/haiku"
+    - "zai/opus[1m]"
+    - "zai/sonnet[1m]"
+    - "zai/haiku[1m]"
+
+# All-Sub - Opus on Claude plan, Sonnet on Z.AI (glm-5.1), Haiku on Cerebras
+# Requires: Claude Pro/Max login + ZAI_SUB_KEY + CEREBRAS_SUB_KEY in .secrets
+all-sub:
+  name: "All Subscriptions (Claude + Z.AI + Cerebras)"
+
+  opus_model: "claude-opus-4-6"
+  sonnet_model: "zai/opus"
+  haiku_model: "cerebras-pro/opus"
+  extended:
+    # Claude variants
+    - "claude-opus-4-6[1m]"
+    - "claude-opus-4-7"
+    - "claude-opus-4-7[1m]"
+    - "claude-sonnet-4-6"
+    - "claude-sonnet-4-6[1m]"
+    - "claude-haiku-4-5-20251001"
+    - "claude-haiku-4-5-20251001[1m]"
+    # Z.AI full set
+    - "zai/opus"
+    - "zai/opus[1m]"
+    - "zai/sonnet"
+    - "zai/sonnet[1m]"
+    - "zai/haiku"
+    - "zai/haiku[1m]"
+    # Cerebras full set
+    - "cerebras-pro/opus"
+    - "cerebras-pro/opus[1m]"
+    - "cerebras-pro/sonnet"
+    - "cerebras-pro/sonnet[1m]"
+    - "cerebras-pro/haiku"
+    - "cerebras-pro/haiku[1m]"
+
+# Claude Enhanced - Claude for all tiers + every alternative provider in extended
+# Requires: Claude Pro/Max login + ZAI_SUB_KEY + CEREBRAS_SUB_KEY + GROQ_API_KEY
+claude-enhanced:
+  name: "Claude Enhanced (All Providers)"
+
+  opus_model: "claude-opus-4-6"
+  sonnet_model: "claude-sonnet-4-6"
+  haiku_model: "claude-haiku-4-5-20251001"
+  extended:
+    # Claude variants
+    - "claude-opus-4-6[1m]"
+    - "claude-opus-4-7"
+    - "claude-opus-4-7[1m]"
+    - "claude-sonnet-4-6[1m]"
+    - "claude-haiku-4-5-20251001[1m]"
+    # Z.AI (sub)
+    - "zai/opus"
+    - "zai/opus[1m]"
+    - "zai/sonnet"
+    - "zai/sonnet[1m]"
+    - "zai/haiku"
+    - "zai/haiku[1m]"
+    # Cerebras (sub)
+    - "cerebras-pro/opus"
+    - "cerebras-pro/opus[1m]"
+    - "cerebras-pro/sonnet"
+    - "cerebras-pro/sonnet[1m]"
+    - "cerebras-pro/haiku"
+    - "cerebras-pro/haiku[1m]"
+    # Groq
+    - "groq/opus"
+    - "groq/sonnet"
+    - "groq/haiku"
+
 # glm 4.7 group
 fast-glm:
   name: "Cerebras Pro Subscription"

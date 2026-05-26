@@ -18,6 +18,7 @@ from pathlib import Path
 def main() -> int:
     # Ensure config is initialized on first run
     from . import profiles, config
+    from . import __version__
     profiles.ensure_initialized()
 
     # Ensure secrets template exists
@@ -28,7 +29,9 @@ def main() -> int:
         prog="run-claude",
         description="Agent shim controller for Claude - launch claude with mode list profile",
     )
+    parser.add_argument("--version", "-V", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--debug", "-d", action="store_true", help="Enable debug output")
+    parser.add_argument("--enhanced", "-x", action="store_true", help="Shorthand for: run-claude with claude-enhanced")
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
     # enter
@@ -125,6 +128,12 @@ def main() -> int:
 
     args = parser.parse_args()
 
+    if args.enhanced:
+        args.command = "with"
+        args.profile = "claude-enhanced"
+        args.cmd = []
+        args.refresh = False
+
     if args.command is None:
         parser.print_help()
         return 0
@@ -187,7 +196,11 @@ def cmd_enter(args: argparse.Namespace) -> int:
     for m in profile.model_list:
         print(f"  - {m.model_name}", file=sys.stderr)
 
-    # Ensure proxy is running with profile's models
+    # Start front proxy (always-on for all profiles)
+    if not proxy.is_front_proxy_running():
+        proxy.start_front_proxy(wait=False)
+
+    # Ensure LiteLLM proxy is running with profile's models
     model_defs = [m.to_dict() for m in profile.model_list]
     if not proxy.is_proxy_running():
         config_path = str(proxy.generate_litellm_config(model_defs=model_defs)) if model_defs else None
@@ -396,8 +409,20 @@ def cmd_status(args: argparse.Namespace) -> int:
         print("  (none loaded)")
     print()
 
-    # Proxy status
-    print("Proxy:")
+    # Front proxy status
+    print("Front Proxy:")
+    fp_pid_file = proxy.get_front_proxy_pid_file()
+    if proxy.is_front_proxy_running():
+        fp_pid = fp_pid_file.read_text().strip() if fp_pid_file.exists() else "?"
+        print(f"  Status: running")
+        print(f"  PID: {fp_pid}")
+        print(f"  URL: {proxy.get_front_proxy_url()}")
+    else:
+        print("  Status: stopped")
+    print()
+
+    # LiteLLM proxy status
+    print("LiteLLM Proxy:")
     if proxy_status.running:
         health = "healthy" if proxy_status.healthy else "unhealthy"
         print(f"  Status: running ({health})")
@@ -479,9 +504,9 @@ def cmd_env(args: argparse.Namespace) -> int:
         return 1
 
     # Generate environment variables
+    from .front_proxy import DEFAULT_PORT as FRONT_PROXY_PORT
     env_vars = {
-        "ANTHROPIC_AUTH_TOKEN": proxy.get_api_key(),
-        "ANTHROPIC_BASE_URL": proxy.get_proxy_url(),
+        "ANTHROPIC_BASE_URL": f"http://127.0.0.1:{FRONT_PROXY_PORT}",
         "API_TIMEOUT_MS": "3000000",
     }
 
@@ -525,7 +550,10 @@ def cmd_proxy(args: argparse.Namespace) -> int:
     debug = getattr(args, 'debug', False)
 
     if args.proxy_command == "start":
-        # Start with empty model list, models are loaded on-demand via profiles
+        # Start front proxy
+        if not proxy.is_front_proxy_running():
+            proxy.start_front_proxy(wait=True)
+        # Start LiteLLM with empty model list, models are loaded on-demand via profiles
         no_db = getattr(args, 'no_db', False)
         if proxy.start_proxy(empty_config=True, no_db=no_db, debug=debug):
             print("Proxy started")
@@ -535,7 +563,9 @@ def cmd_proxy(args: argparse.Namespace) -> int:
             return 1
 
     elif args.proxy_command == "stop":
-        # Stop proxy first
+        # Stop front proxy
+        proxy.stop_front_proxy()
+        # Stop LiteLLM proxy
         if not proxy.stop_proxy():
             print("Failed to stop proxy", file=sys.stderr)
             return 1
@@ -560,11 +590,13 @@ def cmd_proxy(args: argparse.Namespace) -> int:
 
     elif args.proxy_command == "restart":
         no_db = getattr(args, 'no_db', False)
+        proxy.stop_front_proxy()
         if proxy.is_proxy_running():
             if not proxy.stop_proxy():
                 print("Failed to stop proxy", file=sys.stderr)
                 return 1
             print("Proxy stopped")
+        proxy.start_front_proxy(wait=True)
         if proxy.start_proxy(empty_config=True, no_db=no_db, debug=debug):
             print("Proxy started")
             return 0
@@ -575,8 +607,20 @@ def cmd_proxy(args: argparse.Namespace) -> int:
     elif args.proxy_command == "status":
         status = proxy.get_status()
 
-        # Proxy status
-        print("Proxy:")
+        # Front proxy status
+        print("Front Proxy:")
+        fp_pid_file = proxy.get_front_proxy_pid_file()
+        if proxy.is_front_proxy_running():
+            fp_pid = fp_pid_file.read_text().strip() if fp_pid_file.exists() else "?"
+            print(f"  Status: running")
+            print(f"  PID: {fp_pid}")
+            print(f"  URL: {proxy.get_front_proxy_url()}")
+        else:
+            print("  Status: stopped")
+        print()
+
+        # LiteLLM proxy status
+        print("LiteLLM Proxy:")
         if status.running:
             health = "healthy" if status.healthy else "unhealthy"
             print(f"  Status: running ({health})")

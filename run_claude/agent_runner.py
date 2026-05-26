@@ -29,9 +29,9 @@ class AgentConfig:
 
 def build_env_vars_anthropic(profile, proxy_url: str, api_key: str) -> dict[str, str]:
     """Build environment variables for Anthropic API."""
+    from .front_proxy import DEFAULT_PORT as FRONT_PROXY_PORT
     env = {}
-    env["ANTHROPIC_AUTH_TOKEN"] = api_key
-    env["ANTHROPIC_BASE_URL"] = proxy_url
+    env["ANTHROPIC_BASE_URL"] = f"http://127.0.0.1:{FRONT_PROXY_PORT}"
     env["API_TIMEOUT_MS"] = "3000000"
 
     if profile.meta.haiku_model:

@@ -187,9 +187,14 @@ def create_secrets_template(generate_passwords: bool = False, expand_vars: bool 
 # Generate with: run-claude secrets init --generate
 RUN_CLAUDE_TIMESCALEDB_PASSWORD: "{db_password}"
 
-# API key - REQUIRED
+# API key - REQUIRED (for API key profiles like anthropic, cerebras, etc.)
 # Get from: https://console.anthropic.com/api_keys
 ANTHROPIC_API_KEY: "sk-your-key-here"
+
+# OAuth token - OPTIONAL (for claude-plan profile pass-through)
+# Not needed if using claude-plan — Claude Code uses its own OAuth token.
+# Only set this if you want the proxy to make Anthropic calls with a stored token.
+# ANTHROPIC_OAUTH_TOKEN: "sk-ant-oat01-..."
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # OPTIONAL VARIABLES (Uncomment to override defaults)

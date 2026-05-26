@@ -1,6 +1,6 @@
 [project]
 name = "run-claude"
-version = "0.1.2"
+version = "0.2.0"
 description = "Agent shim controller for Claude - directory-aware model routing via LiteLLM proxy"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -106,6 +106,95 @@ def get_pid_file() -> Path:
     return get_state_dir() / "proxy.pid"
 
 
+def get_front_proxy_pid_file() -> Path:
+    """Get front proxy PID file path."""
+    return get_state_dir() / "front-proxy.pid"
+
+
+def get_front_proxy_url() -> str:
+    """Get front proxy URL."""
+    from .front_proxy import DEFAULT_PORT
+    return f"http://127.0.0.1:{DEFAULT_PORT}"
+
+
+def is_front_proxy_running() -> bool:
+    """Check if front proxy is running."""
+    pid_file = get_front_proxy_pid_file()
+    if not pid_file.exists():
+        return False
+    try:
+        pid = int(pid_file.read_text().strip())
+        os.kill(pid, 0)
+        return True
+    except (ValueError, ProcessLookupError, PermissionError):
+        pid_file.unlink(missing_ok=True)
+        return False
+
+
+def start_front_proxy(wait: bool = True) -> bool:
+    """Start the front proxy in a subprocess."""
+    from .front_proxy import DEFAULT_PORT
+
+    if is_front_proxy_running():
+        print("[front-proxy] Already running", file=sys.stderr)
+        return True
+
+    master_key = get_master_key()
+    state_dir = get_state_dir()
+    state_dir.mkdir(parents=True, exist_ok=True)
+    log_file = state_dir / "front-proxy.log"
+
+    cmd = [
+        sys.executable, "-m", "run_claude.front_proxy",
+        "--master-key", master_key,
+        "--port", str(DEFAULT_PORT),
+        "--litellm-url", get_proxy_url(),
+    ]
+
+    with open(log_file, "a") as log_f:
+        proc = subprocess.Popen(
+            cmd, stdout=log_f, stderr=log_f,
+            start_new_session=True,
+        )
+
+    pid_file = get_front_proxy_pid_file()
+    pid_file.write_text(str(proc.pid))
+    print(f"[front-proxy] Started (pid={proc.pid}, port={DEFAULT_PORT})", file=sys.stderr)
+
+    if wait:
+        import time
+        for _ in range(10):
+            time.sleep(0.5)
+            try:
+                import httpx as _httpx
+                resp = _httpx.get(f"http://127.0.0.1:{DEFAULT_PORT}/health", timeout=2)
+                if resp.status_code < 500:
+                    return True
+            except Exception:
+                pass
+            if proc.poll() is not None:
+                print("[front-proxy] Process exited unexpectedly", file=sys.stderr)
+                pid_file.unlink(missing_ok=True)
+                return False
+
+    return True
+
+
+def stop_front_proxy() -> bool:
+    """Stop the front proxy."""
+    pid_file = get_front_proxy_pid_file()
+    if not pid_file.exists():
+        return True
+    try:
+        pid = int(pid_file.read_text().strip())
+        os.kill(pid, signal.SIGTERM)
+        print(f"[front-proxy] Stopped (pid={pid})", file=sys.stderr)
+    except (ValueError, ProcessLookupError):
+        pass
+    pid_file.unlink(missing_ok=True)
+    return True
+
+
 def get_log_file() -> Path:
     """Get log file path.
 
