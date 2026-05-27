@@ -107,6 +107,9 @@ def main() -> int:
     enabled_p.add_argument("--names-only", action="store_true", help="Print only model names, one per line")
     show_model_p = models_sub.add_parser("show", help="Show model definition details")
     show_model_p.add_argument("name", help="Model name")
+    avail_p = models_sub.add_parser("avail", help="Show enabled models with descriptions, strengths, and weaknesses")
+    avail_p.add_argument("--json", dest="output_json", action="store_true", help="Output as JSON")
+    avail_p.add_argument("--short", action="store_true", help="Compact one-line-per-model output")
     wipe_p = models_sub.add_parser("wipe", help="Delete all models from proxy database")
     wipe_p.add_argument("--force", "-f", action="store_true", help="Skip confirmation prompt")
 
@@ -904,6 +907,9 @@ def cmd_models(args: argparse.Namespace) -> int:
             print(f"  {key}: {value}")
         return 0
 
+    elif args.models_command == "avail":
+        return cmd_models_avail(args)
+
     elif args.models_command == "wipe":
         from . import proxy, state
 
@@ -946,8 +952,78 @@ def cmd_models(args: argparse.Namespace) -> int:
         return 0
 
     else:
-        print("Usage: run-claude models {list|enabled|show|wipe}")
+        print("Usage: run-claude models {list|enabled|avail|show|wipe}")
         return 1
+
+
+def cmd_models_avail(args: argparse.Namespace) -> int:
+    """Show enabled models with descriptions, strengths, and weaknesses."""
+    import json as json_mod
+    from . import proxy, profiles
+
+    if not proxy.is_proxy_running():
+        print("Proxy is not running — no models are enabled.", file=sys.stderr)
+        print("Start it with: run-claude proxy start", file=sys.stderr)
+        return 1
+
+    live = proxy.list_models()
+    live_names = sorted({m.get("model_name", "?") for m in live})
+
+    if not live_names:
+        print("No models enabled in the proxy.")
+        return 0
+
+    all_defs = profiles.load_model_definitions()
+
+    records = []
+    for name in live_names:
+        model_def = all_defs.get(name)
+        meta = model_def.metadata if model_def else profiles.ModelMetadata()
+        provider = meta.provider
+        if not provider and model_def:
+            litellm_model = model_def.litellm_params.get("model", "")
+            provider = litellm_model.split("/")[0] if "/" in litellm_model else ""
+        records.append({
+            "name": name,
+            "provider": provider,
+            "description": meta.description,
+            "strengths": meta.strengths,
+            "weaknesses": meta.weaknesses,
+        })
+
+    if getattr(args, "output_json", False):
+        print(json_mod.dumps(records, indent=2))
+        return 0
+
+    if getattr(args, "short", False):
+        for r in records:
+            desc = r["description"] or "—"
+            print(f"  {r['name']:40s} {desc}")
+        return 0
+
+    # Group by provider
+    by_provider: dict[str, list[dict]] = {}
+    for r in records:
+        prov = r["provider"] or "other"
+        by_provider.setdefault(prov, []).append(r)
+
+    for prov in sorted(by_provider):
+        print(f"\n{'═' * 72}")
+        print(f"  {prov.upper()}")
+        print(f"{'═' * 72}")
+        for r in by_provider[prov]:
+            print(f"\n  {r['name']}")
+            if r["description"]:
+                print(f"    {r['description']}")
+            if r["strengths"]:
+                print(f"    ✓ {r['strengths']}")
+            if r["weaknesses"]:
+                print(f"    ✗ {r['weaknesses']}")
+            if not r["description"] and not r["strengths"] and not r["weaknesses"]:
+                print(f"    (no metadata — add to models.yaml)")
+
+    print(f"\n{len(records)} model(s) enabled")
+    return 0
 
 
 def cmd_install(args: argparse.Namespace) -> int:
@@ -1034,6 +1110,14 @@ def cmd_secrets(args: argparse.Namespace) -> int:
     else:
         print("Usage: run-claude secrets {init|path|export}")
         return 1
+
+
+def main_avail_models() -> int:
+    """Entry point for rc-avail-models shortcut."""
+    from . import profiles
+    profiles.ensure_initialized()
+    sys.argv = ["run-claude", "models", "avail"] + sys.argv[1:]
+    return main()
 
 
 if __name__ == "__main__":

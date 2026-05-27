@@ -19,6 +19,7 @@ dependencies = [
 
 [project.scripts]
 run-claude = "run_claude.cli:main"
+rc-avail-models = "run_claude.cli:main_avail_models"
 run-open-code = "run_claude.opencode_cli:main"
 run-litellm-proxy = "run_claude.litellm_proxy:main"
 

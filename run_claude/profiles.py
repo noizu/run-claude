@@ -266,11 +266,30 @@ def _find_models_files(debug: bool = False) -> list[Path]:
 
 
 @dataclass
+class ModelMetadata:
+    """Human-readable model metadata for catalog display."""
+    description: str = ""
+    strengths: str = ""
+    weaknesses: str = ""
+    provider: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ModelMetadata:
+        return cls(
+            description=data.get("description", ""),
+            strengths=data.get("strengths", ""),
+            weaknesses=data.get("weaknesses", ""),
+            provider=data.get("provider", ""),
+        )
+
+
+@dataclass
 class ModelDef:
     """LiteLLM model definition."""
     model_name: str
     litellm_params: dict[str, Any] = field(default_factory=dict)
     model_info: dict[str, Any] = field(default_factory=dict)
+    metadata: ModelMetadata = field(default_factory=ModelMetadata)
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
@@ -283,10 +302,13 @@ class ModelDef:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ModelDef:
+        metadata_raw = data.get("metadata", {})
+        metadata = ModelMetadata.from_dict(metadata_raw) if metadata_raw else ModelMetadata()
         return cls(
             model_name=data.get("model_name", ""),
             litellm_params=data.get("litellm_params", {}),
             model_info=data.get("model_info", {}),
+            metadata=metadata,
         )
 
 
@@ -393,6 +415,8 @@ def load_model_definitions(force_reload: bool = False, debug: bool = False) -> d
         for model_data in data.get("model_list", []):
             model_def = ModelDef.from_dict(model_data)
             if model_def.model_name:
+                if not model_def.metadata.description and model_def.model_name in models:
+                    model_def.metadata = models[model_def.model_name].metadata
                 models[model_def.model_name] = model_def
                 count += 1
         print(f"[MODELS_LOADED_FROM] {models_file}: {count} model(s)", file=sys.stderr)
@@ -441,7 +465,7 @@ def hydrate_model_def(model_def: ModelDef) -> ModelDef:
         else:
             hydrated_params[key] = value
 
-    return ModelDef(model_name=model_def.model_name, litellm_params=hydrated_params, model_info=model_def.model_info)
+    return ModelDef(model_name=model_def.model_name, litellm_params=hydrated_params, model_info=model_def.model_info, metadata=model_def.metadata)
 
 
 # Always-included models (added to every profile)
