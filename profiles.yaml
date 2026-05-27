@@ -174,6 +174,55 @@ claude-enhanced:
     - "groq/sonnet"
     - "groq/haiku"
 
+# Kitchen Sink - claude-enhanced plus DeepSeek, OpenAI, and xAI/Grok
+# Requires: Claude Pro/Max login + ZAI_SUB_KEY + CEREBRAS_SUB_KEY + GROQ_API_KEY
+#           + DEEPSEEK_API_KEY + OPENAI_API_KEY + GROK_API_KEY
+kitchen-sink:
+  name: "Kitchen Sink (Every Provider)"
+
+  opus_model: "claude-opus-4-6"
+  sonnet_model: "claude-sonnet-4-6"
+  haiku_model: "claude-haiku-4-5-20251001"
+  extended:
+    # Claude variants
+    - "claude-opus-4-6[1m]"
+    - "claude-opus-4-7"
+    - "claude-opus-4-7[1m]"
+    - "claude-sonnet-4-6[1m]"
+    - "claude-haiku-4-5-20251001[1m]"
+    # Z.AI (sub)
+    - "zai/opus"
+    - "zai/opus[1m]"
+    - "zai/sonnet"
+    - "zai/sonnet[1m]"
+    - "zai/haiku"
+    - "zai/haiku[1m]"
+    # Cerebras (sub)
+    - "cerebras-pro/opus"
+    - "cerebras-pro/opus[1m]"
+    - "cerebras-pro/sonnet"
+    - "cerebras-pro/sonnet[1m]"
+    - "cerebras-pro/haiku"
+    - "cerebras-pro/haiku[1m]"
+    # Groq
+    - "groq/opus"
+    - "groq/sonnet"
+    - "groq/haiku"
+    # DeepSeek
+    - "deepseek-reasoner"
+    - "deepseek-chat"
+    - "deepseek-coder"
+    # OpenAI
+    - "openai-gpt4"
+    - "openai-gpt4o"
+    - "openai-gpt4o-mini"
+    - "openai-o1"
+    - "openai-o3-mini"
+    # xAI / Grok
+    - "grok-2"
+    - "grok-2-mini"
+    - "grok-vision"
+
 # glm 4.7 group
 fast-glm:
   name: "Cerebras Pro Subscription"

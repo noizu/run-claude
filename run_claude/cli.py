@@ -32,6 +32,7 @@ def main() -> int:
     parser.add_argument("--version", "-V", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--debug", "-d", action="store_true", help="Enable debug output")
     parser.add_argument("--enhanced", "-x", action="store_true", help="Shorthand for: run-claude with claude-enhanced")
+    parser.add_argument("--kitchen-sink", "-xx", dest="kitchen_sink", action="store_true", help="Shorthand for: run-claude with kitchen-sink (every provider)")
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
     # enter
@@ -74,6 +75,9 @@ def main() -> int:
     proxy_stop_p.add_argument("--all", action="store_true", help="Stop everything and remove containers")
     proxy_restart_p = proxy_sub.add_parser("restart", help="Restart proxy (stop + start)")
     proxy_restart_p.add_argument("--no-db", action="store_true", help="Don't auto-start database container")
+    proxy_supervise_p = proxy_sub.add_parser("supervise", help="Run proxy in foreground, auto-restarting until stopped")
+    proxy_supervise_p.add_argument("--no-db", action="store_true", help="Don't auto-start database container")
+    proxy_supervise_p.add_argument("--interval", type=float, default=5.0, help="Seconds between liveness checks (default: 5)")
     proxy_sub.add_parser("status", help="Proxy status")
     proxy_sub.add_parser("health", help="Health check")
     proxy_sub.add_parser("db-test", help="Test database connection")
@@ -99,6 +103,8 @@ def main() -> int:
     models_p = subparsers.add_parser("models", help="Model definitions management")
     models_sub = models_p.add_subparsers(dest="models_command")
     models_sub.add_parser("list", help="List available model definitions")
+    enabled_p = models_sub.add_parser("enabled", help="List models currently enabled (live in the running proxy)")
+    enabled_p.add_argument("--names-only", action="store_true", help="Print only model names, one per line")
     show_model_p = models_sub.add_parser("show", help="Show model definition details")
     show_model_p.add_argument("name", help="Model name")
     wipe_p = models_sub.add_parser("wipe", help="Delete all models from proxy database")
@@ -128,7 +134,12 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    if args.enhanced:
+    if args.kitchen_sink:
+        args.command = "with"
+        args.profile = "kitchen-sink"
+        args.cmd = []
+        args.refresh = False
+    elif args.enhanced:
         args.command = "with"
         args.profile = "claude-enhanced"
         args.cmd = []
@@ -588,6 +599,12 @@ def cmd_proxy(args: argparse.Namespace) -> int:
 
         return 0
 
+    elif args.proxy_command == "supervise":
+        no_db = getattr(args, 'no_db', False)
+        interval = getattr(args, 'interval', 5.0)
+        proxy.supervise_proxy(no_db=no_db, debug=debug, interval=interval)
+        return 0
+
     elif args.proxy_command == "restart":
         no_db = getattr(args, 'no_db', False)
         proxy.stop_front_proxy()
@@ -670,7 +687,7 @@ def cmd_proxy(args: argparse.Namespace) -> int:
             return 1
 
     else:
-        print("Usage: run-claude proxy {start|stop|restart|status|health|db-test}")
+        print("Usage: run-claude proxy {start|stop|restart|supervise|status|health|db-test}")
         return 1
 
 
@@ -828,6 +845,46 @@ def cmd_models(args: argparse.Namespace) -> int:
             print("No model definitions found")
         return 0
 
+    elif args.models_command == "enabled":
+        from . import proxy
+
+        if not proxy.is_proxy_running():
+            print("Proxy is not running — no models are enabled.", file=sys.stderr)
+            print("Start it with: run-claude proxy start", file=sys.stderr)
+            return 1
+
+        live = proxy.list_models()
+        names = sorted({m.get("model_name", "?") for m in live})
+
+        names_only = getattr(args, "names_only", False)
+        if names_only:
+            for name in names:
+                print(name)
+            return 0
+
+        # Active profile aliases (set by direnv when inside a shimmed dir)
+        active = os.environ.get("AGENT_SHIM_PROFILE")
+        if active:
+            profile = profiles.load_profile(active)
+            if profile is not None:
+                print(f"Active profile: {active} ({profile.meta.name})")
+                print("Tier aliases (use these in /model):")
+                print(f"  opus:   {profile.meta.opus_model or '(not set)'}")
+                print(f"  sonnet: {profile.meta.sonnet_model or '(not set)'}")
+                print(f"  haiku:  {profile.meta.haiku_model or '(not set)'}")
+                print()
+        else:
+            print("No active profile (AGENT_SHIM_PROFILE not set)")
+            print()
+
+        if names:
+            print(f"Enabled models ({len(names)}):")
+            for name in names:
+                print(f"  {name}")
+        else:
+            print("No models enabled in the proxy")
+        return 0
+
     elif args.models_command == "show":
         model_def = profiles.get_model_definition(args.name)
         if model_def is None:
@@ -889,7 +946,7 @@ def cmd_models(args: argparse.Namespace) -> int:
         return 0
 
     else:
-        print("Usage: run-claude models {list|show|wipe}")
+        print("Usage: run-claude models {list|enabled|show|wipe}")
         return 1
 
 

@@ -67,6 +67,12 @@ HEALTH_CHECK_TIMEOUT = 60.0
 HEALTH_CHECK_RETRIES = 30
 HEALTH_CHECK_INTERVAL = 10.0
 
+# Liveness/readiness endpoint: confirms the proxy is up and DB-connected WITHOUT
+# probing every registered model. The bare /health endpoint round-trips to every
+# model, which times out for large profiles (e.g. kitchen-sink) with slow or
+# keyless providers — do not use it for the startup/recovery gate.
+HEALTH_READINESS_PATH = "/health/readiness"
+
 
 def get_proxy_url() -> str:
     """Get proxy URL from environment or default."""
@@ -447,9 +453,9 @@ def health_check(timeout: float = HEALTH_CHECK_TIMEOUT, wait_for_recovery: bool 
 
     while True:
         try:
-            print(f"[HEALTH_CHECK] GET {url}/health with key={master_key}", file=sys.stderr)
+            print(f"[HEALTH_CHECK] GET {url}{HEALTH_READINESS_PATH} with key={master_key}", file=sys.stderr)
             resp = httpx.get(
-                f"{url}/health",
+                f"{url}{HEALTH_READINESS_PATH}",
                 headers={"Authorization": f"Bearer {master_key}"},
                 timeout=timeout
             )
@@ -786,6 +792,63 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
 
     print(f"[STARTUP] All {STARTUP_MAX_RETRIES} attempts failed (last: {last_failure_class})", file=sys.stderr)
     return False
+
+
+def supervise_proxy(no_db: bool = False, debug: bool = False, interval: float = 5.0) -> bool:
+    """
+    Run the proxy under a restart loop until interrupted (SIGINT/SIGTERM).
+
+    Keeps both the front proxy and the LiteLLM proxy alive: whenever either is
+    found down or unhealthy, it is (re)started. Blocks in the foreground — run it
+    in the background (e.g. append ``&`` or use ``bg``) to keep a shell free.
+
+    Args:
+        no_db: Skip automatic database container management.
+        debug: Print debug information.
+        interval: Seconds between liveness polls.
+
+    Returns:
+        True after a clean shutdown.
+    """
+    import signal
+
+    stop = {"flag": False}
+
+    def _handler(signum, _frame):
+        stop["flag"] = True
+        print(f"\n[SUPERVISE] Signal {signum} received — shutting down...", file=sys.stderr)
+
+    signal.signal(signal.SIGINT, _handler)
+    signal.signal(signal.SIGTERM, _handler)
+
+    print("[SUPERVISE] Supervising proxy — auto-restart enabled (Ctrl-C / SIGTERM to stop)", file=sys.stderr)
+
+    restarts = 0
+    while not stop["flag"]:
+        # Keep the front proxy alive
+        if not is_front_proxy_running():
+            print("[SUPERVISE] Front proxy down — starting", file=sys.stderr)
+            start_front_proxy(wait=True)
+
+        # Keep the LiteLLM proxy alive and healthy
+        if not is_proxy_running() or not health_check(timeout=5.0):
+            if restarts > 0:
+                print(f"[SUPERVISE] LiteLLM proxy down/unhealthy — restart #{restarts}", file=sys.stderr)
+            if not start_proxy(empty_config=True, no_db=no_db, debug=debug):
+                print(f"[SUPERVISE] Start failed — retrying in {interval}s", file=sys.stderr)
+            restarts += 1
+
+        # Sleep in small slices so signals are handled promptly
+        slept = 0.0
+        while slept < interval and not stop["flag"]:
+            time.sleep(0.5)
+            slept += 0.5
+
+    print("[SUPERVISE] Stopping proxy...", file=sys.stderr)
+    stop_front_proxy()
+    stop_proxy()
+    print("[SUPERVISE] Stopped.", file=sys.stderr)
+    return True
 
 
 def stop_proxy() -> bool:
