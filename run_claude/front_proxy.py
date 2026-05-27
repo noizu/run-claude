@@ -67,6 +67,11 @@ STRIP_RESPONSE_HEADERS = frozenset({
 })
 
 
+MAX_CONCURRENT_REQUESTS = 1000
+MAX_CONNECTIONS = 1100
+MAX_KEEPALIVE = 200
+
+
 class FrontProxy:
     def __init__(
         self,
@@ -78,10 +83,19 @@ class FrontProxy:
         self.litellm_url = litellm_url.rstrip("/")
         self.port = port
         self._client: httpx.AsyncClient | None = None
+        self._semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=httpx.Timeout(600, connect=30))
+            limits = httpx.Limits(
+                max_connections=MAX_CONNECTIONS,
+                max_keepalive_connections=MAX_KEEPALIVE,
+                keepalive_expiry=1800,
+            )
+            self._client = httpx.AsyncClient(
+                timeout=httpx.Timeout(600, connect=30),
+                limits=limits,
+            )
         return self._client
 
     def _route(self, path: str, body: bytes) -> tuple[str, bool]:
@@ -140,8 +154,22 @@ class FrontProxy:
         if query:
             url += f"?{query}"
 
-        client = await self._get_client()
-        resp = await client.request(method=method, url=url, headers=fwd_headers, content=body)
+        async with self._semaphore:
+            try:
+                client = await self._get_client()
+                resp = await client.request(method=method, url=url, headers=fwd_headers, content=body)
+            except httpx.PoolTimeout:
+                logger.error("Connection pool exhausted for %s %s", method, url)
+                self._log_error(method, url, 503, body)
+                return 503, {"content-type": "application/json"}, b'{"type":"error","error":{"type":"overloaded_error","message":"front-proxy connection pool exhausted"}}'
+            except httpx.ConnectError as exc:
+                logger.error("Connect error for %s %s: %s", method, url, exc)
+                self._log_error(method, url, 502, body)
+                return 502, {"content-type": "application/json"}, b'{"type":"error","error":{"type":"api_error","message":"upstream connection failed"}}'
+            except httpx.TimeoutException as exc:
+                logger.error("Timeout for %s %s: %s", method, url, exc)
+                self._log_error(method, url, 504, body)
+                return 504, {"content-type": "application/json"}, b'{"type":"error","error":{"type":"timeout_error","message":"upstream request timed out"}}'
 
         if resp.status_code >= 300:
             self._log_error(method, url, resp.status_code, body)
@@ -161,14 +189,33 @@ class FrontProxy:
         if query:
             url += f"?{query}"
 
-        client = await self._get_client()
-        async with client.stream(method=method, url=url, headers=fwd_headers, content=body) as resp:
-            if resp.status_code >= 300:
-                self._log_error(method, url, resp.status_code, body)
-            resp_headers = {k: v for k, v in resp.headers.items() if k.lower() not in HOP_BY_HOP and k.lower() not in STRIP_RESPONSE_HEADERS}
-            yield resp.status_code, resp_headers
-            async for chunk in resp.aiter_bytes():
-                yield chunk
+        await self._semaphore.acquire()
+        try:
+            client = await self._get_client()
+            async with client.stream(method=method, url=url, headers=fwd_headers, content=body) as resp:
+                if resp.status_code >= 300:
+                    self._log_error(method, url, resp.status_code, body)
+                resp_headers = {k: v for k, v in resp.headers.items() if k.lower() not in HOP_BY_HOP and k.lower() not in STRIP_RESPONSE_HEADERS}
+                yield resp.status_code, resp_headers
+                async for chunk in resp.aiter_bytes():
+                    yield chunk
+        except httpx.PoolTimeout:
+            logger.error("Connection pool exhausted (stream) for %s %s", method, url)
+            self._log_error(method, url, 503, body)
+            yield 503, {"content-type": "application/json"}
+            yield b'{"type":"error","error":{"type":"overloaded_error","message":"front-proxy connection pool exhausted"}}'
+        except httpx.ConnectError as exc:
+            logger.error("Connect error (stream) for %s %s: %s", method, url, exc)
+            self._log_error(method, url, 502, body)
+            yield 502, {"content-type": "application/json"}
+            yield b'{"type":"error","error":{"type":"api_error","message":"upstream connection failed"}}'
+        except httpx.TimeoutException as exc:
+            logger.error("Timeout (stream) for %s %s: %s", method, url, exc)
+            self._log_error(method, url, 504, body)
+            yield 504, {"content-type": "application/json"}
+            yield b'{"type":"error","error":{"type":"timeout_error","message":"upstream request timed out"}}'
+        finally:
+            self._semaphore.release()
 
     async def close(self):
         if self._client and not self._client.is_closed:
