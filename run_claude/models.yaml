@@ -117,6 +117,26 @@ model_list:
       strengths: "Largest context + latest reasoning"
       weaknesses: "Slower, high token usage"
 
+  - model_name: "claude-opus-4-8"
+    litellm_params:
+      model: anthropic/claude-opus-4-8
+      api_key: "unused-routed-by-front-proxy"
+    metadata:
+      provider: anthropic
+      description: "Claude Opus 4.8 via plan (OAuth passthrough)"
+      strengths: "Latest Opus, strongest reasoning"
+      weaknesses: "Slower output speed"
+
+  - model_name: "claude-opus-4-8[1m]"
+    litellm_params:
+      model: anthropic/claude-opus-4-8
+      api_key: "unused-routed-by-front-proxy"
+    metadata:
+      provider: anthropic
+      description: "Claude Opus 4.8 1M context via plan"
+      strengths: "Largest context + latest reasoning"
+      weaknesses: "Slower, high token usage"
+
   - model_name: "claude-sonnet-4-6"
     litellm_params:
       model: anthropic/claude-sonnet-4-6
@@ -274,14 +294,32 @@ model_list:
   # ==========================================================================
   # Cerebras
   # ==========================================================================
+  # NOTE: Use cerebras/ prefix (not openai/) to avoid LiteLLM routing
+  # thinking requests through the OpenAI Responses API (/v1/responses),
+  # which Cerebras doesn't support. The cerebras/ prefix also means
+  # api_base is not needed (litellm knows the Cerebras URL).
+  #
+  # reasoning_effort must be in additional_drop_params for models that
+  # don't support it, because the Anthropic adapter converts
+  # thinking → reasoning_effort before drop_params takes effect.
+  #
+  # Cerebras is highly flaky — very generous timeouts and retries.
+  # timeout/stream_timeout: 600s (max tolerance for slow/hung responses)
+  # num_retries: 10 (aggressive retries on transient 5xx / timeout errors)
+  # allowed_fails: 10, cooldown_time: 5 (very short cooldown, recover ASAP)
+
   # gpt-oss-120b
   - model_name: "cerebras/gpt-oss-120b"
     litellm_params:
-      model: gpt-oss-120b
+      model: cerebras/gpt-oss-120b
       api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "GPT-OSS 120B on Cerebras hardware"
@@ -290,11 +328,15 @@ model_list:
 
   - model_name: "cerebras/gpt-oss-120b:instant"
     litellm_params:
-      model: gpt-oss-120b
+      model: cerebras/gpt-oss-120b
       api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "GPT-OSS 120B instant mode on Cerebras"
@@ -303,12 +345,16 @@ model_list:
 
   - model_name: "cerebras/gpt-oss-120b:thinking"
     litellm_params:
-      model: gpt-oss-120b
+      model: cerebras/gpt-oss-120b
       api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "thinking_blocks"]
       reasoning_effort: "low"
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "GPT-OSS 120B thinking (low) on Cerebras"
@@ -317,12 +363,16 @@ model_list:
 
   - model_name: "cerebras/gpt-oss-120b:thinking-medium"
     litellm_params:
-      model: gpt-oss-120b
+      model: cerebras/gpt-oss-120b
       api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "thinking_blocks"]
       reasoning_effort: "medium"
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "GPT-OSS 120B thinking (medium) on Cerebras"
@@ -331,12 +381,16 @@ model_list:
 
   - model_name: "cerebras/gpt-oss-120b:thinking-high"
     litellm_params:
-      model: gpt-oss-120b
+      model: cerebras/gpt-oss-120b
       api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "thinking_blocks"]
       reasoning_effort: "high"
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "GPT-OSS 120B thinking (high) on Cerebras"
@@ -346,11 +400,15 @@ model_list:
   # llama-3.3-70b
   - model_name: "cerebras/llama-3.3-70b"
     litellm_params:
-      model: llama-3.3-70b
+      model: cerebras/llama-3.3-70b
       api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "Llama 3.3 70B on Cerebras hardware"
@@ -360,11 +418,15 @@ model_list:
   # llama3.1-8b
   - model_name: "cerebras/llama3.1-8b"
     litellm_params:
-      model: llama3.1-8b
+      model: cerebras/llama3.1-8b
       api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "Llama 3.1 8B on Cerebras hardware"
@@ -374,11 +436,15 @@ model_list:
   # qwen-3-235b-a22b-instruct-2507
   - model_name: "cerebras/qwen-3-235b-a22b-instruct-2507"
     litellm_params:
-      model: qwen-3-235b-a22b-instruct-2507
+      model: cerebras/qwen-3-235b-a22b-instruct-2507
       api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "Qwen 3 235B MoE on Cerebras hardware"
@@ -388,11 +454,15 @@ model_list:
   # qwen-3-32b
   - model_name: "cerebras/qwen-3-32b"
     litellm_params:
-      model: qwen-3-32b
+      model: cerebras/qwen-3-32b
       api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "Qwen 3 32B on Cerebras hardware"
@@ -402,11 +472,15 @@ model_list:
   # zai-glm-4.7
   - model_name: "cerebras/zai-glm-4.7"
     litellm_params:
-      model: zai-glm-4.7
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "ZAI GLM 4.7 on Cerebras hardware"
@@ -417,9 +491,13 @@ model_list:
     litellm_params:
       model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "ZAI GLM 4.7 instant mode on Cerebras"
@@ -430,10 +508,14 @@ model_list:
     litellm_params:
       model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "thinking_blocks"]
       reasoning_effort: "low"
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "ZAI GLM 4.7 thinking (low) on Cerebras"
@@ -444,10 +526,14 @@ model_list:
     litellm_params:
       model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "thinking_blocks"]
       reasoning_effort: "medium"
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "ZAI GLM 4.7 thinking (medium) on Cerebras"
@@ -458,10 +544,14 @@ model_list:
     litellm_params:
       model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "thinking_blocks"]
       reasoning_effort: "high"
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "ZAI GLM 4.7 thinking (high) on Cerebras"
@@ -473,9 +563,13 @@ model_list:
     litellm_params:
       model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "ZAI GLM 4.7 via Cerebras subscription"
@@ -486,9 +580,13 @@ model_list:
     litellm_params:
       model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "thinking", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "ZAI GLM 4.7 instant via Cerebras sub"
@@ -499,14 +597,16 @@ model_list:
 
   - model_name: "cerebras-pro/haiku"
     litellm_params:
-      model: openai/zai-glm-4.7
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
       temperature: 0.5
-    model_info:
-      supports_responses_api: false
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "Cerebras Pro tier-mapped as haiku"
@@ -515,13 +615,15 @@ model_list:
 
   - model_name: "cerebras-pro/sonnet"
     litellm_params:
-      model: openai/zai-glm-4.7
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
-    model_info:
-      supports_responses_api: false
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "Cerebras Pro tier-mapped as sonnet"
@@ -530,13 +632,15 @@ model_list:
 
   - model_name: "cerebras-pro/opus"
     litellm_params:
-      model: openai/zai-glm-4.7
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
-    model_info:
-      supports_responses_api: false
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "Cerebras Pro tier-mapped as opus"
@@ -545,14 +649,16 @@ model_list:
 
   - model_name: "cerebras-pro/haiku[1m]"
     litellm_params:
-      model: openai/zai-glm-4.7
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
       temperature: 0.5
-    model_info:
-      supports_responses_api: false
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "Cerebras Pro haiku tier (1M alias)"
@@ -561,13 +667,15 @@ model_list:
 
   - model_name: "cerebras-pro/sonnet[1m]"
     litellm_params:
-      model: openai/zai-glm-4.7
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
-    model_info:
-      supports_responses_api: false
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "Cerebras Pro sonnet tier (1M alias)"
@@ -576,13 +684,15 @@ model_list:
 
   - model_name: "cerebras-pro/opus[1m]"
     litellm_params:
-      model: openai/zai-glm-4.7
+      model: cerebras/zai-glm-4.7
       api_key: os.environ/CEREBRAS_SUB_KEY
-      api_base: https://api.cerebras.ai/v1
       drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
-    model_info:
-      supports_responses_api: false
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
     metadata:
       provider: cerebras
       description: "Cerebras Pro opus tier (1M alias)"
@@ -592,15 +702,16 @@ model_list:
 # Zai - Named
 
 
-  # Uses Z.AI's Anthropic-compatible endpoint (coding subscription)
   - model_name: "zai/haiku"
     litellm_params:
-      model: anthropic/glm-4.7
+      model: anthropic/glm-5-turbo
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "low"
+      extra_headers:
+        anthropic-product: claude_code
     metadata:
       provider: zai
       description: "ZAI GLM 5 Turbo (haiku tier)"
@@ -609,40 +720,46 @@ model_list:
 
   - model_name: "zai/sonnet"
     litellm_params:
-      model: anthropic/glm-4.7
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "medium"
+      extra_headers:
+        anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5 (sonnet tier)"
+      description: "ZAI GLM 5.2 (sonnet tier)"
       strengths: "Balanced speed and quality"
       weaknesses: "Less depth than opus tier"
 
   - model_name: "zai/opus"
     litellm_params:
-      model: anthropic/glm-4.7
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5.1 (opus tier)"
+      description: "ZAI GLM 5.2 (opus tier)"
       strengths: "Strong reasoning, high quality"
       weaknesses: "Slower, more expensive"
 
   - model_name: "zai/haiku[1m]"
     litellm_params:
-      model: anthropic/glm-4.7
+      model: anthropic/glm-5-turbo
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "low"
+      extra_headers:
+        anthropic-product: claude_code
     metadata:
       provider: zai
       description: "ZAI GLM 5 Turbo 1M context (haiku tier)"
@@ -651,59 +768,67 @@ model_list:
 
   - model_name: "zai/sonnet[1m]"
     litellm_params:
-      model: anthropic/glm-4.7
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "medium"
+      extra_headers:
+        anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5 1M context (sonnet tier)"
+      description: "ZAI GLM 5.2 1M context (sonnet tier)"
       strengths: "Balanced, large context"
       weaknesses: "Less depth than opus"
 
   - model_name: "zai/opus[1m]"
     litellm_params:
-      model: anthropic/glm-4.7
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5.1 1M context (opus tier)"
+      description: "ZAI GLM 5.2 1M context (opus tier)"
       strengths: "Strong reasoning, large context"
       weaknesses: "Slower, more expensive"
 
   # Alias for zai/opus - high quality
   - model_name: "ultra"
     litellm_params:
-      model: anthropic/glm-4.7
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5 high-reasoning alias"
+      description: "ZAI GLM 5.2 high-reasoning alias"
       strengths: "Strong reasoning, high effort"
       weaknesses: "Slower due to high reasoning"
 
   # Alias for zai/opus - cheap option
   - model_name: "cheap"
     litellm_params:
-      model: anthropic/glm-4.7
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config"]
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5 budget alias"
+      description: "ZAI GLM 5.2 budget alias"
       strengths: "Cost-effective, good quality"
       weaknesses: "Same as ultra (alias)"
 
@@ -712,7 +837,7 @@ model_list:
 
   - model_name: "zai-oa/haiku"
     litellm_params:
-      model: openai/glm-4.7
+      model: openai/glm-5-turbo
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/coding/paas/v4
       drop_params: true
@@ -720,13 +845,13 @@ model_list:
       reasoning_effort: "low"
     metadata:
       provider: zai
-      description: "ZAI GLM 4.7 OpenAI-compat (haiku tier)"
+      description: "ZAI GLM 5 Turbo OpenAI-compat (haiku tier)"
       strengths: "Fast, cheap, OpenAI-compat endpoint"
       weaknesses: "Limited reasoning depth"
 
   - model_name: "zai-oa/sonnet"
     litellm_params:
-      model: openai/glm-4.7
+      model: openai/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/coding/paas/v4
       drop_params: true
@@ -734,13 +859,13 @@ model_list:
       reasoning_effort: "medium"
     metadata:
       provider: zai
-      description: "ZAI GLM 4.7 OpenAI-compat (sonnet tier)"
+      description: "ZAI GLM 5.2 OpenAI-compat (sonnet tier)"
       strengths: "Balanced speed and quality"
       weaknesses: "Less depth than opus tier"
 
   - model_name: "zai-oa/opus"
     litellm_params:
-      model: openai/glm-4.7
+      model: openai/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/coding/paas/v4
       drop_params: true
@@ -748,7 +873,7 @@ model_list:
       reasoning_effort: "high"
     metadata:
       provider: zai
-      description: "ZAI GLM 4.7 OpenAI-compat (opus tier)"
+      description: "ZAI GLM 5.2 OpenAI-compat (opus tier)"
       strengths: "Strong reasoning, high quality"
       weaknesses: "Slower, more expensive"
 

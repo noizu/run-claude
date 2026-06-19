@@ -664,7 +664,7 @@ model_list:
 
   - model_name: "zai/sonnet"
     litellm_params:
-      model: anthropic/glm-5
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -674,13 +674,13 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5 (sonnet tier)"
+      description: "ZAI GLM 5.2 (sonnet tier)"
       strengths: "Balanced speed and quality"
       weaknesses: "Less depth than opus tier"
 
   - model_name: "zai/opus"
     litellm_params:
-      model: anthropic/glm-5.1
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -690,7 +690,7 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5.1 (opus tier)"
+      description: "ZAI GLM 5.2 (opus tier)"
       strengths: "Strong reasoning, high quality"
       weaknesses: "Slower, more expensive"
 
@@ -712,7 +712,7 @@ model_list:
 
   - model_name: "zai/sonnet[1m]"
     litellm_params:
-      model: anthropic/glm-5
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -722,13 +722,13 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5 1M context (sonnet tier)"
+      description: "ZAI GLM 5.2 1M context (sonnet tier)"
       strengths: "Balanced, large context"
       weaknesses: "Less depth than opus"
 
   - model_name: "zai/opus[1m]"
     litellm_params:
-      model: anthropic/glm-5.1
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -738,14 +738,14 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5.1 1M context (opus tier)"
+      description: "ZAI GLM 5.2 1M context (opus tier)"
       strengths: "Strong reasoning, large context"
       weaknesses: "Slower, more expensive"
 
   # Alias for zai/opus - high quality
   - model_name: "ultra"
     litellm_params:
-      model: anthropic/glm-5
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -755,14 +755,14 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5 high-reasoning alias"
+      description: "ZAI GLM 5.2 high-reasoning alias"
       strengths: "Strong reasoning, high effort"
       weaknesses: "Slower due to high reasoning"
 
   # Alias for zai/opus - cheap option
   - model_name: "cheap"
     litellm_params:
-      model: anthropic/glm-5
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -772,7 +772,7 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5 budget alias"
+      description: "ZAI GLM 5.2 budget alias"
       strengths: "Cost-effective, good quality"
       weaknesses: "Same as ultra (alias)"
 
