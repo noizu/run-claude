@@ -851,14 +851,25 @@ def supervise_proxy(no_db: bool = False, debug: bool = False, interval: float = 
     return True
 
 
-def stop_proxy() -> bool:
+def stop_proxy(user_initiated: bool = False) -> bool:
     """
     Stop the proxy.
+
+    Args:
+        user_initiated: If True, this is a deliberate stop (e.g. ``proxy stop``)
+            and a stop marker is written so the watchdog does NOT auto-restart
+            the proxy. Internal/recovery callers leave this False so the
+            watchdog treats the subsequent down-state as a crash and restarts.
 
     Returns:
         True if proxy was stopped successfully
         False if process couldn't be stopped
     """
+    if user_initiated:
+        # Local import avoids a module-load cycle (watchdog imports proxy).
+        from . import watchdog
+        watchdog.mark_user_stop("proxy-stop")
+
     pid = get_proxy_pid()
 
     if pid is None:
@@ -1948,3 +1959,24 @@ def run_prisma_migrate(debug: bool = False) -> bool:
     except subprocess.TimeoutExpired:
         print("Error: Prisma migrate timed out", file=sys.stderr)
         return False
+
+
+# -----------------------------------------------------------------------------
+# Watchdog re-exports
+#
+# watchdog.py imports this module, so we expose its public surface here (at the
+# bottom, after all definitions above) to avoid a module-load circular import.
+# This keeps cli.py's `from . import proxy` style working for watchdog access.
+# -----------------------------------------------------------------------------
+from . import watchdog as _watchdog  # noqa: E402,F401
+
+start_watchdog = _watchdog.start_watchdog
+stop_watchdog = _watchdog.stop_watchdog
+is_watchdog_running = _watchdog.is_watchdog_running
+get_watchdog_pid = _watchdog.get_watchdog_pid
+get_watchdog_pid_file = _watchdog.get_watchdog_pid_file
+get_watchdog_log_file = _watchdog.get_watchdog_log_file
+run_watchdog_loop = _watchdog.run_watchdog_loop
+mark_user_stop = _watchdog.mark_user_stop
+clear_stop_marker = _watchdog.clear_stop_marker
+was_user_stopped = _watchdog.was_user_stopped

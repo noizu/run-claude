@@ -29,6 +29,16 @@ def get_state_file() -> Path:
     return get_state_dir() / "state.json"
 
 
+def get_stop_marker_file() -> Path:
+    """Get path to the user-initiated stop marker file.
+
+    Presence of this file means the proxy was stopped intentionally (e.g. via
+    ``run-claude proxy stop``) and the watchdog must NOT auto-restart it. It is
+    cleared on an explicit start so the watchdog resumes normal supervision.
+    """
+    return get_state_dir() / "stop.marker"
+
+
 @dataclass
 class TokenInfo:
     """Information about an active token."""

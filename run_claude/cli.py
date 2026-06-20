@@ -75,12 +75,22 @@ def main() -> int:
     proxy_stop_p.add_argument("--all", action="store_true", help="Stop everything and remove containers")
     proxy_restart_p = proxy_sub.add_parser("restart", help="Restart proxy (stop + start)")
     proxy_restart_p.add_argument("--no-db", action="store_true", help="Don't auto-start database container")
-    proxy_supervise_p = proxy_sub.add_parser("supervise", help="Run proxy in foreground, auto-restarting until stopped")
+    proxy_supervise_p = proxy_sub.add_parser("supervise", help="(deprecated: use 'watchdog start') Run proxy in foreground, auto-restarting until stopped")
     proxy_supervise_p.add_argument("--no-db", action="store_true", help="Don't auto-start database container")
     proxy_supervise_p.add_argument("--interval", type=float, default=5.0, help="Seconds between liveness checks (default: 5)")
     proxy_sub.add_parser("status", help="Proxy status")
     proxy_sub.add_parser("health", help="Health check")
     proxy_sub.add_parser("db-test", help="Test database connection")
+
+    # watchdog subcommands
+    watchdog_p = subparsers.add_parser("watchdog", help="Proxy watchdog management (auto-restart on crash)")
+    watchdog_sub = watchdog_p.add_subparsers(dest="watchdog_command")
+    watchdog_start_p = watchdog_sub.add_parser("start", help="Start the watchdog daemon")
+    watchdog_start_p.add_argument("--interval", type=float, default=5.0, help="Seconds between liveness checks (default: 5)")
+    watchdog_stop_p = watchdog_sub.add_parser("stop", help="Stop the watchdog daemon")
+    watchdog_stop_p.add_argument("--with-proxy", action="store_true", help="Also stop the proxies")
+    watchdog_sub.add_parser("restart", help="Restart the watchdog daemon")
+    watchdog_sub.add_parser("status", help="Show watchdog status")
 
     # db subcommands
     db_p = subparsers.add_parser("db", help="Database container management")
@@ -167,6 +177,8 @@ def main() -> int:
         return cmd_env(args)
     elif args.command == "proxy":
         return cmd_proxy(args)
+    elif args.command == "watchdog":
+        return cmd_watchdog(args)
     elif args.command == "db":
         return cmd_db(args)
     elif args.command == "profiles":
@@ -213,6 +225,11 @@ def cmd_enter(args: argparse.Namespace) -> int:
     # Start front proxy (always-on for all profiles)
     if not proxy.is_front_proxy_running():
         proxy.start_front_proxy(wait=False)
+
+    # Self-heal: ensure the watchdog daemon is alive. enter runs on every prompt
+    # in a shimmed dir, so a crashed watchdog is re-spawned here. Cheap idempotent
+    # PID check — no-op when already running.
+    proxy.start_watchdog()
 
     # Ensure LiteLLM proxy is running with profile's models
     model_defs = [m.to_dict() for m in profile.model_list]
@@ -571,6 +588,10 @@ def cmd_proxy(args: argparse.Namespace) -> int:
         no_db = getattr(args, 'no_db', False)
         if proxy.start_proxy(empty_config=True, no_db=no_db, debug=debug):
             print("Proxy started")
+            # Fresh start clears any prior intentional-stop marker and brings
+            # the watchdog up (idempotent no-op if already running).
+            proxy.clear_stop_marker()
+            proxy.start_watchdog()
             return 0
         else:
             print("Failed to start proxy", file=sys.stderr)
@@ -579,8 +600,8 @@ def cmd_proxy(args: argparse.Namespace) -> int:
     elif args.proxy_command == "stop":
         # Stop front proxy
         proxy.stop_front_proxy()
-        # Stop LiteLLM proxy
-        if not proxy.stop_proxy():
+        # Stop LiteLLM proxy — user_initiated so the watchdog does NOT restart it.
+        if not proxy.stop_proxy(user_initiated=True):
             print("Failed to stop proxy", file=sys.stderr)
             return 1
         print("Proxy stopped")
@@ -603,6 +624,11 @@ def cmd_proxy(args: argparse.Namespace) -> int:
         return 0
 
     elif args.proxy_command == "supervise":
+        print("[DEPRECATED] 'proxy supervise' blocks the foreground and restarts on "
+              "any stop (including deliberate ones). Prefer the background watchdog:",
+              file=sys.stderr)
+        print("  run-claude watchdog start   (auto-restart on crash, respects 'proxy stop')",
+              file=sys.stderr)
         no_db = getattr(args, 'no_db', False)
         interval = getattr(args, 'interval', 5.0)
         proxy.supervise_proxy(no_db=no_db, debug=debug, interval=interval)
@@ -619,6 +645,10 @@ def cmd_proxy(args: argparse.Namespace) -> int:
         proxy.start_front_proxy(wait=True)
         if proxy.start_proxy(empty_config=True, no_db=no_db, debug=debug):
             print("Proxy started")
+            # restart's internal stop was not user-initiated; clear any stale
+            # marker and re-ensure the watchdog.
+            proxy.clear_stop_marker()
+            proxy.start_watchdog()
             return 0
         else:
             print("Failed to start proxy", file=sys.stderr)
@@ -691,6 +721,62 @@ def cmd_proxy(args: argparse.Namespace) -> int:
 
     else:
         print("Usage: run-claude proxy {start|stop|restart|supervise|status|health|db-test}")
+        return 1
+
+
+def cmd_watchdog(args: argparse.Namespace) -> int:
+    """Handle watchdog commands.
+
+    The watchdog is a background daemon that auto-restarts the proxy on crash,
+    but respects intentional ``proxy stop`` (recorded via a stop marker).
+    """
+    from . import proxy
+
+    debug = getattr(args, 'debug', False)
+
+    if args.watchdog_command == "start":
+        interval = getattr(args, 'interval', 5.0)
+        if proxy.start_watchdog(interval=interval, debug=debug):
+            print("Watchdog started")
+            return 0
+        print("Failed to start watchdog", file=sys.stderr)
+        return 1
+
+    elif args.watchdog_command == "stop":
+        if not proxy.stop_watchdog():
+            print("Failed to stop watchdog", file=sys.stderr)
+            return 1
+        print("Watchdog stopped")
+        if getattr(args, 'with_proxy', False):
+            print("Stopping proxies...")
+            proxy.stop_front_proxy()
+            proxy.stop_proxy(user_initiated=True)
+            print("Proxies stopped")
+        return 0
+
+    elif args.watchdog_command == "restart":
+        proxy.stop_watchdog()
+        interval = getattr(args, 'interval', 5.0)
+        if proxy.start_watchdog(interval=interval, debug=debug):
+            print("Watchdog restarted")
+            return 0
+        print("Failed to restart watchdog", file=sys.stderr)
+        return 1
+
+    elif args.watchdog_command == "status":
+        pid_file = proxy.get_watchdog_pid_file()
+        print("Watchdog:")
+        if proxy.is_watchdog_running():
+            pid = pid_file.read_text().strip() if pid_file.exists() else "?"
+            print(f"  Status: running")
+            print(f"  PID: {pid}")
+            print(f"  Log: {proxy.get_watchdog_log_file()}")
+        else:
+            print("  Status: stopped")
+        return 0
+
+    else:
+        print("Usage: run-claude watchdog {start|stop|restart|status}")
         return 1
 
 
