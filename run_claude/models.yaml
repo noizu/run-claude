@@ -240,6 +240,54 @@ model_list:
       strengths: "Fast reasoning, cost-efficient"
       weaknesses: "Less capable than full O3"
 
+  - model_name: "openai-gpt5.5"
+    litellm_params:
+      model: openai/gpt-5.5
+      api_key: os.environ/OPENAI_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking"]
+    metadata:
+      provider: openai
+      description: "GPT-5.5 via OpenAI API"
+      strengths: "Latest frontier model, strongest coding and professional work"
+      weaknesses: "Expensive, highest-latency OpenAI option"
+
+  - model_name: "openai-gpt5.5-2026-04-23"
+    litellm_params:
+      model: openai/gpt-5.5-2026-04-23
+      api_key: os.environ/OPENAI_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking"]
+    metadata:
+      provider: openai
+      description: "GPT-5.5 pinned 2026-04-23 snapshot"
+      strengths: "Stable GPT-5.5 behavior for reproducible workflows"
+      weaknesses: "Will not track newer GPT-5.5 aliases"
+
+  - model_name: "openai-gpt5.4"
+    litellm_params:
+      model: openai/gpt-5.4
+      api_key: os.environ/OPENAI_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking"]
+    metadata:
+      provider: openai
+      description: "GPT-5.4 via OpenAI API"
+      strengths: "Strong frontier model, cheaper than GPT-5.5"
+      weaknesses: "Older than GPT-5.5"
+
+  - model_name: "openai-gpt5.4-mini"
+    litellm_params:
+      model: openai/gpt-5.4-mini
+      api_key: os.environ/OPENAI_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking"]
+    metadata:
+      provider: openai
+      description: "GPT-5.4 Mini via OpenAI API"
+      strengths: "Fast, lower-cost GPT-5 generation model"
+      weaknesses: "Less capable than frontier GPT-5.5"
+
   # ==========================================================================
   # Gemini
   # ==========================================================================
@@ -877,6 +925,48 @@ model_list:
       strengths: "Strong reasoning, high quality"
       weaknesses: "Slower, more expensive"
 
+  - model_name: "zai-oa/glm-5.2"
+    litellm_params:
+      model: openai/glm-5.2
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management", "output_config"]
+      reasoning_effort: "max"
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.2 via coding plan OpenAI-compatible endpoint"
+      strengths: "Flagship 1M-context coding model"
+      weaknesses: "High quota consumption during peak hours"
+
+  - model_name: "zai-oa/glm-5-turbo"
+    litellm_params:
+      model: openai/glm-5-turbo
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management", "output_config"]
+      reasoning_effort: "high"
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5-Turbo via coding plan OpenAI-compatible endpoint"
+      strengths: "Advanced coding-plan model, faster than GLM-5.2"
+      weaknesses: "Less capable than GLM-5.2"
+
+  - model_name: "zai-oa/glm-4.7"
+    litellm_params:
+      model: openai/glm-4.7
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management", "output_config"]
+      reasoning_effort: "medium"
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-4.7 via coding plan OpenAI-compatible endpoint"
+      strengths: "Routine coding tasks with lower quota pressure"
+      weaknesses: "Older than GLM-5 series"
+
 
 # Groq - Named
 
@@ -939,6 +1029,32 @@ model_list:
       weaknesses: "Rate limits, less precise"
 
 # Groq Extended Models
+  - model_name: "groq-compound"
+    litellm_params:
+      model: openai/groq/compound
+      api_key: os.environ/GROQ_API_KEY
+      api_base: https://api.groq.com/openai/v1
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+    metadata:
+      provider: groq
+      description: "Groq Compound agentic system"
+      strengths: "Tool-using system with web search and code execution"
+      weaknesses: "System behavior less deterministic than a single model"
+
+  - model_name: "groq-compound-mini"
+    litellm_params:
+      model: openai/groq/compound-mini
+      api_key: os.environ/GROQ_API_KEY
+      api_base: https://api.groq.com/openai/v1
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+    metadata:
+      provider: groq
+      description: "Groq Compound Mini agentic system"
+      strengths: "Fast tool-using system"
+      weaknesses: "Less capable than full Compound"
+
   # Kimi: does NOT support reasoning_effort - must drop
   - model_name: "groq-kimi-k2"
     litellm_params:
@@ -1014,6 +1130,67 @@ model_list:
       description: "Llama 3.1 8B Instant on Groq"
       strengths: "Extremely fast, free tier"
       weaknesses: "Very limited capability"
+
+  - model_name: "groq-gpt-oss-20b"
+    litellm_params:
+      model: groq/openai/gpt-oss-20b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+    metadata:
+      provider: groq
+      description: "GPT-OSS 20B on Groq"
+      strengths: "Very fast, low-cost reasoning-capable model"
+      weaknesses: "Small model, limited deep reasoning"
+
+  - model_name: "groq-qwen3.6-27b"
+    litellm_params:
+      model: groq/qwen/qwen3.6-27b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+    metadata:
+      provider: groq
+      description: "Qwen3.6 27B preview on Groq"
+      strengths: "Fast preview model with large context"
+      weaknesses: "Preview availability may change"
+
+  - model_name: "groq-safety-gpt-oss-20b"
+    litellm_params:
+      model: groq/openai/gpt-oss-safeguard-20b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+    metadata:
+      provider: groq
+      description: "Safety GPT-OSS 20B safeguard model on Groq"
+      strengths: "Fast moderation and safety checks"
+      weaknesses: "Specialized safeguard model, not a general assistant"
+
+  - model_name: "groq-llama-prompt-guard-2-22m"
+    litellm_params:
+      model: groq/meta-llama/llama-prompt-guard-2-22m
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+    metadata:
+      provider: groq
+      description: "Llama Prompt Guard 2 22M on Groq"
+      strengths: "Tiny, fast prompt-guard model"
+      weaknesses: "Guard-only model"
+
+  - model_name: "groq-llama-prompt-guard-2-86m"
+    litellm_params:
+      model: groq/meta-llama/llama-prompt-guard-2-86m
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+    metadata:
+      provider: groq
+      description: "Llama Prompt Guard 2 86M on Groq"
+      strengths: "Fast prompt-guard model"
+      weaknesses: "Guard-only model"
 
   # ==========================================================================
   # Groq
@@ -1124,6 +1301,32 @@ model_list:
   # ==========================================================================
   # xAI Grok
   # ==========================================================================
+  - model_name: "grok-4.3"
+    litellm_params:
+      model: xai/grok-4.3
+      api_key: os.environ/GROK_API_KEY
+      api_base: https://api.x.ai/v1
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking"]
+    metadata:
+      provider: xai
+      description: "Grok 4.3 via xAI"
+      strengths: "Latest general Grok model, 1M context"
+      weaknesses: "Newer platform, less tested than older APIs"
+
+  - model_name: "grok-build-0.1"
+    litellm_params:
+      model: xai/grok-build-0.1
+      api_key: os.environ/GROK_API_KEY
+      api_base: https://api.x.ai/v1
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+    metadata:
+      provider: xai
+      description: "Grok Build 0.1 via xAI"
+      strengths: "Fast model trained for agentic coding workflows"
+      weaknesses: "Early coding model"
+
   - model_name: "grok-2"
     litellm_params:
       model: xai/grok-2-latest
@@ -1166,6 +1369,33 @@ model_list:
   # ==========================================================================
   # DeepSeek
   # ==========================================================================
+  - model_name: "deepseek-v4-flash"
+    litellm_params:
+      model: deepseek/deepseek-v4-flash
+      api_key: os.environ/DEEPSEEK_API_KEY
+      api_base: https://api.deepseek.com/v1
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking"]
+    metadata:
+      provider: deepseek
+      description: "DeepSeek V4 Flash"
+      strengths: "Latest fast DeepSeek model, 1M context"
+      weaknesses: "Less capable than V4 Pro"
+
+  - model_name: "deepseek-v4-pro"
+    litellm_params:
+      model: deepseek/deepseek-v4-pro
+      api_key: os.environ/DEEPSEEK_API_KEY
+      api_base: https://api.deepseek.com/v1
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+    metadata:
+      provider: deepseek
+      description: "DeepSeek V4 Pro"
+      strengths: "Latest higher-quality DeepSeek model, 1M context"
+      weaknesses: "Slower and pricier than V4 Flash"
+
   - model_name: "deepseek-reasoner"
     litellm_params:
       model: deepseek/deepseek-reasoner
