@@ -56,6 +56,14 @@ DEFAULT_LITELLM_URL = "http://127.0.0.1:4444"
 DEFAULT_PORT = 4443
 
 ANTHROPIC_MODEL_PREFIXES = ("claude-",)
+OPENAI_LITELLM_PATHS = (
+    "/v1/chat/completions",
+    "/v1/completions",
+    "/v1/embeddings",
+    "/v1/images",
+    "/v1/audio",
+    "/v1/responses",
+)
 
 HOP_BY_HOP = frozenset({
     "host", "connection", "keep-alive", "transfer-encoding",
@@ -180,6 +188,9 @@ class FrontProxy:
         use_litellm_auth=True: strip client OAuth, inject LiteLLM master key.
         use_litellm_auth=False: keep original headers (passthrough to Anthropic).
         """
+        if path in OPENAI_LITELLM_PATHS or any(path.startswith(f"{p}/") for p in OPENAI_LITELLM_PATHS):
+            return self.litellm_url, True
+
         if path.startswith("/v1/messages") and not path.endswith("/count_tokens"):
             model = self._extract_model(body)
             if model and not model.startswith(ANTHROPIC_MODEL_PREFIXES):

@@ -1,16 +1,62 @@
-"""Tests for front proxy auth/header tracking."""
+"""Tests for front proxy routing and auth/header tracking."""
 
 import json
 
-from run_claude.front_proxy import AUTH_PLACEHOLDER, FrontProxy
+from run_claude.front_proxy import ANTHROPIC_API, AUTH_PLACEHOLDER, FrontProxy
 
 
 def _proxy(tmp_path):
     return FrontProxy(
         master_key="sk-master",
+        litellm_url="http://litellm.test",
         auth_state_path=tmp_path / "auth-state.json",
         request_log_path=tmp_path / "request-log.jsonl",
     )
+
+
+def test_routes_openai_responses_api_to_litellm(tmp_path):
+    proxy = _proxy(tmp_path)
+
+    target_base, use_litellm_auth = proxy._route(
+        "/v1/responses",
+        b'{"model":"openai/gpt-4.1","input":"hello"}',
+    )
+
+    assert target_base == "http://litellm.test"
+    assert use_litellm_auth is True
+
+
+def test_routes_openai_responses_subpaths_to_litellm(tmp_path):
+    proxy = _proxy(tmp_path)
+
+    target_base, use_litellm_auth = proxy._route("/v1/responses/resp_123", b"")
+
+    assert target_base == "http://litellm.test"
+    assert use_litellm_auth is True
+
+
+def test_routes_anthropic_claude_messages_to_anthropic(tmp_path):
+    proxy = _proxy(tmp_path)
+
+    target_base, use_litellm_auth = proxy._route(
+        "/v1/messages",
+        b'{"model":"claude-sonnet-4-20250514"}',
+    )
+
+    assert target_base == ANTHROPIC_API
+    assert use_litellm_auth is False
+
+
+def test_routes_non_claude_anthropic_messages_to_litellm(tmp_path):
+    proxy = _proxy(tmp_path)
+
+    target_base, use_litellm_auth = proxy._route(
+        "/v1/messages",
+        b'{"model":"cerebras/gpt-oss-120b"}',
+    )
+
+    assert target_base == "http://litellm.test"
+    assert use_litellm_auth is True
 
 
 def test_persists_real_authorization_token(tmp_path):
