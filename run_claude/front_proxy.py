@@ -400,6 +400,50 @@ def _build_app(proxy: FrontProxy) -> Any:
     async def health(request: Request) -> Response:
         return Response(content='{"status":"ok"}', media_type="application/json")
 
+    async def bootstrap(request: Request) -> Response:
+        """Claude CLI bootstrap: return available models from LiteLLM as additional_model_options."""
+        model_options = None
+        try:
+            client = await proxy._get_client()
+            resp = await client.get(
+                f"{proxy.litellm_url}/model/info",
+                headers={"Authorization": f"Bearer {proxy.master_key}"},
+                timeout=5.0,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                models = data.get("data", [])
+
+                try:
+                    from .profiles import load_model_definitions
+                    model_defs = load_model_definitions()
+                except Exception:
+                    model_defs = {}
+
+                options = []
+                for m in models:
+                    model_name = m.get("model_name", "")
+                    if not model_name:
+                        continue
+                    model_def = model_defs.get(model_name)
+                    description = (
+                        model_def.metadata.description
+                        if model_def and model_def.metadata.description
+                        else "via run-claude proxy"
+                    )
+                    options.append({
+                        "model": model_name,
+                        "name": model_name,
+                        "description": description,
+                    })
+                if options:
+                    model_options = options
+        except Exception:
+            pass
+
+        result = {"client_data": None, "additional_model_options": model_options}
+        return Response(content=json.dumps(result), media_type="application/json")
+
     async def handle(request: Request) -> Response:
         path = request.url.path
         query = request.url.query.decode() if isinstance(request.url.query, bytes) else (request.url.query or "")
@@ -426,6 +470,7 @@ def _build_app(proxy: FrontProxy) -> Any:
         return Response(content=resp_body, status_code=status_code, headers=resp_headers)
 
     app = Starlette(routes=[
+        Route("/api/claude_cli/bootstrap", bootstrap, methods=["GET"]),
         Route("/health", health, methods=["GET"]),
         Route("/{path:path}", handle, methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]),
     ])

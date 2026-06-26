@@ -7,6 +7,10 @@
 
 typeset -g _AGENT_SHIM_LAST_TOKEN=""
 
+claude+() {
+    run-claude with "${CLAUDE_PLUS_RUNNER:-kitchen-sink}" claude "$@"
+}
+
 _agent_shim_hook() {
     local current_token="${AGENT_SHIM_TOKEN:-}"
 

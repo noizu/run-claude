@@ -470,6 +470,11 @@ def health_check(timeout: float = HEALTH_CHECK_TIMEOUT, wait_for_recovery: bool 
                 print(f"[HEALTH_CHECK] Unhealthy (HTTP {resp.status_code})", file=sys.stderr)
                 return False
 
+            # Bail if the proxy process has exited while we waited for a good response.
+            if not is_proxy_running():
+                print(f"[HEALTH_CHECK] Proxy process gone, aborting recovery wait", file=sys.stderr)
+                return False
+
             # Wait and retry if recovery mode enabled
             if max_retries > 0 and retry_count >= max_retries:
                 print(f"[HEALTH_CHECK] Max retries reached", file=sys.stderr)
@@ -483,6 +488,11 @@ def health_check(timeout: float = HEALTH_CHECK_TIMEOUT, wait_for_recovery: bool 
             print(f"[HEALTH_CHECK_ERROR] {type(e).__name__}: {e}", file=sys.stderr)
 
             if not wait_for_recovery:
+                return False
+
+            # Bail immediately if the proxy process is already gone — no point waiting.
+            if not is_proxy_running():
+                print(f"[HEALTH_CHECK] Proxy process gone, aborting recovery wait", file=sys.stderr)
                 return False
 
             # Wait and retry if recovery mode enabled

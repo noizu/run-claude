@@ -231,16 +231,19 @@ def cmd_enter(args: argparse.Namespace) -> int:
     # PID check — no-op when already running.
     proxy.start_watchdog()
 
-    # Ensure LiteLLM proxy is running with profile's models
+    # Ensure LiteLLM proxy is running with profile's models.
+    # start_proxy handles all cases: not running → start; running but crashed/unhealthy → restart;
+    # running and healthy → no-op. This prevents a hang when the process is alive but the HTTP
+    # endpoint is down (previously we'd call ensure_models with wait_for_recovery=True and block
+    # for up to 5 minutes).
     model_defs = [m.to_dict() for m in profile.model_list]
-    if not proxy.is_proxy_running():
-        config_path = str(proxy.generate_litellm_config(model_defs=model_defs)) if model_defs else None
-        if not proxy.start_proxy(config_path=config_path):
-            print("Warning: Failed to start proxy", file=sys.stderr)
+    config_path = str(proxy.generate_litellm_config(model_defs=model_defs)) if model_defs else None
+    proxy_started = proxy.start_proxy(config_path=config_path)
+    if not proxy_started:
+        print("Warning: Failed to start proxy", file=sys.stderr)
     elif model_defs:
-        # Add any missing models via API (no restart needed)
-        # Wait for recovery if proxy is not immediately healthy
-        added, skipped, failed = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=True, force=refresh)
+        # Proxy is confirmed healthy by start_proxy — add any missing models without a recovery wait
+        added, skipped, failed = proxy.ensure_models(model_defs, debug=debug, wait_for_recovery=False, force=refresh)
         if debug and added > 0:
             print(f"Added {added} model(s) to proxy", file=sys.stderr)
         if failed > 0 and added == 0 and skipped == 0:
