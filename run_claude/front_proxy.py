@@ -62,6 +62,12 @@ HOP_BY_HOP = frozenset({
     "te", "trailer", "upgrade",
 })
 
+AUTH_PLACEHOLDER = "FILL_ME_IN"
+AUTH_STATE_FILE = "front-proxy-auth-state.json"
+DEFAULT_REQUEST_LOG_DIR = Path("/var/log/run-cluade")
+REQUEST_LOG_FILE = "request-log.jsonl"
+AUTH_HEADER_NAMES = frozenset({"authorization", "x-api-key", "anthropic-api-key"})
+
 STRIP_RESPONSE_HEADERS = frozenset({
     "content-encoding", "content-length", "transfer-encoding",
 })
@@ -72,16 +78,85 @@ MAX_CONNECTIONS = 1100
 MAX_KEEPALIVE = 200
 
 
+def _get_state_dir() -> Path:
+    xdg_state = os.environ.get("XDG_STATE_HOME")
+    state_dir = Path(xdg_state) / "run-claude" if xdg_state else Path.home() / ".local" / "state" / "run-claude"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    return state_dir
+
+
+def _get_request_log_path() -> Path:
+    configured = os.environ.get("RUN_CLAUDE_REQUEST_LOG")
+    if configured:
+        return Path(configured)
+
+    try:
+        DEFAULT_REQUEST_LOG_DIR.mkdir(parents=True, exist_ok=True)
+        probe = DEFAULT_REQUEST_LOG_DIR / ".write-test"
+        probe.touch(exist_ok=True)
+        probe.unlink(missing_ok=True)
+        return DEFAULT_REQUEST_LOG_DIR / REQUEST_LOG_FILE
+    except (PermissionError, OSError):
+        return _get_state_dir() / REQUEST_LOG_FILE
+
+
+def _get_auth_state_path() -> Path:
+    configured = os.environ.get("RUN_CLAUDE_AUTH_STATE")
+    if configured:
+        return Path(configured)
+    return _get_state_dir() / AUTH_STATE_FILE
+
+
+def _read_json_file(path: Path) -> dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+def _write_json_file(path: Path, data: dict[str, Any]) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+        tmp.replace(path)
+    except OSError as exc:
+        logger.warning("Could not persist front proxy auth state to %s: %s", path, exc)
+
+
+def _append_jsonl(path: Path, entry: dict[str, Any]) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, sort_keys=True, default=str) + "\n")
+    except OSError as exc:
+        logger.warning("Could not write front proxy request log to %s: %s", path, exc)
+
+
+def _split_auth_value(value: str) -> tuple[str, str]:
+    stripped = value.strip()
+    if not stripped:
+        return "Bearer", ""
+    scheme, sep, token = stripped.partition(" ")
+    if sep:
+        return scheme, token.strip()
+    return "Bearer", stripped
+
+
 class FrontProxy:
     def __init__(
         self,
         master_key: str,
         litellm_url: str = DEFAULT_LITELLM_URL,
         port: int = DEFAULT_PORT,
+        auth_state_path: Path | None = None,
+        request_log_path: Path | None = None,
     ):
         self.master_key = master_key
         self.litellm_url = litellm_url.rstrip("/")
         self.port = port
+        self.auth_state_path = auth_state_path or _get_auth_state_path()
+        self.request_log_path = request_log_path or _get_request_log_path()
         self._client: httpx.AsyncClient | None = None
         self._semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
@@ -135,6 +210,89 @@ class FrontProxy:
         }, default=str)
         err_logger.info(entry)
 
+    def _load_auth_state(self) -> dict[str, Any]:
+        state = _read_json_file(self.auth_state_path)
+        if not isinstance(state.get("headers"), dict):
+            state["headers"] = {}
+        return state
+
+    def _save_auth_state(self, state: dict[str, Any]) -> None:
+        _write_json_file(self.auth_state_path, state)
+
+    @staticmethod
+    def _header_report(headers: dict[str, str]) -> dict[str, Any]:
+        return {
+            name.lower(): {
+                "present": True,
+                "value": value if name.lower() not in AUTH_HEADER_NAMES else "<redacted>",
+            }
+            for name, value in sorted(headers.items(), key=lambda item: item[0].lower())
+        }
+
+    def _record_request(
+        self,
+        method: str,
+        path: str,
+        query: str,
+        headers: dict[str, str],
+        body: bytes,
+        target_base: str,
+        use_litellm_auth: bool,
+        auth_reused: bool,
+        auth_persisted: bool,
+    ) -> None:
+        entry = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "method": method,
+            "path": path,
+            "query": query or None,
+            "target_base": target_base,
+            "use_litellm_auth": use_litellm_auth,
+            "model": self._extract_model(body) or None,
+            "headers": self._header_report(headers),
+            "auth": {
+                "present": any(name.lower() in AUTH_HEADER_NAMES for name in headers),
+                "reused_persisted_token": auth_reused,
+                "persisted_new_token": auth_persisted,
+            },
+        }
+        _append_jsonl(self.request_log_path, entry)
+
+    def _track_headers_and_auth(self, headers: dict[str, str]) -> tuple[dict[str, str], bool, bool]:
+        """Persist observed auth and header names, and fill blank/placeholder auth."""
+        state = self._load_auth_state()
+        now = datetime.now(timezone.utc).isoformat()
+        header_stats = state["headers"]
+        lower_to_original = {name.lower(): name for name in headers}
+
+        for name, value in headers.items():
+            lower_name = name.lower()
+            stats = header_stats.setdefault(lower_name, {"count": 0})
+            stats["count"] = int(stats.get("count", 0)) + 1
+            stats["last_seen"] = now
+            stats["last_value"] = value if lower_name not in AUTH_HEADER_NAMES else "<redacted>"
+
+        auth_key = lower_to_original.get("authorization")
+        auth_reused = False
+        auth_persisted = False
+
+        if auth_key is not None:
+            scheme, token = _split_auth_value(headers.get(auth_key, ""))
+            if token and token != AUTH_PLACEHOLDER:
+                state["last_auth_scheme"] = scheme or "Bearer"
+                state["last_auth_token"] = token
+                state["last_auth_seen"] = now
+                auth_persisted = True
+            elif state.get("last_auth_token"):
+                headers[auth_key] = f"{state.get('last_auth_scheme') or 'Bearer'} {state['last_auth_token']}"
+                auth_reused = True
+        elif state.get("last_auth_token"):
+            headers["authorization"] = f"{state.get('last_auth_scheme') or 'Bearer'} {state['last_auth_token']}"
+            auth_reused = True
+
+        self._save_auth_state(state)
+        return headers, auth_reused, auth_persisted
+
     def _prepare_headers(self, headers: dict[str, str], use_litellm_auth: bool) -> dict[str, str]:
         """Build forwarding headers, swapping auth when routing to LiteLLM."""
         fwd = {k: v for k, v in headers.items() if k.lower() not in HOP_BY_HOP}
@@ -148,6 +306,11 @@ class FrontProxy:
     ) -> tuple[int, dict[str, str], bytes]:
         """Route and forward a single request. Returns (status, headers, body)."""
         target_base, use_litellm_auth = self._route(path, body)
+        headers, auth_reused, auth_persisted = self._track_headers_and_auth(dict(headers))
+        self._record_request(
+            method, path, query, headers, body, target_base, use_litellm_auth,
+            auth_reused, auth_persisted,
+        )
         fwd_headers = self._prepare_headers(headers, use_litellm_auth)
 
         url = f"{target_base}{path}"
@@ -183,6 +346,11 @@ class FrontProxy:
     ):
         """Route and stream a single request. Yields (status, headers) then chunks."""
         target_base, use_litellm_auth = self._route(path, body)
+        headers, auth_reused, auth_persisted = self._track_headers_and_auth(dict(headers))
+        self._record_request(
+            method, path, query, headers, body, target_base, use_litellm_auth,
+            auth_reused, auth_persisted,
+        )
         fwd_headers = self._prepare_headers(headers, use_litellm_auth)
 
         url = f"{target_base}{path}"
