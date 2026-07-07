@@ -57,7 +57,9 @@ def is_watchdog_running() -> bool:
         pid = int(pid_file.read_text().strip())
         os.kill(pid, 0)
         return True
-    except (ValueError, ProcessLookupError, PermissionError):
+    except PermissionError:
+        return True
+    except (ValueError, ProcessLookupError):
         pid_file.unlink(missing_ok=True)
         return False
 
@@ -71,7 +73,9 @@ def get_watchdog_pid() -> int | None:
         pid = int(pid_file.read_text().strip())
         os.kill(pid, 0)
         return pid
-    except (ValueError, ProcessLookupError, PermissionError):
+    except PermissionError:
+        return pid
+    except (ValueError, ProcessLookupError):
         return None
 
 

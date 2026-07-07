@@ -16,6 +16,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 try:
     import httpx
@@ -31,17 +32,31 @@ from .state import get_state_dir, load_state, save_state
 
 
 def _setup_httpx_logging() -> None:
-    """Configure httpx and httpcore loggers to write to /var/log/litellm-httpx.log."""
+    """Configure optional debug logging for httpx/httpcore.
+
+    Logging must never prevent the proxy command module from importing. Commands
+    such as ``run-claude proxy status`` should work even when /var/log or the
+    user's state directory is not writable.
+    """
     import logging
 
-    log_path = Path("/var/log/litellm-httpx.log")
-    try:
-        handler = logging.FileHandler(log_path)
-    except (PermissionError, OSError):
-        # Fall back to state dir if /var/log is not writable
-        fallback = get_state_dir() / "litellm-httpx.log"
-        fallback.parent.mkdir(parents=True, exist_ok=True)
-        handler = logging.FileHandler(fallback)
+    configured = os.environ.get("RUN_CLAUDE_HTTPX_LOG_FILE")
+    candidates = [Path(configured)] if configured else [
+        get_state_dir() / "litellm-httpx.log",
+        Path(tempfile.gettempdir()) / "run-claude-litellm-httpx.log",
+    ]
+
+    handler = None
+    for log_path in candidates:
+        try:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            handler = logging.FileHandler(log_path)
+            break
+        except (PermissionError, OSError):
+            continue
+
+    if handler is None:
+        return
 
     formatter = logging.Formatter(
         "%(asctime)s %(name)s %(levelname)s %(message)s"
@@ -72,6 +87,67 @@ HEALTH_CHECK_INTERVAL = 10.0
 # model, which times out for large profiles (e.g. kitchen-sink) with slow or
 # keyless providers — do not use it for the startup/recovery gate.
 HEALTH_READINESS_PATH = "/health/readiness"
+
+SENSITIVE_LOG_KEYS = {
+    "api_key",
+    "apikey",
+    "authorization",
+    "auth",
+    "bearer",
+    "database_url",
+    "master_key",
+    "password",
+    "secret",
+    "token",
+    "x-api-key",
+}
+
+
+def _is_sensitive_log_key(key: str) -> bool:
+    normalized = key.lower().replace("-", "_")
+    return any(sensitive in normalized for sensitive in SENSITIVE_LOG_KEYS)
+
+
+def _redact_url_credentials(value: str) -> str:
+    """Redact password credentials in a URL string."""
+    try:
+        parts = urlsplit(value)
+    except ValueError:
+        return "<redacted>"
+
+    if not parts.password:
+        return value
+
+    host = parts.hostname or ""
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+
+    netloc = ""
+    if parts.username:
+        netloc = f"{parts.username}:<redacted>@{host}"
+    else:
+        netloc = f"<redacted>@{host}"
+    if parts.port:
+        netloc = f"{netloc}:{parts.port}"
+
+    return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+
+
+def _redact_for_logging(value: Any) -> Any:
+    """Return a copy of value with common secret fields redacted."""
+    if isinstance(value, dict):
+        redacted: dict[Any, Any] = {}
+        for key, item in value.items():
+            if isinstance(key, str) and _is_sensitive_log_key(key):
+                redacted[key] = "<redacted>"
+            else:
+                redacted[key] = _redact_for_logging(item)
+        return redacted
+    if isinstance(value, list):
+        return [_redact_for_logging(item) for item in value]
+    if isinstance(value, str) and value.startswith(("postgresql://", "postgres://")):
+        return _redact_url_credentials(value)
+    return value
 
 
 def get_proxy_url() -> str:
@@ -132,7 +208,9 @@ def is_front_proxy_running() -> bool:
         pid = int(pid_file.read_text().strip())
         os.kill(pid, 0)
         return True
-    except (ValueError, ProcessLookupError, PermissionError):
+    except PermissionError:
+        return True
+    except (ValueError, ProcessLookupError):
         pid_file.unlink(missing_ok=True)
         return False
 
@@ -204,27 +282,33 @@ def stop_front_proxy() -> bool:
 def get_log_file() -> Path:
     """Get log file path.
 
-    Uses LITELLM_LOG_FILE env var if set, otherwise defaults to /var/log/litellm-proxy.log.
-    Falls back to state directory if /var/log is not writable.
+    Uses LITELLM_LOG_FILE env var if set. Otherwise defaults to the XDG state
+    directory, falling back to /var/log only when it is actually writable.
     """
     log_path = os.environ.get("LITELLM_LOG_FILE")
     if log_path:
         return Path(log_path)
 
-    # Default to /var/log/litellm-proxy.log
+    state_path = get_state_dir() / "proxy.log"
+    if _can_write_log_file(state_path):
+        return state_path
+
     default_path = Path("/var/log/litellm-proxy.log")
+    if _can_write_log_file(default_path):
+        return default_path
 
-    # Check if /var/log exists and is writable
-    if default_path.parent.exists():
-        try:
-            # Test if we can write to this directory
-            default_path.parent.mkdir(parents=True, exist_ok=True)
-            return default_path
-        except PermissionError:
+    return state_path
+
+
+def _can_write_log_file(path: Path) -> bool:
+    """Return True when a log file can be opened for append."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8"):
             pass
-
-    # Fall back to state directory if /var/log is not accessible
-    return get_state_dir() / "proxy.log"
+        return True
+    except (PermissionError, OSError):
+        return False
 
 
 def get_config_file() -> Path:
@@ -362,7 +446,7 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
             return os.environ.get(var_name, match.group(0))
         db_url = re.sub(r'\$\{([^}]+)\}', expand_var, db_url)
 
-    print(f"Database connection string: {db_url}", file=sys.stderr)
+    print(f"Database connection string: {_redact_url_credentials(db_url)}", file=sys.stderr)
 
     # Build config with required LiteLLM settings
     # Use the actual master key value directly in config as fallback
@@ -379,10 +463,30 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
         "log_raw_request_response": True,
     }
 
+    config_path = get_config_file()
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+
     # Add provider compatibility callbacks for strict providers (Groq, Cerebras, etc.)
+    #
+    # NOTE: litellm's proxy resolves a dotted `callbacks:` string as a *file path
+    # relative to the config directory* (litellm/proxy/types_utils/utils.py:
+    # get_instance_fn) and does NOT fall back to importing an installed package.
+    # So we cannot reference `run_claude.callbacks.provider_compat_callback`
+    # directly — litellm would look for `<config_dir>/run_claude/callbacks.py`
+    # and abort startup when it isn't there. Instead we drop a tiny shim module
+    # next to the config that re-exports the real callback from the installed
+    # run_claude package, and point litellm at that file.
     if enable_callbacks:
+        shim_path = config_path.parent / "rc_callbacks.py"
+        shim_path.write_text(
+            "# Auto-generated by run-claude; do not edit.\n"
+            "# litellm resolves this callback as a file next to litellm_config.yaml,\n"
+            "# so this shim re-exports the real callback from the installed package.\n"
+            "from run_claude.callbacks import provider_compat_callback  # noqa: F401\n",
+            encoding="utf-8",
+        )
         litellm_settings["callbacks"] = [
-            "run_claude.callbacks.provider_compat_callback",
+            "rc_callbacks.provider_compat_callback",
         ]
 
     config = {
@@ -395,8 +499,6 @@ def generate_litellm_config(model_defs: list[dict[str, Any]] | None = None) -> P
     }
 
     # Write config file
-    config_path = get_config_file()
-    config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(yaml.dump(config, default_flow_style=False), encoding="utf-8")
     print(config_path)
     return config_path
@@ -453,13 +555,13 @@ def health_check(timeout: float = HEALTH_CHECK_TIMEOUT, wait_for_recovery: bool 
 
     while True:
         try:
-            print(f"[HEALTH_CHECK] GET {url}{HEALTH_READINESS_PATH} with key={master_key}", file=sys.stderr)
+            print(f"[HEALTH_CHECK] GET {url}{HEALTH_READINESS_PATH}", file=sys.stderr)
             resp = httpx.get(
                 f"{url}{HEALTH_READINESS_PATH}",
                 headers={"Authorization": f"Bearer {master_key}"},
                 timeout=timeout
             )
-            print(f"[HEALTH_CHECK] Response: {resp.status_code} | key={master_key}", file=sys.stderr)
+            print(f"[HEALTH_CHECK] Response: {resp.status_code}", file=sys.stderr)
             # print(resp.content)
             if resp.status_code == 200:
                 print(f"[HEALTH_CHECK] Healthy", file=sys.stderr)
@@ -555,7 +657,9 @@ def is_proxy_running() -> bool:
         # Check if process exists
         os.kill(pid, 0)
         return True
-    except (ValueError, ProcessLookupError, PermissionError):
+    except PermissionError:
+        return True
+    except (ValueError, ProcessLookupError):
         # PID file stale, clean up
         pid_file.unlink(missing_ok=True)
         return False
@@ -571,7 +675,9 @@ def get_proxy_pid() -> int | None:
         pid = int(pid_file.read_text().strip())
         os.kill(pid, 0)  # Check if process exists
         return pid
-    except (ValueError, ProcessLookupError, PermissionError):
+    except PermissionError:
+        return pid
+    except (ValueError, ProcessLookupError):
         return None
 
 
@@ -723,9 +829,10 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
         env["LITELLM_MASTER_KEY"] = get_master_key()
 
     print(f"LiteLLM proxy logs saved to: {log_file}", file=sys.stderr)
-    print(f"Master key configured: {env.get('LITELLM_MASTER_KEY', 'NOT SET')}", file=sys.stderr)
+    master_key_status = "set" if env.get("LITELLM_MASTER_KEY") else "NOT SET"
+    print(f"Master key configured: {master_key_status}", file=sys.stderr)
     print(f"To run litellm locally for debugging, run:", file=sys.stderr)
-    print(f" LITELLM_MASTER_KEY={env.get('LITELLM_MASTER_KEY', 'NOT SET')} STORE_MODEL_IN_DB=True USE_PRISMA_MIGRATE=False {' '.join(cmd)}", file=sys.stderr)
+    print(f" LITELLM_MASTER_KEY=<redacted> STORE_MODEL_IN_DB=True USE_PRISMA_MIGRATE=False {' '.join(cmd)}", file=sys.stderr)
 
     # Retry loop for transient failures (DB not ready, auth race, etc.)
     last_failure_class = "unknown"
@@ -960,7 +1067,7 @@ def get_status() -> ProxyStatus:
         models = list_models()
         model_count = len(models)
 
-    db_healthy = test_db_connection(debug=True)
+    db_healthy = test_db_connection(debug=False)
     db_status = get_db_status()
 
     return ProxyStatus(
@@ -1039,23 +1146,23 @@ def add_model(model_def: dict[str, Any], debug: bool = False) -> bool:
     hydrated_model_def = _hydrate_model_dict(model_def)
 
     print(f"[ATTEMPT] Creating model '{model_name}'", file=sys.stderr)
-    print(f"[MASTER_KEY] Using master key: {master_key}", file=sys.stderr)
+    print("[MASTER_KEY] Using master key: <redacted>", file=sys.stderr)
 
     try:
         # Always log YAML representation of hydrated model
         if yaml is not None:
             print(f"[MODEL_DEF_YAML]", file=sys.stderr)
-            print(yaml.dump(hydrated_model_def, default_flow_style=False), file=sys.stderr)
+            print(yaml.dump(_redact_for_logging(hydrated_model_def), default_flow_style=False), file=sys.stderr)
 
         if debug:
             request_payload = {
                 "method": "POST",
                 "url": f"{url}/model/new",
                 "headers": {
-                    "Authorization": f"Bearer {master_key}",
+                    "Authorization": "Bearer <redacted>",
                     "Content-Type": "application/json",
                 },
-                "body": hydrated_model_def,
+                "body": _redact_for_logging(hydrated_model_def),
             }
             print(f"[REQUEST_PAYLOAD]", file=sys.stderr)
             if yaml is not None:
@@ -1331,7 +1438,8 @@ def test_db_connection(debug: bool = False) -> bool:
             return os.environ.get(var_name, match.group(0))
         db_url = re.sub(r'\$\{([^}]+)\}', expand_var, db_url)
 
-    print(f"Database connection string (expanded): {db_url}", file=sys.stderr)
+    if debug:
+        print(f"Database connection string (expanded): {_redact_url_credentials(db_url)}", file=sys.stderr)
 
     try:
         import psycopg2
@@ -1347,7 +1455,7 @@ def test_db_connection(debug: bool = False) -> bool:
         # Simple parser for postgresql URLs
         if not db_url.startswith("postgresql://"):
             if debug:
-                print(f"Invalid database URL format: {db_url}", file=sys.stderr)
+                print(f"Invalid database URL format: {_redact_url_credentials(db_url)}", file=sys.stderr)
             return False
 
         # Remove scheme
@@ -1891,7 +1999,8 @@ def run_prisma_migrate(debug: bool = False) -> bool:
             return os.environ.get(var_name, match.group(0))
         db_url = re.sub(r'\$\{([^}]+)\}', expand_var, db_url)
 
-    print(f"Database URL: {db_url}", file=sys.stderr)
+    if debug:
+        print(f"Database URL: {_redact_url_credentials(db_url)}", file=sys.stderr)
 
     # Find litellm's prisma schema
     try:
