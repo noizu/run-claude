@@ -157,6 +157,26 @@ model_list:
       strengths: "Large context, fast, strong coding"
       weaknesses: "Less depth than Opus"
 
+  - model_name: "claude-sonnet-5"
+    litellm_params:
+      model: anthropic/claude-sonnet-5
+      api_key: "unused-routed-by-front-proxy"
+    metadata:
+      provider: anthropic
+      description: "Claude Sonnet 5 via plan (OAuth passthrough)"
+      strengths: "Fast, strong coding, balanced"
+      weaknesses: "Less depth than Opus"
+
+  - model_name: "claude-sonnet-5[1m]"
+    litellm_params:
+      model: anthropic/claude-sonnet-5
+      api_key: "unused-routed-by-front-proxy"
+    metadata:
+      provider: anthropic
+      description: "Claude Sonnet 5 1M context via plan"
+      strengths: "Large context, fast, strong coding"
+      weaknesses: "Less depth than Opus"
+
   - model_name: "claude-haiku-4-5-20251001"
     litellm_params:
       model: anthropic/claude-haiku-4-5-20251001
