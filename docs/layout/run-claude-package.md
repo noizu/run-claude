@@ -7,11 +7,13 @@ The core Python package implementing the agent shim controller.
 | File | Lines | Purpose |
 |------|-------|---------|
 | `__init__.py` | ~7 | Package initialization, version |
-| `cli.py` | ~923 | CLI entry point, command dispatch (argparse) |
-| `config.py` | ~321 | Secrets management, .env generation, YAML parsing |
-| `profiles.py` | ~772 | Profile loading with fallthrough, model resolution |
-| `proxy.py` | ~1798 | LiteLLM proxy lifecycle, health checks, model API |
-| `state.py` | ~176 | JSON state persistence (tokens, refcounts, leases) |
+| `cli.py` | ~1213 | CLI entry point, command dispatch (argparse) |
+| `config.py` | ~326 | Secrets management, .env generation, YAML parsing |
+| `profiles.py` | ~796 | Profile loading with fallthrough, model resolution |
+| `proxy.py` | ~2101 | LiteLLM proxy lifecycle, health checks, model API |
+| `front_proxy.py` | ~526 | Always-on reverse proxy between Claude Code (:4443) and LiteLLM (:4444); routing, auth, logging/transforms |
+| `watchdog.py` | ~300 | Self-healing detached daemon (setsid) keeping front proxy and LiteLLM alive |
+| `state.py` | ~186 | JSON state persistence (tokens, refcounts, leases) |
 | `agent_runner.py` | ~166 | Agent execution wrapper for running AI agents |
 | `litellm_proxy.py` | ~150 | LiteLLM proxy helper utilities |
 | `opencode_cli.py` | ~190 | OpenCode CLI integration layer |

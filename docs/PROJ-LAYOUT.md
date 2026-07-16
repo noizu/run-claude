@@ -28,14 +28,17 @@ run-claude/
 │   ├── callbacks/           #   Provider compatibility layer (runs in proxy venv)
 │   ├── defaults/            #   Built-in configs (models, profiles, hooks)
 │   ├── hooks/               #   Lifecycle hook system
-│   ├── cli.py               #   CLI entry point (~923 lines)
+│   ├── cli.py               #   CLI entry point (~1213 lines)
 │   ├── config.py            #   Secrets & config management
 │   ├── profiles.py          #   Profile loading with fallthrough
-│   ├── proxy.py             #   LiteLLM proxy lifecycle (~1798 lines)
+│   ├── proxy.py             #   LiteLLM proxy lifecycle (~2101 lines)
+│   ├── front_proxy.py       #   Always-on reverse proxy (:4443 → LiteLLM :4444)
+│   ├── watchdog.py          #   Self-healing daemon keeping both proxies alive
 │   ├── state.py             #   JSON state persistence
 │   ├── agent_runner.py      #   Agent execution wrapper
 │   ├── litellm_proxy.py     #   LiteLLM proxy helpers
-│   └── opencode_cli.py      #   OpenCode CLI integration
+│   ├── opencode_cli.py      #   OpenCode CLI integration
+│   └── models.yaml          #   Base model definitions (user-overridable)
 ├── scripts/                 # Utility scripts
 │   ├── run-litellm-local    #   Run LiteLLM locally
 │   └── run-litellm-proxy    #   Run LiteLLM as proxy
@@ -45,7 +48,10 @@ run-claude/
 ├── tests/                   # Test suite
 │   ├── test_cli.py          #   CLI command tests
 │   ├── test_callbacks.py    #   Callback system tests
-│   └── test_hooks.py        #   Hook system tests
+│   ├── test_hooks.py        #   Hook system tests
+│   ├── test_front_proxy.py  #   Front proxy tests
+│   ├── test_watchdog.py     #   Watchdog daemon tests
+│   └── test_proxy_logging.py#   Proxy logging tests
 ├── .gitmodules              # Submodule references (repos/litellm)
 ├── .python-version          # Python version pin
 ├── .tool-versions           # asdf/mise tool versions

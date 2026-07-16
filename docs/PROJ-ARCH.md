@@ -1,108 +1,91 @@
 # Project Architecture
 
-run-claude is an agent shim controller providing directory-aware model routing via a LiteLLM proxy. When you `cd` into a directory declaring a profile, the required models are registered with a running LiteLLM proxy and environment variables are set so Claude Code (or other tools) route through it. The system uses a two-layer configuration: **model definitions** (standalone LiteLLM configs in `defaults/models.yaml`) and **profiles** (lightweight references mapping opus/sonnet/haiku tiers to model definitions in `defaults/profiles.yaml`).
+run-claude is an agent shim controller providing directory-aware model routing via a LiteLLM proxy. When you `cd` into a directory declaring a profile, the required models are registered with a running LiteLLM proxy and environment variables are set so Claude Code (or OpenCode, via the shared agent runner) route through it. The system uses a two-layer configuration: **model definitions** (standalone LiteLLM configs in `defaults/models.yaml`) and **profiles** (lightweight references mapping opus/sonnet/haiku tiers to model definitions in `defaults/profiles.yaml`).
+
+Runtime traffic passes through a two-proxy chain: an always-on **front proxy** on `:4443` (routing, auth swapping, error logging) forwards to the **LiteLLM proxy** on `:4444` (model routing, provider calls, request logging to TimescaleDB). A detached **watchdog** daemon keeps both alive.
 
 ## High-Level Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          CLI Layer (cli.py)                          │
-│   Main entry point with command dispatch for enter/leave/proxy      │
-└───────────────────────────────┬─────────────────────────────────────┘
-                                │
-        ┌───────────────────────┼───────────────────────┐
-        │                       │                       │
-        ▼                       ▼                       ▼
-┌───────────────┐      ┌───────────────┐       ┌───────────────┐
-│   Profiles    │      │     State     │       │     Proxy     │
-│  Management   │      │  Management   │       │  Management   │
-│ (profiles.py) │      │  (state.py)   │       │  (proxy.py)   │
-└───────┬───────┘      └───────┬───────┘       └───────┬───────┘
-        │                      │                       │
-        ▼                      ▼                       ▼
-┌───────────────┐      ┌───────────────┐       ┌───────────────┐
-│  YAML Files   │      │  state.json   │       │ LiteLLM Proxy │
-│profiles.yaml  │      │               │       │   (port 4444) │
-│ models.yaml   │      │               │       │               │
-└───────────────┘      └───────────────┘       └───────┬───────┘
-                                                       │
-                                               ┌───────▼───────┐
-                                               │  TimescaleDB  │
-                                               │  (port 5433)  │
-                                               └───────────────┘
+```mermaid
+graph TB
+    subgraph Shell
+        H[direnv + shell hook] -->|token change| CLI
+    end
+    CLI[cli.py / opencode_cli.py] --> P[profiles.py]
+    CLI --> S[state.py]
+    CLI --> PX[proxy.py lifecycle]
+    P --> Y[(profiles.yaml / models.yaml)]
+    S --> J[(state.json)]
+    PX --> FP[Front proxy :4443<br/>front_proxy.py]
+    FP -->|standard mode| LL[LiteLLM proxy :4444]
+    FP -->|passthrough: Anthropic models| ANT[api.anthropic.com]
+    LL --> DB[(TimescaleDB :5433)]
+    LL --> PR[Providers: Groq, Cerebras,<br/>Together, Ollama, ...]
+    W[watchdog.py daemon] -.keeps alive.-> FP
+    W -.keeps alive.-> LL
+    AR[agent_runner.py] -->|ANTHROPIC_BASE_URL=:4443| FP
 ```
 
 ## Core Components
 
-### 1. CLI Layer (`cli.py`)
+| Component | File | Purpose |
+|-----------|------|---------|
+| CLI | `cli.py` | Command dispatch: enter/leave/janitor/set-folder/status/env/proxy/db/profiles/models/with/install/secrets |
+| OpenCode CLI | `opencode_cli.py` | `run-open-code` entry point; re-exports shared command handlers for OpenCode |
+| Agent runner | `agent_runner.py` | Shared launch logic for Claude/OpenCode: builds env (ANTHROPIC_BASE_URL → :4443, tier model vars), runs agent |
+| Profiles | `profiles.py` | Multi-file YAML loading with fallthrough; tier-to-model mapping |
+| State | `state.py` | JSON persistence: tokens, refcounts, leases, PIDs, stop marker |
+| Proxy lifecycle | `proxy.py` | Start/stop LiteLLM subprocess, health checks, model register/delete via HTTP API |
+| Front proxy | `front_proxy.py` | Always-on reverse proxy `:4443 → :4444`; auth swapping; passthrough mode |
+| Watchdog | `watchdog.py` | Detached self-healing daemon; restarts either proxy unless intentionally stopped |
+| LiteLLM launcher | `litellm_proxy.py` | `run-litellm-proxy` entry: prisma schema patching, then execs litellm |
+| Secrets/config | `config.py` | `.secrets` YAML (mode 0600), `.env` generation, `os.environ/VAR` hydration |
+| Hooks | `hooks/` | Lifecycle hook chain (PRE_REQUEST, POST_RESPONSE, PRE/POST_TOOL_CALL) with error isolation |
+| Provider compat | `callbacks/provider_compat.py` | LiteLLM callback stripping unsupported fields/thinking blocks for strict providers (Groq, Cerebras, Together, Anyscale); runs inside the proxy process |
 
-Entry point handling all user commands.
+## Front Proxy & Passthrough Mode
 
-| Command | Handler | Purpose |
-|---------|---------|---------|
-| `enter` | `cmd_enter()` | Register directory + profile + token |
-| `leave` | `cmd_leave()` | Unregister directory token |
-| `janitor` | `cmd_janitor()` | Clean up expired model leases |
-| `set-folder` | `cmd_set_folder()` | Configure directory with .envrc |
-| `status` | `cmd_status()` | Show proxy & state status |
-| `env` | `cmd_env()` | Print environment for profile |
-| `proxy` | `cmd_proxy()` | Proxy control (start/stop/status) |
-| `db` | `cmd_db()` | Database management (start/stop/migrate) |
-| `profiles` | `cmd_profiles()` | Profile management |
-| `models` | `cmd_models()` | Model definition management |
-| `with` | `cmd_run()` | Run command with profile |
-| `install` | `cmd_install()` | Install built-in assets |
-| `secrets` | `cmd_secrets()` | Secrets management |
+The front proxy (`:4443`) is the stable endpoint agents point at. In **standard mode** everything forwards to LiteLLM with the master key. In **passthrough mode** (claude-plan profile) Anthropic models forward to `api.anthropic.com` with the caller's original OAuth auth — preserving Claude subscription-plan usage — while non-Anthropic models swap auth to the LiteLLM master key and route through the local proxy. Non-2xx upstream responses are logged to a dedicated error log.
 
-### 2. Profile System (`profiles.py`)
+## Self-Healing Watchdog
 
-Multi-file configuration with fallthrough loading. Profiles map opus/sonnet/haiku tiers to model definitions. File search order: user override → user → package user → package built-in (first match wins, `model: null` disables and falls through).
-
-Key data structures: `ModelDef` (litellm params), `ProfileMeta` (tier-to-model mapping), `Profile` (meta + resolved model list).
-
-### 3. State Management (`state.py`)
-
-Persistent JSON state tracking tokens (directory-to-profile mapping), model refcounts, and leases. Stored at `~/.local/state/run-claude/state.json`. The refcount-with-lease pattern prevents model thrashing — models at refcount 0 get a 15-minute grace period before the janitor removes them.
-
-### 4. Proxy Management (`proxy.py`)
-
-LiteLLM proxy lifecycle: start/stop subprocess, health checks (30 retries × 10s), and model registration/deletion via HTTP API. Runs on `127.0.0.1:4444` with generated config at `~/.local/state/run-claude/litellm_config.yaml`.
-
-### 5. Secrets Management (`config.py`)
-
-Secure credential storage in `~/.config/run-claude/.secrets` (YAML, mode 0600). Exports to `.env` for Docker Compose. Hydrates `os.environ/VAR` references in model definitions at runtime.
-
-### 6. Hooks System (`hooks/`)
-
-Extensible lifecycle hook system with sequential execution and error isolation. Events: `PRE_REQUEST`, `POST_RESPONSE`, `PRE_TOOL_CALL`, `POST_TOOL_CALL`. YAML-configurable with dynamic module loading. Built-in hooks: `log_request`, `log_response`, `strip_provider_fields`.
-
-### 7. Provider Compat Callback (`callbacks/provider_compat.py`)
-
-LiteLLM custom callback that strips unsupported fields for strict providers (Groq, Cerebras, Together, Anyscale). Uses `_is_strict_provider()` to detect provider from model strings (handles both litellm format like `cerebras/zai-glm-4.7` and model group names like `cerebras-pro/opus`). Strips thinking blocks entirely and cleans tool_use fields. Runs inside the LiteLLM proxy process (separate venv), not the main run-claude process.
+`watchdog.py` runs as a detached (setsid) daemon polling both proxies every ~5s and restarting whichever is down or unhealthy. Intentional stops write a `stop.marker` sentinel in the state dir so the watchdog does not undo `run-claude proxy stop`; crashes and internal recovery stops never write it. The watchdog itself is respawned idempotently by `proxy start` and the shell-hook `enter` path.
 
 ## Data Flows
 
-The primary flows are **directory enter** (direnv triggers → load profile → start proxy → register models → set env vars), **directory leave** (decrement refcounts → set leases for cleanup), **janitor cleanup** (expire leases → delete unused models), and **profile resolution** (multi-file fallthrough with env hydration).
+The primary flows are **directory enter** (direnv triggers → load profile → ensure proxies + watchdog → register models → set env vars), **directory leave** (decrement refcounts → set leases for cleanup), **janitor cleanup** (expire leases → delete unused models), and **profile resolution** (multi-file fallthrough with env hydration).
 
 → *See [arch/data-flows.md](arch/data-flows.md) for mermaid flow diagrams*
 
 ## Design Patterns
 
-Key patterns: stable token generation (SHA256 hash of directory path), refcount with 15-min lease, `os.environ/VAR` hydration, multi-file config fallback with `model: null` disable, first-run initialization, health check with recovery, and hook chain with error isolation.
+Key patterns: stable token generation (SHA256 hash of directory path), refcount with 15-min lease (prevents model thrashing), `os.environ/VAR` hydration, multi-file config fallback with `model: null` disable, first-run initialization marker, stop-marker sentinel distinguishing intentional stops from crashes, health check with recovery, and hook chain with error isolation.
 
 → *See [arch/design-patterns.md](arch/design-patterns.md) for details and code examples*
 
 ## Infrastructure
 
-LiteLLM proxy on `127.0.0.1:4444` backed by TimescaleDB (Docker, port `5433`). XDG-compliant paths: config at `~/.config/run-claude/`, state at `~/.local/state/run-claude/`. Proxy uses Prisma ORM for model registry and request logging. Database extensions: `vector` (embeddings), `pg_trgm` (trigram search).
+Front proxy on `127.0.0.1:4443`, LiteLLM proxy on `127.0.0.1:4444`, backed by TimescaleDB (Docker, port `5433`). XDG-compliant paths: config at `~/.config/run-claude/`, state at `~/.local/state/run-claude/` (state.json, PID files, logs, generated `litellm_config.yaml`). LiteLLM uses Prisma ORM (pinned 0.11.0) for its model registry and request logging. Database extensions: `vector` (embeddings), `pg_trgm` (trigram search).
 
 → *See [arch/infrastructure.md](arch/infrastructure.md) for network diagram, env vars, process lifecycle, and security details*
+
+## Ecosystem Fit (Noizu monorepo)
+
+run-claude lives at `utilities/agent/run-claude` in the Noizu Infra monorepo but is deliberately **not** part of the shell-utility toolchain: it does not source `share/k8-lib`, is not installed by `make install-utilities`, and has no `.infra-config.yaml` build target. It is a self-contained Python package (hatchling + uv) installed via its own `make install` (`uv tool install .`), exposing `run-claude`, `run-open-code`, and `run-litellm-proxy` console scripts. Its role in the ecosystem is developer-workstation model routing for the agent fleets that operate on this repo — profiles for Groq, Cerebras, Ollama-local, and mixed-provider setups let Claude Code / OpenCode sessions run against alternate providers per directory. LiteLLM upstream is pinned as a git submodule under `repos/litellm`.
+
+## Key Decisions
+
+- **Two-proxy chain**: front proxy gives a stable agent-facing endpoint and an auth/transform layer independent of LiteLLM restarts; enables OAuth passthrough for Anthropic subscription plans.
+- **Watchdog over supervisor/systemd**: zero external service manager dependency; idempotent respawn from normal CLI paths keeps it self-healing.
+- **Refcount + lease over immediate teardown**: rapid `cd` between projects would otherwise thrash model registration.
+- **uv tool install over install-utilities**: Python package with a lockfile and venv needs real packaging, not the k8-lib symlink flow used by shell utilities.
 
 ## External Dependencies
 
 | Package | Purpose |
 |---------|---------|
+| `litellm[proxy]` + extras | LLM proxy framework (also pinned as source submodule) |
+| `httpx` | HTTP client for proxy API calls and front-proxy forwarding |
 | `pyyaml` | YAML parsing for profiles, models, secrets |
-| `httpx` | HTTP client for proxy API calls |
-| `psycopg2-binary` | PostgreSQL driver for database testing |
-| `prisma` | ORM for LiteLLM proxy (referenced in env) |
+| `prisma == 0.11.0` | ORM used by LiteLLM proxy (schema patched at launch) |
+| `psycopg2-binary` | PostgreSQL driver for TimescaleDB |

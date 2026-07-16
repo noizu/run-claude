@@ -20,13 +20,16 @@ run-claude/
 │   ├── config.py            #   Secrets and config management
 │   ├── profiles.py          #   Profile loading with fallthrough
 │   ├── proxy.py             #   LiteLLM proxy lifecycle
+│   ├── front_proxy.py       #   Always-on reverse proxy (:4443)
+│   ├── watchdog.py          #   Self-healing proxy watchdog daemon
 │   ├── state.py             #   JSON state persistence
 │   ├── agent_runner.py      #   Agent execution wrapper
 │   ├── litellm_proxy.py     #   LiteLLM proxy helpers
-│   └── opencode_cli.py      #   OpenCode CLI integration
+│   ├── opencode_cli.py      #   OpenCode CLI integration
+│   └── models.yaml          #   Base model definitions
 ├── scripts/                 # Utility scripts (proxy runners)
 ├── templates/               # direnv templates
-├── tests/                   # Test suite (cli, callbacks, hooks)
+├── tests/                   # Test suite (cli, callbacks, hooks, front proxy, watchdog, proxy logging)
 ├── CLAUDE.md                # Claude Code project instructions
 ├── Makefile                 # Build automation
 ├── profiles.yaml            # Profile definitions
