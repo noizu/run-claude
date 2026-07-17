@@ -211,7 +211,10 @@ def is_front_proxy_running() -> bool:
     except PermissionError:
         return True
     except (ValueError, ProcessLookupError):
-        pid_file.unlink(missing_ok=True)
+        try:
+            pid_file.unlink(missing_ok=True)
+        except OSError:
+            pass
         return False
 
 
@@ -787,7 +790,9 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
         if not is_infrastructure_installed():
             if debug:
                 print("Installing infrastructure...", file=sys.stderr)
-            install_infrastructure(debug=debug)
+            if not install_infrastructure(debug=debug):
+                print("Error: Failed to install database infrastructure", file=sys.stderr)
+                return False
 
         # Start database if not running
         if not is_db_container_running():
@@ -796,14 +801,25 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
                 print("Error: Failed to start database container", file=sys.stderr)
                 print("Is Docker running?", file=sys.stderr)
                 return False
+        elif not is_db_container_healthy():
+            print("Waiting for database container to become healthy...", file=sys.stderr)
+            if not wait_for_db_healthy(timeout=60.0, debug=debug):
+                print("Error: Database container did not become healthy", file=sys.stderr)
+                return False
         elif debug:
-            print("Database container already running", file=sys.stderr)
+            print("Database container already running and healthy", file=sys.stderr)
 
     # Auto-migrate database schema if needed
     if not no_db:
         if not _db_schema_exists(debug=debug):
             print("Database schema not found, running migration...", file=sys.stderr)
-            run_prisma_migrate(debug=debug)
+            if not run_prisma_migrate(debug=debug):
+                print("Error: Database migration failed; LiteLLM was not started", file=sys.stderr)
+                print("Retry with: run-claude --debug db migrate", file=sys.stderr)
+                return False
+            if not _db_schema_exists(debug=debug):
+                print("Error: Database migration completed but LiteLLM schema is still missing", file=sys.stderr)
+                return False
 
     state_dir = get_state_dir()
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -1926,7 +1942,7 @@ def _db_schema_exists(debug: bool = False) -> bool:
 
     try:
         import psycopg2
-        conn = psycopg2.connect(db_url)
+        conn = psycopg2.connect(db_url, connect_timeout=5)
         cur = conn.cursor()
         cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'LiteLLM_ProxyModelTable')")
         exists = cur.fetchone()[0]
@@ -2044,6 +2060,8 @@ def run_prisma_migrate(debug: bool = False) -> bool:
 
     if debug:
         print(f"Running: {' '.join(cmd)}", file=sys.stderr)
+    else:
+        print(f"[MIGRATE] Running Prisma db push (timeout: 120s)", file=sys.stderr)
 
     try:
         result = subprocess.run(
@@ -2077,6 +2095,9 @@ def run_prisma_migrate(debug: bool = False) -> bool:
         return False
     except subprocess.TimeoutExpired:
         print("Error: Prisma migrate timed out", file=sys.stderr)
+        return False
+    except KeyboardInterrupt:
+        print("\nDatabase migration cancelled.", file=sys.stderr)
         return False
 
 

@@ -234,6 +234,16 @@ def _clean_messages_strict(messages: list[dict[str, Any]]) -> list[dict[str, Any
     return cleaned_messages
 
 
+def _clean_tool_use_blocks(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Clean strict-provider fields from message content blocks.
+
+    This is the original public helper name retained for callers that import
+    it directly.  The implementation now also handles other content blocks,
+    so the internal name is :func:`_clean_messages_strict`.
+    """
+    return _clean_messages_strict(messages)
+
+
 def _clean_tools_definition(tools: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
     """
     Clean tool definitions for strict providers.

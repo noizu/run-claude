@@ -109,7 +109,22 @@ run-claude profiles install       # Install built-in profiles to user config
 ```bash
 run-claude models list            # List available model definitions
 run-claude models show <name>     # Show model definition details
+run-claude models enabled         # Show models live in the running proxy
+run-claude models avail           # Show live models with capability notes
 ```
+
+### Direct Model Chat
+
+Use the built-in chat loop to verify an enabled model without launching Claude:
+
+```bash
+run-claude chat                         # Pick from enabled models
+run-claude chat <model-name>            # Start a multi-turn session
+run-claude chat <model-name> --prompt "Reply with OK"  # One request
+```
+
+Inside a session, use `/models` to refresh live model state, `/model <name>`
+to switch models, `/clear` to reset history, and `/exit` to quit.
 
 ### Secrets Management
 

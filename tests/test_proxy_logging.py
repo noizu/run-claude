@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from unittest.mock import Mock
 
 from run_claude import proxy
 
@@ -58,6 +59,20 @@ def test_pid_permission_error_means_process_exists(monkeypatch, tmp_path):
 
     assert proxy.is_front_proxy_running() is True
     assert pid_file.exists()
+
+
+def test_stale_front_proxy_pid_is_nonfatal_when_pid_file_is_read_only(
+    monkeypatch, tmp_path
+):
+    pid_file = tmp_path / "front-proxy.pid"
+    pid_file.write_text("12345", encoding="utf-8")
+    monkeypatch.setattr(proxy, "get_front_proxy_pid_file", lambda: pid_file)
+    monkeypatch.setattr(proxy.os, "kill", Mock(side_effect=ProcessLookupError))
+    monkeypatch.setattr(
+        Path, "unlink", Mock(side_effect=OSError("read-only filesystem"))
+    )
+
+    assert proxy.is_front_proxy_running() is False
 
 
 def test_redact_url_credentials_keeps_host_and_user():

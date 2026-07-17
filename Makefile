@@ -1,5 +1,7 @@
 .PHONY: help compile test test-cov coverage coverage-html coverage-xml clean install dev refresh setup-litellm
 
+UV_TOOL_PYTHON ?= $(shell cat .python-version)
+
 help:
 	@echo "Available targets:"
 	@echo "  test          Run tests"
@@ -53,7 +55,7 @@ install:
 		echo "run-claude: uv not found; skipping install."; \
 		exit 0; \
 	fi
-	@if ! uv tool install . --force --refresh --no-sources; then \
+	@if ! uv tool install --python "$(UV_TOOL_PYTHON)" . --force --refresh --no-sources; then \
 		echo "run-claude: uv tool install failed; install skipped."; \
 		echo "run-claude: rerun with a healthy uv toolchain when needed."; \
 	fi
@@ -63,7 +65,7 @@ refresh:
 		echo "run-claude: uv not found; refresh skipped."; \
 		exit 0; \
 	fi
-	@if ! uv tool install . --refresh --force --verbose --no-sources; then \
+	@if ! uv tool install --python "$(UV_TOOL_PYTHON)" . --refresh --force --verbose --no-sources; then \
 		echo "run-claude: uv tool install failed."; \
 		echo "run-claude: rerun refresh when uv is functioning."; \
 		exit 0; \

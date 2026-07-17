@@ -123,6 +123,18 @@ def main() -> int:
     wipe_p = models_sub.add_parser("wipe", help="Delete all models from proxy database")
     wipe_p.add_argument("--force", "-f", action="store_true", help="Skip confirmation prompt")
 
+    # chat - directly exercise an enabled model through the LiteLLM proxy
+    chat_p = subparsers.add_parser("chat", help="Chat directly with an enabled model")
+    chat_p.add_argument("model", nargs="?", help="Enabled model name (prompts when omitted)")
+    chat_p.add_argument("--system", help="System prompt for the chat session")
+    chat_p.add_argument("--prompt", help="Send one prompt and exit instead of opening a session")
+    chat_p.add_argument(
+        "--timeout",
+        type=float,
+        default=300.0,
+        help="Request timeout in seconds (default: 300)",
+    )
+
     # run - run a command with profile environment
     run_p = subparsers.add_parser("with", help="Run Claude with a profile")
     #run_p.add_argument("keyword", choices=["with"], help="Keyword 'with' to specify profile")
@@ -185,6 +197,8 @@ def main() -> int:
         return cmd_profiles(args)
     elif args.command == "models":
         return cmd_models(args)
+    elif args.command == "chat":
+        return cmd_chat(args)
     elif args.command == "with":
         return cmd_run(args)
     elif args.command == "install":
@@ -1113,6 +1127,18 @@ def cmd_models_avail(args: argparse.Namespace) -> int:
 
     print(f"\n{len(records)} model(s) enabled")
     return 0
+
+
+def cmd_chat(args: argparse.Namespace) -> int:
+    """Chat directly with a model enabled in the running LiteLLM proxy."""
+    from .chat import run_chat
+
+    return run_chat(
+        model=getattr(args, "model", None),
+        system_prompt=getattr(args, "system", None),
+        prompt=getattr(args, "prompt", None),
+        timeout=getattr(args, "timeout", 300.0),
+    )
 
 
 def cmd_install(args: argparse.Namespace) -> int:
