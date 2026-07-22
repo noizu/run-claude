@@ -45,6 +45,11 @@ else
   exit 1
 fi
 
+# Run as a non-distributed node — ex-litellm needs no Erlang clustering, and a
+# named node collides if run-claude relaunches (health-recovery) before the old
+# BEAM fully exits. This avoids the "name ... already in use" epmd conflict.
+export RELEASE_DISTRIBUTION="none"
+
 # Map flags → the env the release reads (Runtime + runtime.exs).
 export EX_LITELLM_HOST="$HOST"
 [[ -n "$PORT" ]]   && export EX_LITELLM_PORT="$PORT"

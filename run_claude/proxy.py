@@ -79,16 +79,25 @@ DEFAULT_MASTER_KEY = "sk-litellm-master-key-12345"
 DEFAULT_LITELLM_COMMAND = "run-litellm-proxy"
 
 
-def get_front_proxy_command() -> str | None:
-    """Command to launch the front-proxy tier, if overridden.
+# The unified ex-litellm gateway is the DEFAULT model layer. It replaces both
+# Python proxies (front proxy + litellm) with one Elixir process. Set
+# FRONT_PROXY_COMMAND to a different launcher to override, or to the sentinel
+# "python" / "legacy" to fall back to the old two-process Python behavior.
+DEFAULT_FRONT_PROXY_COMMAND = "ex-litellm"
+_LEGACY_SENTINELS = {"python", "legacy", "front_proxy", "run_claude.front_proxy"}
 
-    When FRONT_PROXY_COMMAND is set (e.g. to the ex-litellm launcher), run-claude
-    launches that unified gateway on the front-proxy port INSTEAD of the Python
-    front_proxy.py, and treats it as also serving the LiteLLM role — so the
-    separate Python litellm proxy on 4444 is not started. Unset → legacy
-    two-process Python behavior.
+
+def get_front_proxy_command() -> str | None:
+    """Command to launch the unified gateway (default: ex-litellm).
+
+    run-claude launches this on the front-proxy port and treats it as also
+    serving the LiteLLM role — so the separate Python litellm proxy on 4444 is
+    not started. Returns None only when explicitly opted back into the legacy
+    Python two-process path via FRONT_PROXY_COMMAND=python (or "legacy").
     """
-    cmd = os.environ.get("FRONT_PROXY_COMMAND", "").strip()
+    cmd = os.environ.get("FRONT_PROXY_COMMAND", DEFAULT_FRONT_PROXY_COMMAND).strip()
+    if cmd.lower() in _LEGACY_SENTINELS:
+        return None
     return cmd or None
 
 

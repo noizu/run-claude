@@ -8,6 +8,10 @@ from run_claude import proxy
 
 
 def _base_startup_mocks(monkeypatch):
+    # These tests exercise the legacy Python litellm-proxy startup path (DB
+    # migration + schema). The unified ex-litellm gateway is the default now, so
+    # force legacy mode here.
+    monkeypatch.setattr(proxy, "use_unified_gateway", lambda: False)
     monkeypatch.setattr(proxy, "is_proxy_running", lambda: False)
     monkeypatch.setattr(proxy, "health_check", lambda *args, **kwargs: False)
     monkeypatch.setattr(proxy, "is_infrastructure_installed", lambda: True)
