@@ -1,4 +1,4 @@
-.PHONY: help compile test test-cov coverage coverage-html coverage-xml clean install dev refresh setup-litellm
+.PHONY: help compile test test-cov coverage coverage-html coverage-xml clean install install-completions dev refresh setup-litellm
 
 UV_TOOL_PYTHON ?= $(shell cat .python-version)
 
@@ -10,7 +10,8 @@ help:
 	@echo "  coverage-html Generate HTML coverage report"
 	@echo "  coverage-xml  Generate XML coverage report (for CI)"
 	@echo "  clean         Remove build artifacts and coverage files"
-	@echo "  install       Install the tool via uv"
+	@echo "  install       Install the tool via uv (+ shell completions)"
+	@echo "  install-completions  Install bash/zsh completions only"
 	@echo "  refresh       Reinstall the tool (force refresh cache)"
 	@echo "  dev           Install dev dependencies"
 	@echo "  setup-litellm Setup litellm venv with custom callbacks"
@@ -59,6 +60,24 @@ install:
 		echo "run-claude: uv tool install failed; install skipped."; \
 		echo "run-claude: rerun with a healthy uv toolchain when needed."; \
 	fi
+	@$(MAKE) install-completions
+
+install-completions:
+	@DATA_DIR="$${XDG_DATA_HOME:-$$HOME/.local/share}"; \
+	BASH_DIR="$$DATA_DIR/bash-completion/completions"; \
+	ZSH_DIR="$$DATA_DIR/zsh/site-functions"; \
+	if ! mkdir -p "$$BASH_DIR" "$$ZSH_DIR" 2>/dev/null; then \
+		echo "run-claude: cannot write completion dirs; skipping."; \
+		exit 0; \
+	fi; \
+	cp completions/run-claude.bash "$$BASH_DIR/run-claude"; \
+	cp completions/_run-claude "$$ZSH_DIR/_run-claude"; \
+	echo "run-claude: completions installed (bash-completion + zsh)"; \
+	if ! grep -qs "zsh/site-functions" "$$HOME/.zshrc" 2>/dev/null; then \
+		echo "run-claude: zsh users — add to .zshrc before compinit:"; \
+		echo "  fpath=($$ZSH_DIR \$$fpath)"; \
+	fi
+
 refresh:
 	rm -rf ${HOME}/.local/share/uv/tools/run-claude
 	@if ! command -v uv >/dev/null 2>&1; then \
