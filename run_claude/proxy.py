@@ -1062,8 +1062,13 @@ def stop_proxy(user_initiated: bool = False) -> bool:
         False if process couldn't be stopped
     """
     # Unified gateway mode: there is no separate litellm proxy process; the
-    # gateway is stopped via stop_front_proxy(). Nothing to do here.
+    # gateway is stopped via stop_front_proxy(). Still honor user_initiated so
+    # the watchdog doesn't treat a deliberate stop as a crash and instantly
+    # relaunch the gateway (which races any manual restart → eaddrinuse).
     if use_unified_gateway():
+        if user_initiated:
+            from . import watchdog
+            watchdog.mark_user_stop("proxy-stop")
         return True
 
     if user_initiated:

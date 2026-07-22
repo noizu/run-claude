@@ -253,10 +253,17 @@ def run_watchdog_loop(interval: float = DEFAULT_INTERVAL, debug: bool = False) -
         clear_stop_marker()
 
     while not stop["flag"]:
-        # Keep the front proxy alive.
+        # Keep the front proxy alive — but honor a deliberate user stop, same as
+        # the litellm path below. Without this gate, `proxy stop` + manual
+        # restart races the watchdog's relaunch (two gateways contend for the
+        # port → eaddrinuse crash loop).
         if not proxy.is_front_proxy_running():
-            _log("[watchdog] Front proxy down — starting")
-            proxy.start_front_proxy(wait=True)
+            if was_user_stopped():
+                if debug:
+                    _log("[watchdog] Front proxy down but stopped by user — not restarting")
+            else:
+                _log("[watchdog] Front proxy down — starting")
+                proxy.start_front_proxy(wait=True)
 
         proxy_down = not proxy.is_proxy_running() or not proxy.health_check(timeout=5.0)
         if proxy_down:
