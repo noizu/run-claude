@@ -11,7 +11,7 @@ defmodule ExLiteLLM.Proxy.Endpoint do
   """
   use Plug.Router
 
-  alias ExLiteLLM.Proxy.{Auth, Health, Inference}
+  alias ExLiteLLM.Proxy.{Auth, Health, Inference, Models}
 
   plug(:match)
 
@@ -42,6 +42,13 @@ defmodule ExLiteLLM.Proxy.Endpoint do
   post "/embeddings", do: authed(conn, &Inference.embeddings/1)
   get "/v1/models", do: authed(conn, &Inference.models/1)
   get "/models", do: authed(conn, &Inference.models/1)
+
+  # --- Model management (master-key auth) — run-claude registers models here ---
+  post "/model/new", do: authed(conn, &Models.new/1)
+  post "/model/delete", do: authed(conn, &Models.delete/1)
+  post "/model/update", do: authed(conn, &Models.update/1)
+  get "/model/info", do: authed(conn, &Models.info/1)
+  get "/v1/model/info", do: authed(conn, &Models.info/1)
 
   # --- Fallthrough: not-yet-implemented endpoints answer honestly ---
   match _ do

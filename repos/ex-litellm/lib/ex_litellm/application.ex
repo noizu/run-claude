@@ -23,7 +23,10 @@ defmodule ExLiteLLM.Application do
 
     children =
       [
-        repo_child(settings)
+        repo_child(settings),
+        # Cooldown ETS must exist before the Router seeds/selects.
+        ExLiteLLM.Router.CooldownCache,
+        ExLiteLLM.Router
       ] ++ server_children(settings)
 
     opts = [strategy: :one_for_one, name: ExLiteLLM.Supervisor]
