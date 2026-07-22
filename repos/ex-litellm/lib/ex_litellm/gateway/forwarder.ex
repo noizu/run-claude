@@ -51,13 +51,14 @@ defmodule ExLiteLLM.Gateway.Forwarder do
 
   defp buffered(conn, url, headers, body) do
     case Req.request(
-           method: method_atom(conn.method),
-           url: url,
-           headers: headers,
-           body: body,
-           decode_body: false,
-           retry: false,
-           receive_timeout: 600_000
+           [
+             method: method_atom(conn.method),
+             url: url,
+             headers: headers,
+             body: body,
+             decode_body: false,
+             receive_timeout: 600_000
+           ] ++ ExLiteLLM.HTTP.buffered_opts()
          ) do
       {:ok, %Req.Response{status: status, headers: resp_headers, body: resp_body}} ->
         conn
@@ -65,39 +66,90 @@ defmodule ExLiteLLM.Gateway.Forwarder do
         |> send_resp(status, resp_body)
 
       {:error, exc} ->
-        error(conn, exc)
+        proxy_error(conn, exc)
     end
   end
 
-  defp stream(conn, url, headers, body) do
-    conn = send_chunked(conn, 200)
-    conn_ref_put(conn)
+  # How many times a stream may be re-attempted when the pooled connection was
+  # closed under us BEFORE the response was committed to the client.
+  @stream_connect_retries 2
+
+  defp stream(conn, url, headers, body), do: stream_attempt(conn, url, headers, body, 1)
+
+  # The chunked response is committed LAZILY — only once the upstream actually
+  # answers — so a connect-stage failure can be retried (or surfaced as a real
+  # 502) instead of dying inside an already-committed 200 stream. The upstream's
+  # status + headers are relayed, matching the Python front proxy.
+  defp stream_attempt(conn, url, headers, body, attempt) do
+    conn_ref_put(%{conn: conn, chunked: false})
 
     result =
       Req.request(
-        method: method_atom(conn.method),
-        url: url,
-        headers: headers,
-        body: body,
-        decode_body: false,
-        retry: false,
-        receive_timeout: 600_000,
-        into: fn {:data, data}, {req, resp} ->
-          case chunk(conn_ref_get(), data) do
-            {:ok, c} -> conn_ref_put(c)
-            {:error, _} -> :ok
-          end
+        [
+          method: method_atom(conn.method),
+          url: url,
+          headers: headers,
+          body: body,
+          decode_body: false,
+          receive_timeout: 600_000,
+          into: fn {:data, data}, {req, resp} ->
+            st = ensure_chunked(conn_ref_get(), resp)
 
-          {:cont, {req, resp}}
-        end
+            case chunk(st.conn, data) do
+              {:ok, c} -> conn_ref_put(%{st | conn: c})
+              {:error, _} -> conn_ref_put(st)
+            end
+
+            {:cont, {req, resp}}
+          end
+        ] ++ ExLiteLLM.HTTP.stream_opts()
       )
 
+    st = conn_ref_get()
+
     case result do
-      {:ok, _resp} -> conn_ref_get()
+      {:ok, %Req.Response{} = resp} ->
+        if st.chunked do
+          st.conn
+        else
+          # Upstream answered but produced no body chunks (e.g. an error status
+          # with an empty body) — relay status/headers as a plain response.
+          st.conn
+          |> put_resp_headers(resp.headers)
+          |> send_resp(resp.status, "")
+        end
+
+      {:error, %Req.TransportError{reason: :closed}}
+      when attempt <= @stream_connect_retries ->
+        if st.chunked do
+          # Mid-stream death — a retry would duplicate delivered events.
+          Logger.error("[gateway] stream died mid-flight (socket closed)")
+          st.conn
+        else
+          Logger.warning("[gateway] stale connection at stream connect — retrying (#{attempt})")
+          stream_attempt(conn, url, headers, body, attempt + 1)
+        end
+
       {:error, exc} ->
-        Logger.error("[gateway] stream forward error: #{inspect(exc)}")
-        conn_ref_get()
+        if st.chunked do
+          Logger.error("[gateway] stream forward error: #{inspect(exc)}")
+          st.conn
+        else
+          # Nothing committed yet — the client gets an honest 502.
+          proxy_error(conn, exc)
+        end
     end
+  end
+
+  defp ensure_chunked(%{chunked: true} = st, _resp), do: st
+
+  defp ensure_chunked(%{conn: conn}, resp) do
+    conn =
+      conn
+      |> put_resp_headers(resp.headers)
+      |> send_chunked(resp.status)
+
+    %{conn: conn, chunked: true}
   end
 
   # --- headers ---
@@ -139,16 +191,23 @@ defmodule ExLiteLLM.Gateway.Forwarder do
 
   defp method_atom(method), do: method |> String.downcase() |> String.to_atom()
 
-  defp error(conn, exc) do
+  defp proxy_error(conn, exc) do
     Logger.error("[gateway] upstream forward error: #{inspect(exc)}")
 
     conn
     |> put_resp_content_type("application/json")
     |> send_resp(
       502,
-      Jason.encode!(%{type: "error", error: %{type: "api_error", message: "upstream request failed"}})
+      Jason.encode!(%{
+        type: "error",
+        error: %{type: "api_error", message: "upstream request failed: #{error_reason(exc)}"}
+      })
     )
   end
+
+  defp error_reason(%Req.TransportError{reason: reason}), do: "transport #{inspect(reason)}"
+  defp error_reason(%{__struct__: _} = exc), do: Exception.message(exc)
+  defp error_reason(other), do: inspect(other)
 
   defp conn_ref_get, do: Process.get(:exll_fwd_conn)
   defp conn_ref_put(conn), do: (Process.put(:exll_fwd_conn, conn) && conn)

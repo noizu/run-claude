@@ -26,6 +26,8 @@ defmodule ExLiteLLM.Application do
     children =
       [
         repo_child(settings),
+        # Shared outbound HTTP pool (stale keep-alive culling — see ExLiteLLM.HTTP).
+        ExLiteLLM.HTTP.finch_spec(),
         # Cooldown ETS must exist before the Router seeds/selects.
         ExLiteLLM.Router.CooldownCache,
         ExLiteLLM.Router,

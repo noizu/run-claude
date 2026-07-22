@@ -51,12 +51,14 @@ defmodule ExLiteLLM.Core.HTTPHandler do
   defp post(url, headers, body, %Request{litellm_params: lp}) do
     timeout = lp["timeout"] |> to_ms(@default_timeout)
 
-    case Req.post(url,
-           headers: Map.to_list(headers),
-           json: body,
-           receive_timeout: timeout,
-           retry: false,
-           decode_body: true
+    case Req.post(
+           url,
+           [
+             headers: Map.to_list(headers),
+             json: body,
+             receive_timeout: timeout,
+             decode_body: true
+           ] ++ ExLiteLLM.HTTP.buffered_opts()
          ) do
       {:ok, %Req.Response{status: status, body: resp_body}} ->
         {:ok, status, normalize_body(resp_body)}

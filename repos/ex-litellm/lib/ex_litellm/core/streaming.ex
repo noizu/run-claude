@@ -132,15 +132,17 @@ defmodule ExLiteLLM.Core.Streaming do
     state_ref_put(Map.put_new(state, :error, nil))
 
     result =
-      Req.post(url,
-        headers: Map.to_list(headers),
-        json: body,
-        receive_timeout: timeout,
-        retry: false,
-        into: fn {:data, data}, {req, resp} ->
-          state_ref_put(consume(state_ref_get(), data))
-          {:cont, {req, resp}}
-        end
+      Req.post(
+        url,
+        [
+          headers: Map.to_list(headers),
+          json: body,
+          receive_timeout: timeout,
+          into: fn {:data, data}, {req, resp} ->
+            state_ref_put(consume(state_ref_get(), data))
+            {:cont, {req, resp}}
+          end
+        ] ++ ExLiteLLM.HTTP.stream_opts()
       )
 
     case result do
