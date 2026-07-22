@@ -11,7 +11,7 @@ defmodule ExLiteLLM.MixProject do
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
-      escript: escript(),
+      releases: releases(),
       deps: deps(),
       name: "ex-litellm",
       description: description(),
@@ -35,11 +35,15 @@ defmodule ExLiteLLM.MixProject do
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
-  # `ex-litellm` CLI entry — the drop-in replacement for the `litellm` binary.
-  defp escript do
+  # Self-contained release (bundles ERTS + NIFs) — the deployable artifact
+  # run-claude launches. Escript can't load NIFs (exqlite), so a release is the
+  # packaging; a bin/ex-litellm wrapper maps --host/--port/--config to env.
+  defp releases do
     [
-      main_module: ExLiteLLM.CLI,
-      name: "ex-litellm"
+      ex_litellm: [
+        include_executables_for: [:unix],
+        applications: [ex_litellm: :permanent]
+      ]
     ]
   end
 

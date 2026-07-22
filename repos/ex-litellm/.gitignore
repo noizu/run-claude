@@ -21,4 +21,3 @@ ex_litellm-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
-ex-litellm
