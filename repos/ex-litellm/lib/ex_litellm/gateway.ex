@@ -57,7 +57,7 @@ defmodule ExLiteLLM.Gateway do
   get("/front/rules", do: gated(conn, &GatewayRouter.get_rules/1))
   put("/front/rules", do: gated(conn, &GatewayRouter.put_rules/1))
   put("/front/mode", do: gated(conn, &GatewayRouter.put_mode/1))
-  get("/status", do: gated(conn, &Status.html/1))
+  get("/status", do: browser_gated(conn, &Status.html/1))
   get("/status.json", do: gated(conn, &Status.json/1))
 
   # --- Anthropic messages + all passthrough traffic ---
@@ -96,6 +96,68 @@ defmodule ExLiteLLM.Gateway do
       [key | _] -> String.trim(key)
       _ -> conn |> fetch_query_params() |> Map.get(:query_params) |> Map.get("key")
     end
+  end
+
+  # Browser-friendly gate for HTML pages: accepts the Authorization header, a
+  # `?key=` query param, or the session cookie set on a prior successful `?key=`
+  # auth. Query-param auth sets the cookie then redirects to the clean URL (so
+  # the key doesn't linger in the address bar); no/invalid key → login form.
+  defp browser_gated(conn, handler) do
+    master = ExLiteLLM.Runtime.get().master_key
+    conn = conn |> fetch_query_params() |> fetch_cookies()
+    query_key = conn.query_params["key"]
+
+    cond do
+      is_nil(master) or master == "" ->
+        handler.(conn)
+
+      # Fresh ?key= auth → set session cookie, redirect to the clean URL.
+      is_binary(query_key) and Plug.Crypto.secure_compare(query_key, master) ->
+        conn
+        |> put_resp_cookie("exll_session", cookie_token(master),
+          http_only: true,
+          same_site: "Strict",
+          max_age: 24 * 3600
+        )
+        |> put_resp_header("location", conn.request_path)
+        |> send_resp(302, "")
+
+      # Wrong ?key= explicitly submitted → login form with error.
+      is_binary(query_key) ->
+        ExLiteLLM.Proxy.Status.login(conn, true)
+
+      # Header auth (curl etc.).
+      header_key_valid?(conn, master) ->
+        handler.(conn)
+
+      # Session cookie from a prior login.
+      cookie_valid?(conn, master) ->
+        handler.(conn)
+
+      true ->
+        ExLiteLLM.Proxy.Status.login(conn)
+    end
+  end
+
+  defp header_key_valid?(conn, master) do
+    case get_req_header(conn, "authorization") do
+      ["Bearer " <> key | _] -> Plug.Crypto.secure_compare(String.trim(key), master)
+      [key | _] -> Plug.Crypto.secure_compare(String.trim(key), master)
+      _ -> false
+    end
+  end
+
+  defp cookie_valid?(conn, master) do
+    case conn.req_cookies["exll_session"] do
+      token when is_binary(token) -> Plug.Crypto.secure_compare(token, cookie_token(master))
+      _ -> false
+    end
+  end
+
+  # Session token derived from the master key — not the key itself, so the
+  # cookie can't be replayed as an API credential.
+  defp cookie_token(master) do
+    :crypto.mac(:hmac, :sha256, master, "exll-status-session") |> Base.url_encode64(padding: false)
   end
 
   defp stash_json_body(conn, _opts) do

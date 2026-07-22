@@ -29,6 +29,45 @@ defmodule ExLiteLLM.Proxy.Status do
     |> send_resp(200, render(snapshot()))
   end
 
+  @doc """
+  Login form shown when `/status` is opened in a browser without a valid key.
+  Submits the master key as a GET param; on success the gateway sets a session
+  cookie and redirects to a clean `/status` URL (key never lingers in the bar).
+  """
+  def login(conn, error? \\ false) do
+    conn
+    |> put_resp_content_type("text/html")
+    |> send_resp(if(error?, do: 401, else: 200), render_login(error?))
+  end
+
+  defp render_login(error?) do
+    """
+    <!doctype html>
+    <html><head><meta charset="utf-8"><title>ex-litellm status — sign in</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font: 14px/1.5 -apple-system, "Segoe UI", sans-serif; display: flex;
+             min-height: 90vh; align-items: center; justify-content: center; }
+      form { border: 1px solid #8884; border-radius: 8px; padding: 2rem;
+             min-width: 320px; }
+      h1 { font-size: 1.1rem; margin-top: 0; }
+      input[type=password] { width: 100%; box-sizing: border-box; padding: .5rem;
+             margin: .5rem 0 1rem; border: 1px solid #8886; border-radius: 4px; }
+      button { padding: .5rem 1.2rem; border-radius: 4px; border: none;
+             background: #2e6be6; color: white; font-weight: 600; cursor: pointer; }
+      .err { color: #d33; margin-bottom: .8rem; }
+    </style></head><body>
+    <form method="get" action="/status">
+      <h1>ex-litellm status</h1>
+      #{if error?, do: ~s(<p class="err">Invalid master key.</p>), else: ""}
+      <label for="key">Master key</label>
+      <input type="password" id="key" name="key" autofocus autocomplete="current-password">
+      <button type="submit">View status</button>
+    </form>
+    </body></html>
+    """
+  end
+
   # --- data ---
 
   defp snapshot do
