@@ -14,25 +14,125 @@ defmodule ExLiteLLM.Gateway.Router do
 
   import Plug.Conn
 
+  alias ExLiteLLM.Anthropic.Translate
+  alias ExLiteLLM.Core.{Completion, Provider}
+  alias ExLiteLLM.Deployments
+  alias ExLiteLLM.Error
   alias ExLiteLLM.FrontProxy.{Rules, RouterLogic}
   alias ExLiteLLM.Gateway.Forwarder
-  alias ExLiteLLM.Proxy.Inference
 
   @anthropic "https://api.anthropic.com"
 
-  @doc "Handle POST /v1/messages."
+  @doc """
+  Handle POST /v1/messages (the Anthropic Messages API surface Claude Code speaks).
+
+  Routing by the requested model:
+
+    * `claude-*` → passthrough to api.anthropic.com preserving the caller's own
+      auth (OAuth / API key).
+    * a registered deployment whose upstream is **Anthropic-family** (e.g. zai's
+      `anthropic/glm-5.2` at api.z.ai) → keep the body Anthropic-shaped, swap in
+      the deployment's model + credentials, forward, return the Anthropic
+      response untouched.
+    * a deployment on an **OpenAI-family** provider → translate the request to
+      OpenAI chat, run native inference, translate the response back to
+      Anthropic shape (content blocks, stop_reason, `usage.input/output_tokens`).
+  """
   def messages(conn) do
     body = conn.assigns[:json_body] || %{}
     model = RouterLogic.extract_model(body)
 
-    if String.starts_with?(model, "claude-") do
-      # Native Anthropic shape → forward upstream, preserve caller auth.
-      Forwarder.forward(conn, @anthropic, :passthrough, raw_body())
-    else
-      # Non-claude model on the messages endpoint → serve via native inference.
-      # (litellm proxies these to the target provider; we do too.)
-      Inference.chat_completions(conn)
+    cond do
+      String.starts_with?(model, "claude-") ->
+        Forwarder.forward(conn, @anthropic, :passthrough, raw_body())
+
+      deployment = Deployments.lookup(model) ->
+        messages_via_deployment(conn, body, deployment)
+
+      true ->
+        # Unknown model — preserve legacy behavior: passthrough to Anthropic.
+        Forwarder.forward(conn, @anthropic, :passthrough, raw_body())
     end
+  end
+
+  # A deployment backs this model — dispatch by the upstream provider family.
+  defp messages_via_deployment(conn, body, deployment) do
+    lp = deployment["litellm_params"] || %{}
+    upstream = lp["model"] || ""
+
+    case Provider.resolve(upstream, lp) do
+      {:ok, :anthropic, bare_model, adapter} ->
+        anthropic_family_forward(conn, body, bare_model, adapter, lp)
+
+      {:ok, _provider, _bare, _adapter} ->
+        openai_family_translate(conn, body)
+
+      {:error, _} ->
+        openai_family_translate(conn, body)
+    end
+  end
+
+  # Anthropic-compatible upstream: same wire shape — swap model + credentials,
+  # relay verbatim (buffered or streaming; Forwarder streams on SSE Accept).
+  defp anthropic_family_forward(conn, body, bare_model, adapter, lp) do
+    req = %ExLiteLLM.Providers.Adapter.Request{
+      model: bare_model,
+      provider: :anthropic,
+      litellm_params: lp,
+      call_type: :chat
+    }
+
+    case adapter.validate_environment(req, %{}) do
+      {:ok, headers} ->
+        url = adapter.get_complete_url(req)
+        out_body = body |> Map.put("model", bare_model) |> Jason.encode!()
+        Forwarder.forward_to(conn, url, headers, out_body)
+
+      {:error, %Error{} = e} ->
+        json(conn, e.status, Error.to_body(e))
+    end
+  end
+
+  # OpenAI-family upstream: translate Anthropic → OpenAI, execute natively,
+  # translate the response back to Anthropic shape.
+  defp openai_family_translate(conn, body) do
+    openai_body = Translate.request_to_openai(body)
+
+    if body["stream"] == true do
+      stream_translated(conn, openai_body, body["model"])
+    else
+      case Completion.run(openai_body) do
+        {:ok, model_response} ->
+          json(conn, 200, Translate.response_from_model_response(model_response, body["model"]))
+
+        {:error, %Error{} = e} ->
+          json(conn, e.status, anthropic_error(e))
+      end
+    end
+  end
+
+  # Stream an OpenAI-family completion back out as Anthropic SSE events.
+  defp stream_translated(conn, openai_body, requested_model) do
+    case Completion.prepare(openai_body) do
+      {:ok, adapter, req} ->
+        upstream_body = adapter.transform_request(req)
+
+        ExLiteLLM.Core.Streaming.stream_anthropic(
+          conn,
+          adapter,
+          req,
+          upstream_body,
+          requested_model
+        )
+
+      {:error, %Error{} = e} ->
+        json(conn, e.status, anthropic_error(e))
+    end
+  end
+
+  # Anthropic error envelope ({"type":"error","error":{...}}), not OpenAI's.
+  defp anthropic_error(%Error{} = e) do
+    %{"type" => "error", "error" => %{"type" => e.type, "message" => e.message}}
   end
 
   @doc "Handle any non-native path via the runtime rule table."

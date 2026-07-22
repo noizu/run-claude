@@ -64,14 +64,31 @@ defmodule ExLiteLLM.Providers.Anthropic do
          headers
          |> Map.put("x-api-key", key)
          |> Map.put("anthropic-version", @api_version)
-         |> Map.put("content-type", "application/json")}
+         |> Map.put("content-type", "application/json")
+         |> merge_extra_headers(lp["extra_headers"])}
     end
   end
+
+  # Deployment-level extra_headers (e.g. zai's `anthropic-product: claude_code`).
+  defp merge_extra_headers(headers, %{} = extra) do
+    Enum.reduce(extra, headers, fn {k, v}, acc -> Map.put(acc, to_string(k), to_string(v)) end)
+  end
+
+  defp merge_extra_headers(headers, _), do: headers
 
   @impl true
   def get_complete_url(%Request{litellm_params: lp}) do
     base = (lp["api_base"] || @default_base) |> String.trim_trailing("/")
-    if String.ends_with?(base, "/messages"), do: base, else: base <> "/messages"
+
+    cond do
+      # Full endpoint already given.
+      String.ends_with?(base, "/messages") -> base
+      # Versioned base (our default "https://api.anthropic.com/v1").
+      String.ends_with?(base, "/v1") -> base <> "/messages"
+      # Unversioned Anthropic-compatible base (e.g. https://api.z.ai/api/anthropic)
+      # — the Anthropic SDK convention appends the full /v1/messages.
+      true -> base <> "/v1/messages"
+    end
   end
 
   @impl true

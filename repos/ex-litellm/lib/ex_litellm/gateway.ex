@@ -23,7 +23,7 @@ defmodule ExLiteLLM.Gateway do
 
   alias ExLiteLLM.FrontProxy.Bootstrap
   alias ExLiteLLM.Gateway.Router, as: GatewayRouter
-  alias ExLiteLLM.Proxy.{Auth, Health, Inference, Models}
+  alias ExLiteLLM.Proxy.{Auth, Health, Inference, Models, Status}
 
   plug(:match)
   plug(Plug.Parsers, parsers: [:json], pass: ["application/json"], json_decoder: Jason, body_reader: {__MODULE__, :cache_body, []})
@@ -53,10 +53,12 @@ defmodule ExLiteLLM.Gateway do
   get("/model/info", do: authed(conn, &Models.info/1))
   get("/v1/model/info", do: authed(conn, &Models.info/1))
 
-  # --- front-proxy admin (master-key gated) ---
+  # --- front-proxy admin + status (master-key gated) ---
   get("/front/rules", do: gated(conn, &GatewayRouter.get_rules/1))
   put("/front/rules", do: gated(conn, &GatewayRouter.put_rules/1))
   put("/front/mode", do: gated(conn, &GatewayRouter.put_mode/1))
+  get("/status", do: gated(conn, &Status.html/1))
+  get("/status.json", do: gated(conn, &Status.json/1))
 
   # --- Anthropic messages + all passthrough traffic ---
   # /v1/messages: claude-* → Anthropic passthrough; non-claude → native inference.
@@ -86,11 +88,13 @@ defmodule ExLiteLLM.Gateway do
     end
   end
 
+  # Admin key from the Authorization header, or `?key=` for browser pages
+  # (the HTML /status page can't set headers from a plain URL).
   defp provided_key(conn) do
     case get_req_header(conn, "authorization") do
       ["Bearer " <> key | _] -> String.trim(key)
       [key | _] -> String.trim(key)
-      _ -> nil
+      _ -> conn |> fetch_query_params() |> Map.get(:query_params) |> Map.get("key")
     end
   end
 

@@ -60,6 +60,67 @@ defmodule ExLiteLLM.Core.Streaming do
     end
   end
 
+  @doc """
+  Stream a chat completion to the client as **Anthropic SSE** (message_start →
+  content_block_delta… → message_delta → message_stop) while the upstream is an
+  OpenAI-family provider. Used by the /v1/messages endpoint when a non-claude
+  deployment serves an Anthropic-SDK client (e.g. Claude Code on a groq/openai
+  model).
+  """
+  @spec stream_anthropic(Plug.Conn.t(), module(), Request.t(), map(), String.t()) :: Plug.Conn.t()
+  def stream_anthropic(conn, adapter, %Request{} = req, upstream_body, requested_model) do
+    alias ExLiteLLM.Anthropic.Translate
+
+    with {:ok, headers} <- adapter.validate_environment(req, %{}) do
+      url = adapter.get_complete_url(req)
+
+      conn =
+        conn
+        |> put_resp_content_type("text/event-stream")
+        |> put_resp_header("cache-control", "no-cache")
+        |> send_chunked(200)
+
+      # Anthropic clients expect the preamble before any delta.
+      conn =
+        Enum.reduce(Translate.stream_preamble(requested_model), conn, fn frame, acc ->
+          case chunk(acc, frame) do
+            {:ok, c} -> c
+            {:error, _} -> acc
+          end
+        end)
+
+      state = %{
+        conn: conn,
+        adapter: adapter,
+        req: req,
+        buffer: "",
+        finished: false,
+        finish_reason: nil,
+        usage: nil,
+        emit: :anthropic
+      }
+
+      final = run_stream(url, headers, upstream_body, req, state)
+
+      # Closing events with the finish_reason/usage gathered from the stream.
+      conn =
+        Enum.reduce(
+          Translate.stream_closing(final[:finish_reason], final[:usage]),
+          final.conn,
+          fn frame, acc ->
+            case chunk(acc, frame) do
+              {:ok, c} -> c
+              {:error, _} -> acc
+            end
+          end
+        )
+
+      conn
+    else
+      {:error, %Error{} = e} -> send_error(conn, e)
+    end
+  end
+
   # --- upstream streaming via Req ---
 
   defp run_stream(url, headers, body, %Request{litellm_params: lp}, state) do
@@ -112,6 +173,28 @@ defmodule ExLiteLLM.Core.Streaming do
   end
 
   defp emit(state, :done), do: %{state | finished: true}
+
+  # Anthropic-emit mode: text deltas become content_block_delta events; the
+  # finish/usage are captured for the closing message_delta frame.
+  defp emit(%{emit: :anthropic} = state, chunk) when is_map(chunk) do
+    state = %{
+      state
+      | finish_reason: chunk.finish_reason || state[:finish_reason],
+        usage: chunk.usage || state[:usage],
+        finished: chunk.is_finished || state.finished
+    }
+
+    if chunk.text in [nil, ""] do
+      state
+    else
+      frame = ExLiteLLM.Anthropic.Translate.stream_text_delta(chunk.text)
+
+      case chunk(state.conn, frame) do
+        {:ok, conn} -> %{state | conn: conn}
+        {:error, _} -> %{state | finished: true}
+      end
+    end
+  end
 
   defp emit(state, chunk) when is_map(chunk) do
     frame = openai_chunk_frame(state, chunk)

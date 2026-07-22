@@ -33,6 +33,22 @@ defmodule ExLiteLLM.Gateway.Forwarder do
     end
   end
 
+  @doc """
+  Forward to an explicit `url` with fully prepared `headers` (map) and `body` —
+  used when the gateway rewrites the request (e.g. Anthropic-compatible
+  deployments where model + credentials are swapped in). Streams on SSE Accept.
+  """
+  @spec forward_to(Plug.Conn.t(), String.t(), map(), binary()) :: Plug.Conn.t()
+  def forward_to(conn, url, headers, body) do
+    header_list = Map.to_list(headers)
+
+    if streaming?(conn) do
+      stream(conn, url, header_list, body)
+    else
+      buffered(conn, url, header_list, body)
+    end
+  end
+
   defp buffered(conn, url, headers, body) do
     case Req.request(
            method: method_atom(conn.method),
