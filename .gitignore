@@ -1,4 +1,6 @@
-repos/
+# Vendored third-party repos are ignored, EXCEPT our own ex-litellm source.
+repos/*
+!repos/ex-litellm/
 repos/.claude
 .coverage
 htmlcov

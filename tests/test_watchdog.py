@@ -266,8 +266,11 @@ class TestStopProxyIntegration:
         """
         from run_claude import proxy
 
+        # This exercises the legacy litellm-proxy stop path (the unified gateway
+        # is the default now and stops via stop_front_proxy instead).
         # No PID file -> stop_proxy's get_proxy_pid() returns None -> pgrep path.
-        with patch.object(proxy, "get_proxy_pid", return_value=None):
+        with patch.object(proxy, "use_unified_gateway", return_value=False), \
+             patch.object(proxy, "get_proxy_pid", return_value=None):
             with patch("run_claude.proxy.subprocess.run") as run:
                 # pgrep finds nothing -> return code 1 -> stop returns True.
                 run.return_value = MagicMock(returncode=1, stdout="")

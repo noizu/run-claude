@@ -78,6 +78,34 @@ DEFAULT_PROXY_URL = f"http://{DEFAULT_PROXY_HOST}:{DEFAULT_PROXY_PORT}"
 DEFAULT_MASTER_KEY = "sk-litellm-master-key-12345"
 DEFAULT_LITELLM_COMMAND = "run-litellm-proxy"
 
+
+# The unified ex-litellm gateway is the DEFAULT model layer. It replaces both
+# Python proxies (front proxy + litellm) with one Elixir process. Set
+# FRONT_PROXY_COMMAND to a different launcher to override, or to the sentinel
+# "python" / "legacy" to fall back to the old two-process Python behavior.
+DEFAULT_FRONT_PROXY_COMMAND = "ex-litellm"
+_LEGACY_SENTINELS = {"python", "legacy", "front_proxy", "run_claude.front_proxy"}
+
+
+def get_front_proxy_command() -> str | None:
+    """Command to launch the unified gateway (default: ex-litellm).
+
+    run-claude launches this on the front-proxy port and treats it as also
+    serving the LiteLLM role — so the separate Python litellm proxy on 4444 is
+    not started. Returns None only when explicitly opted back into the legacy
+    Python two-process path via FRONT_PROXY_COMMAND=python (or "legacy").
+    """
+    cmd = os.environ.get("FRONT_PROXY_COMMAND", DEFAULT_FRONT_PROXY_COMMAND).strip()
+    if cmd.lower() in _LEGACY_SENTINELS:
+        return None
+    return cmd or None
+
+
+def use_unified_gateway() -> bool:
+    """True when a unified front+litellm gateway (ex-litellm) replaces both
+    Python proxies."""
+    return get_front_proxy_command() is not None
+
 HEALTH_CHECK_TIMEOUT = 60.0
 HEALTH_CHECK_RETRIES = 30
 HEALTH_CHECK_INTERVAL = 10.0
@@ -151,8 +179,17 @@ def _redact_for_logging(value: Any) -> Any:
 
 
 def get_proxy_url() -> str:
-    """Get proxy URL from environment or default."""
-    return os.environ.get("LITELLM_PROXY_URL", DEFAULT_PROXY_URL)
+    """Get proxy URL from environment or default.
+
+    In unified-gateway mode the LiteLLM API surface is served by the gateway on
+    the front-proxy port, so model registration / health target that port.
+    """
+    if "LITELLM_PROXY_URL" in os.environ:
+        return os.environ["LITELLM_PROXY_URL"]
+    if use_unified_gateway():
+        from .front_proxy import DEFAULT_PORT
+        return f"http://{DEFAULT_PROXY_HOST}:{DEFAULT_PORT}"
+    return DEFAULT_PROXY_URL
 
 
 def get_master_key() -> str:
@@ -231,17 +268,34 @@ def start_front_proxy(wait: bool = True) -> bool:
     state_dir.mkdir(parents=True, exist_ok=True)
     log_file = state_dir / "front-proxy.log"
 
-    cmd = [
-        sys.executable, "-m", "run_claude.front_proxy",
-        "--master-key", master_key,
-        "--port", str(DEFAULT_PORT),
-        "--litellm-url", get_proxy_url(),
-    ]
+    front_cmd = get_front_proxy_command()
+    env = os.environ.copy()
+
+    if front_cmd:
+        # Unified gateway (ex-litellm): launch it on the front-proxy port with
+        # the litellm-style CLI. It serves BOTH the front routing and the LiteLLM
+        # API surface, so no separate Python litellm proxy is needed. Env carries
+        # the master key + DB so the gateway auths and persists like the Python
+        # proxy did.
+        env["LITELLM_MASTER_KEY"] = master_key
+        cmd = [front_cmd, "--host", DEFAULT_PROXY_HOST, "--port", str(DEFAULT_PORT)]
+        config_path = get_config_file()
+        if config_path.exists():
+            cmd.extend(["--config", str(config_path)])
+    else:
+        # Legacy: the Python front proxy that reverse-proxies to the separate
+        # Python litellm proxy on 4444.
+        cmd = [
+            sys.executable, "-m", "run_claude.front_proxy",
+            "--master-key", master_key,
+            "--port", str(DEFAULT_PORT),
+            "--litellm-url", get_proxy_url(),
+        ]
 
     with open(log_file, "a") as log_f:
         proc = subprocess.Popen(
             cmd, stdout=log_f, stderr=log_f,
-            start_new_session=True,
+            start_new_session=True, env=env,
         )
 
     pid_file = get_front_proxy_pid_file()
@@ -774,6 +828,15 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
     Returns:
         True if proxy started successfully
     """
+    # Unified gateway mode: the ex-litellm gateway launched as the "front proxy"
+    # already serves the LiteLLM API surface, so there is no separate litellm
+    # proxy to start. Ensure it's up (start_front_proxy is idempotent) and treat
+    # its health as the proxy's health.
+    if use_unified_gateway():
+        if not is_front_proxy_running():
+            start_front_proxy(wait=wait)
+        return health_check()
+
     # Handle running-but-unhealthy state: stop before restarting
     if is_proxy_running():
         if health_check():
@@ -998,6 +1061,16 @@ def stop_proxy(user_initiated: bool = False) -> bool:
         True if proxy was stopped successfully
         False if process couldn't be stopped
     """
+    # Unified gateway mode: there is no separate litellm proxy process; the
+    # gateway is stopped via stop_front_proxy(). Still honor user_initiated so
+    # the watchdog doesn't treat a deliberate stop as a crash and instantly
+    # relaunch the gateway (which races any manual restart → eaddrinuse).
+    if use_unified_gateway():
+        if user_initiated:
+            from . import watchdog
+            watchdog.mark_user_stop("proxy-stop")
+        return True
+
     if user_initiated:
         # Local import avoids a module-load cycle (watchdog imports proxy).
         from . import watchdog
