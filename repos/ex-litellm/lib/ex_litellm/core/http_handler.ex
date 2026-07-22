@@ -37,12 +37,18 @@ defmodule ExLiteLLM.Core.HTTPHandler do
   """
   @spec raw(module(), Request.t()) :: {:ok, map()} | {:error, Error.t()}
   def raw(adapter, %Request{} = req) do
+    ExLiteLLM.Proxy.MetricsPlug.tag(target: "native:#{req.provider}")
+
     with {:ok, headers} <- adapter.validate_environment(req, %{}),
          url <- adapter.get_complete_url(req),
          body <- adapter.transform_request(req),
          {:ok, status, resp_body} <- post(url, headers, body, req),
          :ok <- ok_status(status, resp_body, adapter, req) do
       {:ok, resp_body}
+    else
+      {:error, %Error{} = e} = err ->
+        ExLiteLLM.Proxy.MetricsPlug.tag(error: e.message)
+        err
     end
   end
 

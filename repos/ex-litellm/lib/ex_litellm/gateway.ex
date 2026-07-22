@@ -25,9 +25,11 @@ defmodule ExLiteLLM.Gateway do
   alias ExLiteLLM.Gateway.Router, as: GatewayRouter
   alias ExLiteLLM.Proxy.{Auth, Health, Inference, Models, Status}
 
+  plug(ExLiteLLM.Proxy.MetricsPlug)
   plug(:match)
   plug(Plug.Parsers, parsers: [:json], pass: ["application/json"], json_decoder: Jason, body_reader: {__MODULE__, :cache_body, []})
   plug(:stash_json_body)
+  plug(:tag_model)
   plug(:dispatch)
 
   # --- public: health + banner + bootstrap ---
@@ -165,6 +167,19 @@ defmodule ExLiteLLM.Gateway do
       %Plug.Conn.Unfetched{} -> conn
       params when is_map(params) -> Plug.Conn.assign(conn, :json_body, params)
       _ -> conn
+    end
+  end
+
+  # Attribute the request to its model in the request log (target is tagged by
+  # the handlers once routing resolves).
+  defp tag_model(conn, _opts) do
+    case conn.assigns[:json_body] do
+      %{"model" => model} when is_binary(model) ->
+        ExLiteLLM.Proxy.MetricsPlug.tag(model: model)
+        conn
+
+      _ ->
+        conn
     end
   end
 

@@ -25,6 +25,7 @@ defmodule ExLiteLLM.Gateway.Forwarder do
   def forward(conn, base_url, auth_mode, raw_body) do
     url = base_url <> conn.request_path <> qs(conn)
     headers = forward_headers(conn, auth_mode)
+    ExLiteLLM.Proxy.MetricsPlug.tag(target: base_url)
 
     if streaming?(conn) do
       stream(conn, url, headers, raw_body)
@@ -94,6 +95,7 @@ defmodule ExLiteLLM.Gateway.Forwarder do
           receive_timeout: 600_000,
           into: fn {:data, data}, {req, resp} ->
             st = ensure_chunked(conn_ref_get(), resp)
+            ExLiteLLM.Proxy.MetricsPlug.add_resp_bytes(byte_size(data))
 
             case chunk(st.conn, data) do
               {:ok, c} -> conn_ref_put(%{st | conn: c})
@@ -193,6 +195,7 @@ defmodule ExLiteLLM.Gateway.Forwarder do
 
   defp proxy_error(conn, exc) do
     Logger.error("[gateway] upstream forward error: #{inspect(exc)}")
+    ExLiteLLM.Proxy.MetricsPlug.tag(error: error_reason(exc))
 
     conn
     |> put_resp_content_type("application/json")

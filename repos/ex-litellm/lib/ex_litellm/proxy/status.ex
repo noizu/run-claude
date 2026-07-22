@@ -11,6 +11,7 @@ defmodule ExLiteLLM.Proxy.Status do
   import Plug.Conn
 
   alias ExLiteLLM.FrontProxy.Rules
+  alias ExLiteLLM.RequestLog
   alias ExLiteLLM.Router
   alias ExLiteLLM.Router.CooldownCache
   alias ExLiteLLM.Runtime
