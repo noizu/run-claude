@@ -26,8 +26,12 @@ defmodule ExLiteLLM.Application do
     children =
       [
         repo_child(settings),
-        # Apply pending Ecto migrations before anything queries.
-        {Ecto.Migrator, repos: [ExLiteLLM.Schema.Repo], skip: false},
+        # Apply pending Ecto migrations before anything queries. Skipped in
+        # tests (in-memory SQLite is per-connection; the sandbox can't share a
+        # schema_migrations table across pool members).
+        {Ecto.Migrator,
+         repos: [ExLiteLLM.Schema.Repo],
+         skip: Application.get_env(:ex_litellm, :auto_migrate, true) == false},
         # Shared outbound HTTP pool (stale keep-alive culling — see ExLiteLLM.HTTP).
         ExLiteLLM.HTTP.finch_spec(),
         # Async request logger (timing/size/errors → request_logs table).

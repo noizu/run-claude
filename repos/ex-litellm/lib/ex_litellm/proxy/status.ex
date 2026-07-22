@@ -31,6 +31,131 @@ defmodule ExLiteLLM.Proxy.Status do
   end
 
   @doc """
+  GET /status/requests — browsable request log. Query params: `limit` (default
+  100, max 500), `errors=1` (errors only), `path=<substring>` filter,
+  `format=json` for machine-readable.
+  """
+  def requests(conn) do
+    conn = fetch_query_params(conn)
+    q = conn.query_params
+
+    opts = [
+      limit: q |> Map.get("limit", "100") |> parse_limit(),
+      errors_only: Map.get(q, "errors") in ["1", "true"],
+      path_filter: blank_nil(Map.get(q, "path"))
+    ]
+
+    rows = RequestLog.recent(opts)
+    stats = RequestLog.stats(60)
+
+    if Map.get(q, "format") == "json" do
+      conn
+      |> put_resp_content_type("application/json")
+      |> send_resp(200, Jason.encode!(%{stats: stats, requests: rows}))
+    else
+      conn
+      |> put_resp_content_type("text/html")
+      |> send_resp(200, render_requests(rows, stats, opts))
+    end
+  end
+
+  defp parse_limit(s) do
+    case Integer.parse(s) do
+      {n, _} when n > 0 -> min(n, 500)
+      _ -> 100
+    end
+  end
+
+  defp blank_nil(nil), do: nil
+  defp blank_nil(""), do: nil
+  defp blank_nil(v), do: v
+
+  defp render_requests(rows, stats, opts) do
+    """
+    <!doctype html>
+    <html><head><meta charset="utf-8"><title>ex-litellm requests</title>
+    <meta http-equiv="refresh" content="15">
+    <style>
+      :root { color-scheme: light dark; }
+      body { font: 13px/1.45 -apple-system, "Segoe UI", sans-serif; max-width: 1200px;
+             margin: 1.5rem auto; padding: 0 1rem; }
+      h1 { font-size: 1.2rem; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { text-align: left; padding: .3rem .55rem; border-bottom: 1px solid #8883;
+               white-space: nowrap; }
+      td.path { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+      td.err { max-width: 240px; overflow: hidden; text-overflow: ellipsis; color: #d33; }
+      code { background: #8882; padding: .05rem .3rem; border-radius: 3px; }
+      .s2 { color: #2e9e44; } .s4 { color: #d98a00; } .s5 { color: #d33; font-weight: 600; }
+      .stats { display: flex; gap: 1.6rem; margin: .8rem 0 1.2rem; flex-wrap: wrap; }
+      .stat b { display: block; font-size: 1.15rem; }
+      .filters a { margin-right: 1rem; }
+      .empty { opacity: .6; font-style: italic; }
+    </style></head><body>
+    <h1>Request log <small>(<a href="/status">status</a>)</small></h1>
+    <div class="stats">
+      <div class="stat"><b>#{stats.count}</b> requests / #{stats.window_minutes}m</div>
+      <div class="stat"><b>#{stats.errors}</b> errors</div>
+      <div class="stat"><b>#{stats.avg_ms}ms</b> avg</div>
+      <div class="stat"><b>#{stats.max_ms}ms</b> max</div>
+      <div class="stat"><b>#{bytes(stats.req_bytes)}</b> in</div>
+      <div class="stat"><b>#{bytes(stats.resp_bytes)}</b> out</div>
+    </div>
+    <p class="filters">
+      <a href="/status/requests">all</a>
+      <a href="/status/requests?errors=1">errors only</a>
+      <a href="/status/requests?path=/v1/messages">messages</a>
+      <a href="/status/requests?path=/v1/chat">chat</a>
+      <a href="/status/requests?format=json#{if opts[:errors_only], do: "&errors=1", else: ""}">json</a>
+    </p>
+    #{requests_table(rows)}
+    <p style="margin-top:1.5rem;opacity:.6">newest first · auto-refreshes every 15s ·
+      showing #{length(rows)} rows</p>
+    </body></html>
+    """
+  end
+
+  defp requests_table([]), do: ~s(<p class="empty">no requests logged yet</p>)
+
+  defp requests_table(rows) do
+    tr =
+      Enum.map_join(rows, "\n", fn r ->
+        "<tr><td>#{time(r.at)}</td><td>#{h(r.method)}</td>" <>
+          "<td class=\"path\" title=\"#{h(r.path)}\"><code>#{h(r.path)}</code></td>" <>
+          "<td>#{h(r.model || "-")}</td><td>#{h(short_target(r.target))}</td>" <>
+          "<td class=\"#{status_class(r.status)}\">#{r.status || "-"}</td>" <>
+          "<td>#{r.duration_ms || 0}ms</td><td>#{bytes(r.req_bytes)}</td>" <>
+          "<td>#{bytes(r.resp_bytes)}</td><td>#{if r.stream, do: "sse", else: ""}</td>" <>
+          "<td class=\"err\" title=\"#{h(r.error)}\">#{h(r.error)}</td></tr>"
+      end)
+
+    """
+    <table>
+    <tr><th>time</th><th>m</th><th>path</th><th>model</th><th>target</th>
+        <th>st</th><th>dur</th><th>in</th><th>out</th><th></th><th>error</th></tr>
+    #{tr}
+    </table>
+    """
+  end
+
+  defp status_class(s) when is_integer(s) and s < 400, do: "s2"
+  defp status_class(s) when is_integer(s) and s < 500, do: "s4"
+  defp status_class(_), do: "s5"
+
+  defp time(nil), do: "-"
+  defp time(%DateTime{} = dt), do: dt |> DateTime.truncate(:second) |> Calendar.strftime("%H:%M:%S")
+
+  defp short_target(nil), do: "-"
+  defp short_target("https://api.anthropic.com" <> _), do: "anthropic"
+  defp short_target("native:" <> provider), do: provider
+  defp short_target(url), do: url |> String.replace(~r{^https?://}, "") |> String.slice(0, 24)
+
+  defp bytes(nil), do: "0"
+  defp bytes(n) when n < 1024, do: "#{n}B"
+  defp bytes(n) when n < 1024 * 1024, do: "#{Float.round(n / 1024, 1)}K"
+  defp bytes(n), do: "#{Float.round(n / (1024 * 1024), 1)}M"
+
+  @doc """
   Login form shown when `/status` is opened in a browser without a valid key.
   Submits the master key as a GET param; on success the gateway sets a session
   cookie and redirects to a clean `/status` URL (key never lingers in the bar).
@@ -148,6 +273,7 @@ defmodule ExLiteLLM.Proxy.Status do
     #{cooldowns_list(s.cooldowns)}
 
     <p style="margin-top:2rem;opacity:.6">auto-refreshes every 10s ·
+      <a href="/status/requests">request log</a> ·
       <a href="/status.json">status.json</a> · <a href="/health">health</a> ·
       <a href="/model/info">model/info</a></p>
     </body></html>

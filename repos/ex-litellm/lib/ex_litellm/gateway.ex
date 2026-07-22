@@ -61,6 +61,7 @@ defmodule ExLiteLLM.Gateway do
   put("/front/mode", do: gated(conn, &GatewayRouter.put_mode/1))
   get("/status", do: browser_gated(conn, &Status.html/1))
   get("/status.json", do: gated(conn, &Status.json/1))
+  get("/status/requests", do: browser_gated(conn, &Status.requests/1))
 
   # --- Anthropic messages + all passthrough traffic ---
   # /v1/messages: claude-* → Anthropic passthrough; non-claude → native inference.

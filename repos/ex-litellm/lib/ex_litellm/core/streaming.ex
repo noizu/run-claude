@@ -32,6 +32,9 @@ defmodule ExLiteLLM.Core.Streaming do
   """
   @spec stream(Plug.Conn.t(), module(), Request.t(), map()) :: Plug.Conn.t()
   def stream(conn, adapter, %Request{} = req, upstream_body) do
+    ExLiteLLM.Proxy.MetricsPlug.defer()
+    ExLiteLLM.Proxy.MetricsPlug.tag(target: "native:#{req.provider}")
+
     with {:ok, headers} <- adapter.validate_environment(req, %{}) do
       url = adapter.get_complete_url(req)
       chunk_id = "chatcmpl-" <> rand()
@@ -54,7 +57,7 @@ defmodule ExLiteLLM.Core.Streaming do
       }
 
       final = run_stream(url, headers, upstream_body, req, state)
-      finalize(final)
+      final |> finalize() |> ExLiteLLM.Proxy.MetricsPlug.finalize()
     else
       {:error, %Error{} = e} -> send_error(conn, e)
     end
@@ -70,6 +73,9 @@ defmodule ExLiteLLM.Core.Streaming do
   @spec stream_anthropic(Plug.Conn.t(), module(), Request.t(), map(), String.t()) :: Plug.Conn.t()
   def stream_anthropic(conn, adapter, %Request{} = req, upstream_body, requested_model) do
     alias ExLiteLLM.Anthropic.Translate
+
+    ExLiteLLM.Proxy.MetricsPlug.defer()
+    ExLiteLLM.Proxy.MetricsPlug.tag(target: "native:#{req.provider}")
 
     with {:ok, headers} <- adapter.validate_environment(req, %{}) do
       url = adapter.get_complete_url(req)
@@ -115,7 +121,7 @@ defmodule ExLiteLLM.Core.Streaming do
           end
         )
 
-      conn
+      ExLiteLLM.Proxy.MetricsPlug.finalize(conn)
     else
       {:error, %Error{} = e} -> send_error(conn, e)
     end
@@ -190,6 +196,7 @@ defmodule ExLiteLLM.Core.Streaming do
       state
     else
       frame = ExLiteLLM.Anthropic.Translate.stream_text_delta(chunk.text)
+      ExLiteLLM.Proxy.MetricsPlug.add_resp_bytes(byte_size(frame))
 
       case chunk(state.conn, frame) do
         {:ok, conn} -> %{state | conn: conn}
@@ -199,9 +206,10 @@ defmodule ExLiteLLM.Core.Streaming do
   end
 
   defp emit(state, chunk) when is_map(chunk) do
-    frame = openai_chunk_frame(state, chunk)
+    frame = "data: " <> Jason.encode!(openai_chunk_frame(state, chunk)) <> "\n\n"
+    ExLiteLLM.Proxy.MetricsPlug.add_resp_bytes(byte_size(frame))
 
-    case chunk(state.conn, "data: " <> Jason.encode!(frame) <> "\n\n") do
+    case chunk(state.conn, frame) do
       {:ok, conn} -> %{state | conn: conn, finished: chunk.is_finished || state.finished}
       {:error, _} -> %{state | finished: true}
     end

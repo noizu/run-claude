@@ -75,13 +75,19 @@ defmodule ExLiteLLM.Gateway.Forwarder do
   # closed under us BEFORE the response was committed to the client.
   @stream_connect_retries 2
 
-  defp stream(conn, url, headers, body), do: stream_attempt(conn, url, headers, body, 1)
+  defp stream(conn, url, headers, body) do
+    ExLiteLLM.Proxy.MetricsPlug.defer()
+
+    conn
+    |> stream_attempt(url, headers, body, 1)
+    |> ExLiteLLM.Proxy.MetricsPlug.finalize()
+  end
 
   # The chunked response is committed LAZILY — only once the upstream actually
   # answers — so a connect-stage failure can be retried (or surfaced as a real
   # 502) instead of dying inside an already-committed 200 stream. The upstream's
   # status + headers are relayed, matching the Python front proxy.
-  defp stream_attempt(conn, url, headers, body, attempt) do
+  defp stream_attempt(conn, url, headers, body, attempt) when is_binary(url) do
     conn_ref_put(%{conn: conn, chunked: false})
 
     result =

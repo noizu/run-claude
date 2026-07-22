@@ -37,13 +37,40 @@ defmodule ExLiteLLM.Proxy.MetricsPlug do
     else
       start = System.monotonic_time(:millisecond)
       Process.put(:exll_resp_bytes, 0)
+      Process.put(:exll_req_start, start)
 
       register_before_send(conn, fn conn ->
-        record(conn, start)
+        # Streaming handlers defer: before_send fires when chunked headers
+        # commit (before the body streams), so they call finalize/1 themselves
+        # once the stream completes — with real duration + byte counts.
+        unless Process.get(:exll_defer_log), do: record(conn, start)
         conn
       end)
     end
   end
+
+  @doc """
+  Streaming handlers call this at entry so the before_send hook skips the
+  too-early record; they must then call `finalize/1` when the stream ends.
+  """
+  @spec defer() :: :ok
+  def defer do
+    Process.put(:exll_defer_log, true)
+    :ok
+  end
+
+  @doc "Record a deferred (streamed) request after its body finished."
+  @spec finalize(Plug.Conn.t()) :: Plug.Conn.t()
+  def finalize(conn) do
+    if Process.get(:exll_defer_log) do
+      Process.delete(:exll_defer_log)
+      record(conn, Process.get(:exll_req_start))
+    end
+
+    conn
+  end
+
+  defp record(_conn, nil), do: :ok
 
   defp record(conn, start) do
     duration = System.monotonic_time(:millisecond) - start
