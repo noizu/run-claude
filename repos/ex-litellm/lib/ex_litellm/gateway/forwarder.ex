@@ -13,7 +13,12 @@ defmodule ExLiteLLM.Gateway.Forwarder do
 
   alias ExLiteLLM.Runtime
 
-  @hop_by_hop ~w(host connection keep-alive transfer-encoding te trailer upgrade content-length)
+  # Headers not forwarded upstream. `accept-encoding` is deliberately dropped:
+  # bodies are relayed verbatim while `content-encoding` is stripped from the
+  # response headers, so a compressed upstream reply (zstd/br/gzip) would reach
+  # the client as undecodable binary (seen as garbled "API Error: 400 <binary>"
+  # in Claude Code). Not advertising compression makes upstreams answer plain.
+  @hop_by_hop ~w(host connection keep-alive transfer-encoding te trailer upgrade content-length accept-encoding)
   @strip_resp ~w(content-encoding content-length transfer-encoding)
 
   @doc """

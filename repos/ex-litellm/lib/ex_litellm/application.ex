@@ -101,7 +101,12 @@ defmodule ExLiteLLM.Application do
      plug: ExLiteLLM.Gateway,
      scheme: :http,
      ip: parse_ip(settings.host),
-     port: settings.port}
+     port: settings.port,
+     # Never compress responses. Bandit's default HTTP compression honors the
+     # client's Accept-Encoding (zstd/br/gzip) — but Claude Code advertises
+     # zstd and then fails to decode it, rendering raw bytes as garbled
+     # "API Error: 400 <binary>". The Python proxy never compressed; match it.
+     http_options: [compress: false]}
     |> Supervisor.child_spec(id: :gateway_listener)
   end
 

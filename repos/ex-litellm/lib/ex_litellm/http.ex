@@ -39,11 +39,17 @@ defmodule ExLiteLLM.HTTP do
   @doc """
   Req options for buffered (non-streaming) upstream calls: shared pool plus an
   immediate retry when the transport was closed under us.
+
+  `compressed: false` on both paths: Req's default step advertises
+  accept-encoding (zstd/br/gzip) on outgoing requests, but the gateway relays
+  bodies verbatim while stripping `content-encoding` — a compressed upstream
+  reply would reach the client as undecodable binary. Plain answers only.
   """
   @spec buffered_opts() :: keyword()
   def buffered_opts do
     [
       finch: @finch,
+      compressed: false,
       retry: &retry_closed?/2,
       retry_delay: 0,
       max_retries: 2,
@@ -54,7 +60,7 @@ defmodule ExLiteLLM.HTTP do
   @doc "Req options for streaming upstream calls: shared pool, no retry."
   @spec stream_opts() :: keyword()
   def stream_opts do
-    [finch: @finch, retry: false]
+    [finch: @finch, compressed: false, retry: false]
   end
 
   # Retry only the stale-connection signature — never response-status errors
