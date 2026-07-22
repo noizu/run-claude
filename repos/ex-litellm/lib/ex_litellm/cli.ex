@@ -54,28 +54,19 @@ defmodule ExLiteLLM.CLI do
     settings = ExLiteLLM.Runtime.resolve(opts)
     ExLiteLLM.Runtime.put(settings)
 
-    with :ok <- maybe_load_config(settings),
-         {:ok, _} <- Application.ensure_all_started(:ex_litellm) do
-      IO.puts(:stderr, banner(settings))
-      # Escript would exit when main/1 returns; block forever so the servers run.
-      Process.sleep(:infinity)
-    else
+    # Export the config path so the OTP app loads it during start/2 (before the
+    # Router seeds) — the same code path a headless release takes.
+    if settings.config_path, do: System.put_env("CONFIG_FILE_PATH", settings.config_path)
+
+    case Application.ensure_all_started(:ex_litellm) do
+      {:ok, _} ->
+        IO.puts(:stderr, banner(settings))
+        # Block forever so the servers keep running.
+        Process.sleep(:infinity)
+
       {:error, reason} ->
         IO.puts(:stderr, "ex-litellm: startup failed: #{inspect(reason)}")
         System.halt(1)
-    end
-  end
-
-  defp maybe_load_config(%{config_path: nil}), do: :ok
-
-  defp maybe_load_config(%{config_path: path}) do
-    case ExLiteLLM.Config.Loader.load_file(path) do
-      {:ok, config} ->
-        ExLiteLLM.Config.put(config)
-        :ok
-
-      {:error, reason} ->
-        {:error, {:config_load_failed, reason}}
     end
   end
 

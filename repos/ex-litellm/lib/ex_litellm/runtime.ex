@@ -46,13 +46,16 @@ defmodule ExLiteLLM.Runtime do
     end
   end
 
-  @doc "Build settings purely from compiled app-env (used before CLI runs / in tests)."
+  @doc "Build settings purely from compiled app-env + env vars (used at app boot / in tests)."
   @spec from_app_env() :: t()
   def from_app_env do
     %__MODULE__{
       host: Application.get_env(:ex_litellm, :host, "127.0.0.1"),
       litellm_port: Application.get_env(:ex_litellm, :litellm_port, 4445),
       front_port: Application.get_env(:ex_litellm, :front_port, 4446),
+      # CONFIG_FILE_PATH mirrors litellm — lets the app load config at boot even
+      # when it auto-starts (releases / `mix run`) before any CLI code runs.
+      config_path: env("CONFIG_FILE_PATH"),
       master_key: env("LITELLM_MASTER_KEY"),
       database_url: env("LITELLM_DATABASE_URL"),
       store_model_in_db: truthy(env("STORE_MODEL_IN_DB"), true),

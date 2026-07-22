@@ -19,14 +19,17 @@ defmodule ExLiteLLM.Application do
 
   @impl true
   def start(_type, _args) do
-    settings = ExLiteLLM.Runtime.get()
+    settings = ensure_settings()
+    load_config(settings)
 
     children =
       [
         repo_child(settings),
         # Cooldown ETS must exist before the Router seeds/selects.
         ExLiteLLM.Router.CooldownCache,
-        ExLiteLLM.Router
+        ExLiteLLM.Router,
+        # Front-proxy rule table (seeded from config front_proxy.mode).
+        ExLiteLLM.FrontProxy.Rules
       ] ++ server_children(settings)
 
     opts = [strategy: :one_for_one, name: ExLiteLLM.Supervisor]
@@ -35,6 +38,33 @@ defmodule ExLiteLLM.Application do
       log_boot(settings)
       {:ok, pid}
     end
+  end
+
+  # --- startup ---
+
+  # Use CLI-resolved settings if present (persistent_term), else build from
+  # env + app-env. Either way the result is stored so the whole node reads one
+  # snapshot.
+  defp ensure_settings do
+    settings = ExLiteLLM.Runtime.get()
+    ExLiteLLM.Runtime.put(settings)
+    settings
+  end
+
+  # Load the config file (if any) BEFORE the Router seeds from it. Honors both a
+  # CLI-passed --config and the CONFIG_FILE_PATH env var (litellm convention).
+  defp load_config(%{config_path: nil}), do: :ok
+
+  defp load_config(%{config_path: path}) do
+    case ExLiteLLM.Config.Loader.load_file(path) do
+      {:ok, config} ->
+        ExLiteLLM.Config.put(config)
+
+      {:error, reason} ->
+        Logger.error("[ex-litellm] failed to load config #{path}: #{inspect(reason)}")
+    end
+
+    :ok
   end
 
   # --- children ---
@@ -47,7 +77,7 @@ defmodule ExLiteLLM.Application do
 
   defp server_children(settings) do
     if start_servers?() do
-      [litellm_listener(settings)]
+      [litellm_listener(settings)] ++ front_listener(settings)
     else
       []
     end
@@ -60,6 +90,19 @@ defmodule ExLiteLLM.Application do
      ip: parse_ip(settings.host),
      port: settings.litellm_port}
     |> Supervisor.child_spec(id: :litellm_listener)
+  end
+
+  defp front_listener(%{start_front: false}), do: []
+
+  defp front_listener(settings) do
+    [
+      {Bandit,
+       plug: ExLiteLLM.FrontProxy.Server,
+       scheme: :http,
+       ip: parse_ip(settings.host),
+       port: settings.front_port}
+      |> Supervisor.child_spec(id: :front_listener)
+    ]
   end
 
   # --- helpers ---
