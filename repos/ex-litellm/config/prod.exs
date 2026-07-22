@@ -1,7 +1,6 @@
 import Config
 
-# Prod: cutover ports — the front tier on 4443 and the litellm tier on 4444,
-# exactly where run-claude expects the Python proxies today.
-config :ex_litellm,
-  litellm_port: 4444,
-  front_port: 4443
+# Prod: cutover port — the gateway on 4443, where Claude Code already points
+# (run-claude sets ANTHROPIC_BASE_URL=http://127.0.0.1:4443). The unified
+# gateway replaces both the Python front proxy (4443) and the litellm tier.
+config :ex_litellm, port: 4443

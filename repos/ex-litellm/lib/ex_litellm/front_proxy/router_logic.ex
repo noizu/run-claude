@@ -66,12 +66,12 @@ defmodule ExLiteLLM.FrontProxy.RouterLogic do
   defp base_url(:anthropic), do: @anthropic_api
   defp base_url({:url, url}), do: url
 
-  # The front tier forwards to the local LiteLLM tier. In-process both tiers run
-  # in the same node; the front proxy still speaks HTTP to the LiteLLM listener
-  # so behavior matches the Python two-process chain exactly.
+  # In the unified gateway the LiteLLM tier is in-process, so a `:litellm` target
+  # points back at the gateway's own listener (only reached by custom rules; the
+  # native OpenAI paths are served directly and never hit forwarding).
   defp litellm_url do
     settings = Runtime.get()
-    "http://#{settings.host}:#{settings.litellm_port}"
+    "http://#{settings.host}:#{settings.port}"
   end
 
   @doc "Extract the `model` field from a decoded request body (empty string if absent)."

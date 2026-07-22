@@ -6,10 +6,10 @@ import Config
 
 config :ex_litellm,
   ecto_repos: [ExLiteLLM.Schema.Repo],
-  # Default listener ports. Dev uses 4445/4446 so the live Python proxy on
-  # 4444/4443 is never disturbed; cutover flips these to 4444/4443.
-  litellm_port: 4445,
-  front_port: 4446,
+  # Single unified gateway port. Dev uses 4445 so the live Python proxy on
+  # 4443/4444 is never disturbed; cutover flips this to 4443 (where Claude Code
+  # already points).
+  port: 4445,
   host: "127.0.0.1"
 
 # SQLite is the default backend — a single self-contained file, no container.

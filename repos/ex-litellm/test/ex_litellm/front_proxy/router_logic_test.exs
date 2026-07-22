@@ -12,8 +12,8 @@ defmodule ExLiteLLM.FrontProxy.RouterLogicTest do
   describe "passthrough mode routing" do
     test "OpenAI paths → litellm with master-key swap" do
       assert {url, :master_key} = RouterLogic.route("/v1/chat/completions", %{})
-      # Points at the LiteLLM tier on this node's configured port.
-      assert String.contains?(url, Integer.to_string(ExLiteLLM.Runtime.get().litellm_port))
+      # Points at the gateway's own port (LiteLLM surface is in-process).
+      assert String.contains?(url, Integer.to_string(ExLiteLLM.Runtime.get().port))
     end
 
     test "/v1/embeddings → litellm" do

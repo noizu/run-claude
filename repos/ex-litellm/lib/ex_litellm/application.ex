@@ -2,15 +2,16 @@ defmodule ExLiteLLM.Application do
   @moduledoc """
   ex-litellm OTP application.
 
-  Supervision tree (Phase 1):
+  Supervision tree:
 
     * `ExLiteLLM.Schema.Repo` — Ecto repo (SQLite default)
-    * Bandit listener for the **LiteLLM tier** (`ExLiteLLM.Proxy.Endpoint`)
+    * `ExLiteLLM.Router.CooldownCache` + `ExLiteLLM.Router` — deployment registry
+    * `ExLiteLLM.FrontProxy.Rules` — runtime-alterable routing rules
+    * Bandit listener for the unified `ExLiteLLM.Gateway`
 
-  The front tier, provider registry, model/router GenServers, cooldown ETS, and
-  callback manager are added to this tree in their respective phases. HTTP
-  listeners are skipped when `:start_servers` is false (unit tests) so the app
-  can boot without binding ports.
+  Config is loaded (from `--config` / `CONFIG_FILE_PATH`) before the Router
+  seeds from it. The HTTP listener is skipped when `:start_servers` is false
+  (unit tests) so the app can boot without binding a port.
   """
 
   use Application
@@ -77,32 +78,21 @@ defmodule ExLiteLLM.Application do
 
   defp server_children(settings) do
     if start_servers?() do
-      [litellm_listener(settings)] ++ front_listener(settings)
+      [gateway_listener(settings)]
     else
       []
     end
   end
 
-  defp litellm_listener(settings) do
+  # One unified listener: the gateway serves the LiteLLM surface AND the folded-in
+  # front-proxy routing on a single port.
+  defp gateway_listener(settings) do
     {Bandit,
-     plug: ExLiteLLM.Proxy.Endpoint,
+     plug: ExLiteLLM.Gateway,
      scheme: :http,
      ip: parse_ip(settings.host),
-     port: settings.litellm_port}
-    |> Supervisor.child_spec(id: :litellm_listener)
-  end
-
-  defp front_listener(%{start_front: false}), do: []
-
-  defp front_listener(settings) do
-    [
-      {Bandit,
-       plug: ExLiteLLM.FrontProxy.Server,
-       scheme: :http,
-       ip: parse_ip(settings.host),
-       port: settings.front_port}
-      |> Supervisor.child_spec(id: :front_listener)
-    ]
+     port: settings.port}
+    |> Supervisor.child_spec(id: :gateway_listener)
   end
 
   # --- helpers ---
@@ -118,10 +108,7 @@ defmodule ExLiteLLM.Application do
 
   defp log_boot(settings) do
     if start_servers?() do
-      Logger.info(
-        "[ex-litellm] LiteLLM tier listening on #{settings.host}:#{settings.litellm_port}",
-        tier: :litellm
-      )
+      Logger.info("[ex-litellm] gateway listening on #{settings.host}:#{settings.port}")
     end
   end
 end

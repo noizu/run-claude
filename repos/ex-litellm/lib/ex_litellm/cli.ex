@@ -7,9 +7,8 @@ defmodule ExLiteLLM.CLI do
 
       ex-litellm --host 127.0.0.1 --port 4444 --config /path/config.yaml
 
-  plus an ex-litellm extension:
-
-      --front-port 4443     # front-proxy tier port (default: --port + 1 in dev)
+  The single `--port` runs the unified gateway (LiteLLM surface + folded-in
+  front-proxy routing); there is no separate front-proxy port.
 
   Environment honored (like litellm): `LITELLM_MASTER_KEY`,
   `LITELLM_DATABASE_URL`, `STORE_MODEL_IN_DB`, `USE_PRISMA_MIGRATE` (accepted and
@@ -24,7 +23,6 @@ defmodule ExLiteLLM.CLI do
   @switches [
     host: :string,
     port: :integer,
-    front_port: :integer,
     config: :string,
     help: :boolean
   ]
@@ -72,7 +70,7 @@ defmodule ExLiteLLM.CLI do
 
   defp banner(settings) do
     """
-    [ex-litellm] LiteLLM tier: #{settings.host}:#{settings.litellm_port}
+    [ex-litellm] gateway: #{settings.host}:#{settings.port}
     [ex-litellm] config: #{settings.config_path || "(none — env/defaults)"}
     [ex-litellm] db: #{db_desc(settings)}
     """
@@ -90,13 +88,12 @@ defmodule ExLiteLLM.CLI do
     ex-litellm — Elixir LiteLLM proxy (drop-in for the `litellm` binary)
 
     USAGE:
-      ex-litellm [--host HOST] [--port PORT] [--config FILE] [--front-port PORT]
+      ex-litellm [--host HOST] [--port PORT] [--config FILE]
 
     OPTIONS:
       -h, --help           Show this help
       --host HOST          Bind address (default 127.0.0.1)
-      -p, --port PORT      LiteLLM tier port (default 4445 dev / 4444 prod)
-      --front-port PORT    Front-proxy tier port (default 4446 dev / 4443 prod)
+      -p, --port PORT      Unified gateway port (default 4445 dev / 4443 prod)
       -c, --config FILE    Path to litellm-style config.yaml
 
     ENV:

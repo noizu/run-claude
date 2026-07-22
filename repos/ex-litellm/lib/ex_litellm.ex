@@ -3,16 +3,16 @@ defmodule ExLiteLLM do
   ex-litellm — an interface-identical Elixir reimplementation of the LiteLLM
   proxy, plus run-claude's front-proxy routing tier folded into one app.
 
-  Two HTTP tiers:
+  One unified gateway (`ExLiteLLM.Gateway`, dev :4445 → prod :4443) serves both:
 
-    * **LiteLLM tier** (`ExLiteLLM.Proxy.Endpoint`, dev :4445 → prod :4444) —
-      the OpenAI-compatible multi-provider inference + admin surface.
-    * **Front tier** (`ExLiteLLM.FrontProxy`, dev :4446 → prod :4443) — a
-      runtime-alterable routing/auth-swap layer that sits in front of the
-      LiteLLM tier and Anthropic passthrough.
+    * the OpenAI-compatible multi-provider inference + admin surface (the
+      LiteLLM proxy), and
+    * the runtime-alterable front-proxy routing/auth-swap layer (Anthropic
+      passthrough, master-key swap) — folded into the same server, so there is
+      no separate front-proxy process.
 
   SQLite by default (a single file), Postgres optional. Launched via the
-  `ex-litellm` escript (`ExLiteLLM.CLI`) with the same `--host/--port/--config`
+  `ex-litellm` CLI (`ExLiteLLM.CLI`) with the same `--host/--port/--config`
   contract as the Python `litellm` binary.
   """
 
