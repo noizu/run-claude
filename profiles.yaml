@@ -229,6 +229,8 @@ kitchen-sink:
   haiku_model: "claude-haiku-4-5-20251001"
   extended:
     # Claude variants
+    - "claude-opus-5"
+    - "claude-opus-5[1m]"
     - "claude-opus-4-8[1m]"
     - "claude-opus-4-7"
     - "claude-opus-4-7[1m]"
