@@ -1,6 +1,6 @@
 # Project Architecture Summary
 
-run-claude is an agent shim controller providing directory-aware model routing via a LiteLLM proxy. Entering a directory with a declared profile registers models with the proxy and sets environment variables routing Claude Code or OpenCode through it. Runtime traffic flows through a two-proxy chain — front proxy (:4443) → LiteLLM proxy (:4444) — kept alive by a self-healing watchdog daemon.
+run-claude provides directory-aware model routing for Claude Code and OpenCode via a self-healing local LLM gateway. Entering a directory with a declared profile registers models with the proxy and sets environment variables routing Claude Code or OpenCode through it. Runtime traffic flows through a two-proxy chain — front proxy (:4443) → LiteLLM proxy (:4444) — kept alive by a self-healing watchdog daemon.
 
 ## Components
 

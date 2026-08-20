@@ -1,6 +1,6 @@
 # Project Architecture
 
-run-claude is an agent shim controller providing directory-aware model routing via a LiteLLM proxy. When you `cd` into a directory declaring a profile, the required models are registered with a running LiteLLM proxy and environment variables are set so Claude Code (or OpenCode, via the shared agent runner) route through it. The system uses a two-layer configuration: **model definitions** (standalone LiteLLM configs in `defaults/models.yaml`) and **profiles** (lightweight references mapping opus/sonnet/haiku tiers to model definitions in `defaults/profiles.yaml`).
+run-claude provides directory-aware model routing for Claude Code and OpenCode via a self-healing local LLM gateway. When you `cd` into a directory declaring a profile, the required models are registered with a running LiteLLM proxy and environment variables are set so Claude Code (or OpenCode, via the shared agent runner) route through it. The system uses a two-layer configuration: **model definitions** (standalone LiteLLM configs in `run_claude/models.yaml`) and **profiles** (lightweight references mapping opus/sonnet/haiku tiers to model definitions in the root `profiles.yaml`).
 
 Runtime traffic passes through a two-proxy chain: an always-on **front proxy** on `:4443` (routing, auth swapping, error logging) forwards to the **LiteLLM proxy** on `:4444` (model routing, provider calls, request logging to TimescaleDB). A detached **watchdog** daemon keeps both alive.
 

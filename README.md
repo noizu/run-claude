@@ -1,226 +1,256 @@
-# run-claude - Agent Shim Controller for Claude
+# run-claude
 
-Directory-aware model routing via LiteLLM proxy.
+**Per-directory model routing for Claude Code & OpenCode, backed by a self-healing local LLM gateway.**
 
-## Overview
+`cd` into a project, get the right models. `run-claude` hot-registers whichever provider models a
+directory declares (via direnv + a shell hook) on a running gateway, routes all traffic through a
+front proxy that swaps auth per provider — including **Anthropic OAuth passthrough, so your Claude
+Pro/Max subscription gets used instead of API billing** — and keeps itself alive with a watchdog
+daemon. Claude Code and OpenCode just work. 145+ cataloged models across ~25 profiles are one
+`set-folder` away.
 
-`run-claude` turns folder context into live inference overrides. When you `cd` into a directory that declares an agent shim profile, the directory's required models get added to a running LiteLLM proxy, and environment variables are set so your tools (Claude Code, etc.) route through the proxy.
+```
+ your directories                 run-claude                       providers
+┌──────────────────┐   direnv +   ┌──────────────────────────┐
+│ ~/work/project-a │──shell hook──▶      front proxy :4443    │──auth-swapped──▶ Anthropic (OAuth)
+│ profile: groq    │              │  auth swap · logging ·   │                 Cerebras
+├──────────────────┤              │  model bootstrap         │                 Groq · Z.AI
+│ ~/work/project-b │              └────────────┬─────────────┘                 Wafer · OpenAI
+│ profile: claude- │                           ▼                                  ...
+│ plan             │                    gateway :4444
+└──────────────────┘              (go-litellm / ex-litellm)
+```
 
-## Architecture
+**Highlights**
 
-The system uses a two-layer configuration:
+- **Directory-scoped routing** — `run-claude set-folder groq` + `direnv allow`; from then on,
+  entering the directory registers its models on the live gateway. Refcounted with a 15-minute
+  lease and cleaned by a janitor, so shared models don't thrash.
+- **Claude-plan OAuth passthrough** — the front proxy forwards Anthropic requests with your
+  original OAuth token (subscription billing) while other providers swap to the gateway master
+  key. JSONL request logging and persisted auth state included.
+- **Self-healing** — a detached watchdog daemon auto-restarts crashed proxies (~5s poll) and
+  respects intentional stops via a `stop.marker` sentinel.
+- **Pluggable gateway** — default `go-litellm`: one static CGO-free Go binary serving the front
+  proxy and LiteLLM on one port. Optional Elixir/OTP `ex-litellm` or legacy Python LiteLLM.
+- **Two agents, one shim** — fronts both Claude Code and OpenCode (`run-open-code`), plus a
+  multi-turn `chat` model tester, `run-claude with <profile>` one-shots, and bash/zsh completions.
 
-1. **Model Definitions** (`models.yaml`) - Standalone LiteLLM model configurations
-2. **Profiles** - Lightweight references to model definitions (opus/sonnet/haiku tiers)
+<details>
+<summary>Table of contents</summary>
 
-This separation allows:
-- Reuse of model definitions across profiles
-- User overrides without duplicating entire profiles
-- Cleaner, more maintainable configuration
+- [Quick start](#quick-start)
+- [Example session](#example-session)
+- [One-shot runs: the `with` family](#one-shot-runs-the-with-family)
+- [The catalog: profiles & models](#the-catalog-profiles--models)
+- [How it works](#how-it-works)
+- [Reliability: watchdog & lifecycle](#reliability-watchdog--lifecycle)
+- [Gateways](#gateways)
+- [Command reference](#command-reference)
+- [Claude Code & OpenCode](#claude-code--opencode)
+- [Configuration, paths & secrets](#configuration-paths--secrets)
+- [Why not just…?](#why-not-just)
+- [Documentation](#documentation)
 
-## Environment Variables
+</details>
 
-When `run-claude` sets up the system before invoking Claude, it exports these environment variables:
+## Quick start
 
 ```bash
-export ANTHROPIC_AUTH_TOKEN="sk-litellm-proxy"
-export ANTHROPIC_BASE_URL="http://localhost:4000"
-export API_TIMEOUT_MS=3000000
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="${_META_HAIKU}"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="${_META_SONNET}"
-export ANTHROPIC_DEFAULT_OPUS_MODEL="${_META_OPUS}"
+git clone <this repo> && cd run-claude
+make install                      # CLI + go-litellm gateway + shell completions
+run-claude secrets init --generate   # provider API keys + auto-generated DB password
+
+cd /path/to/my/project
+run-claude set-folder cerebras    # writes .envrc; prints your stable dir token
+direnv allow                      # activate
+
+claude                            # models registered on entry; just works
+run-claude status --health        # verify: proxies, DB, refcounts as JSON
 ```
 
-The `_META_*` values are populated from the active profile's model definitions.
+Provider keys live in `~/.config/run-claude/.secrets` — see [SECRETS_QUICKSTART.md](SECRETS_QUICKSTART.md).
+Never commit that file.
 
-## Installation
+## Example session
 
-1. Install uv (if not already installed):
-   ```bash
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
+```console
+$ cd ~/work/api-server            # profile: zai-pro
+$ run-claude status --health
+{"front_proxy": "healthy", "litellm": "healthy", "db": "running", ...}
 
-2. Sync dependencies (uv will handle this automatically on first run):
-   ```bash
-   cd tools/run-claude && uv sync
-   ```
+$ run-claude models avail --short # what's live in the gateway right now
+zai/opus  zai/sonnet  zai/haiku  zai/opus[1m]  ...
 
-3. Install shell hooks:
-   ```bash
-   ./hooks/install.sh
-   ```
+$ run-claude chat zai/sonnet      # kick the tires without launching Claude
+You: reply with OK
+Model: OK
+You: /exit
 
-4. Ensure `run-claude` is in your PATH (or use the symlink in `bin/`).
+$ claude                          # real session, routed through the gateway
+```
 
-## Quick Start
+## One-shot runs: the `with` family
 
-1. Configure a folder with a profile:
-   ```bash
-   cd /path/to/my/project
-   run-claude set-folder cerebras
-   direnv allow
-   ```
-
-2. The folder now uses the Cerebras profile when you enter it.
-
-## Commands
-
-### Directory Management
+Don't want to pin a whole directory? Run a single command under a profile:
 
 ```bash
-run-claude set-folder <profile>   # Configure current directory
-run-claude enter <token> <profile> # Activate a profile (used by shell hook)
-run-claude leave <token>          # Deactivate a profile (used by shell hook)
-run-claude janitor                # Clean up expired model leases
+run-claude with groq                    # = groq profile + claude
+run-claude with groq -- python infer.py # any command
+run-claude -x                           # --enhanced → with claude-enhanced
+run-claude -xx                          # --kitchen-sink → with kitchen-sink (every provider)
 ```
 
-### Status
+`with` accepts `--refresh` to force re-registration. The older `with-agent-shim` wrapper still
+works but is legacy.
 
-```bash
-run-claude status                 # Show current state
-```
+## The catalog: profiles & models
 
-### Environment
+~25 built-in profiles over 145+ model definitions (`run-claude profiles list`,
+`run-claude models list`). Highlights by group:
 
-```bash
-run-claude env <profile>          # Print environment variables
-run-claude env <profile> --export # Print export statements
-```
+| Group | Profiles | Notes |
+|---|---|---|
+| Fast inference | `cerebras`, `cerebras2`, `cerebras-pro`, `groq`, `groq2`, `groq-mix`, `groq-pro`, `fast-glm` | `-pro` variants use provider subscriptions |
+| Subscription passthrough | `claude-plan`, `zai-pro`, `zai-oa`, `wafer` | Claude Pro/Max OAuth, Z.AI subs, Wafer PAYG |
+| Mega-profiles | `all-sub`, `claude-enhanced` (`-x`), `kitchen-sink` (`-xx`) | Everything you have keys for |
+| Majors | `anthropic`, `openai`, `azure`, `gemini`, `grok`, `deepseek`, `mistral`, `perplexity` | |
+| Local / blended | `local` (Ollama/vLLM/LM Studio), `multi` (best-of-breed) | |
 
-### Proxy Management
-
-```bash
-run-claude proxy start            # Start LiteLLM proxy
-run-claude proxy stop             # Stop proxy
-run-claude proxy status           # Show proxy status
-run-claude proxy health           # Health check
-```
-
-### Profile Management
-
-```bash
-run-claude profiles list          # List available profiles
-run-claude profiles show <name>   # Show profile details
-run-claude profiles install       # Install built-in profiles to user config
-```
-
-### Model Management
-
-```bash
-run-claude models list            # List available model definitions
-run-claude models show <name>     # Show model definition details
-run-claude models enabled         # Show models live in the running proxy
-run-claude models avail           # Show live models with capability notes
-```
-
-### Direct Model Chat
-
-Use the built-in chat loop to verify an enabled model without launching Claude:
-
-```bash
-run-claude chat                         # Pick from enabled models
-run-claude chat <model-name>            # Start a multi-turn session
-run-claude chat <model-name> --prompt "Reply with OK"  # One request
-```
-
-Inside a session, use `/models` to refresh live model state, `/model <name>`
-to switch models, `/clear` to reset history, and `/exit` to quit.
-
-### Secrets Management
-
-```bash
-run-claude secrets init           # Initialize secrets template
-run-claude secrets path           # Show secrets file location
-run-claude secrets export         # Export secrets to .env for Docker
-```
-
-For detailed secrets management guide, see [SECRETS.md](SECRETS.md).
-
-## Per-Command Wrapper
-
-Use `with-agent-shim` to run a single command with a specific profile:
-
-```bash
-with-agent-shim cerebras -- claude
-with-agent-shim groq -- python inference.py
-```
-
-## Model Definitions
-
-Model definitions are stored in `models.yaml` and define standalone LiteLLM configurations:
-
-```yaml
-model_list:
-  - model_name: "cerebras/qwen-3-32b.thinking"
-    litellm_params:
-      model: cerebras/qwen-3-32b
-      api_key: os.environ/CEREBRAS_API_KEY
-      api_base: https://api.cerebras.ai/v1
-      drop_params: true
-      additional_drop_params: ["context_management", "thinking"]
-```
-
-**Locations:**
-- Built-in: `run_claude/models.yaml`
-- User overrides: `~/.config/agent-shim/models.yaml`
-
-User definitions override built-in definitions with the same `model_name`.
-
-## Profiles
-
-Profiles are lightweight YAML files that reference model definitions:
+- `run-claude models avail` — live gateway models with **descriptions, strengths, and weaknesses**,
+  grouped by provider (`--json` / `--short` for scripts).
+- `[1m]` suffix aliases — Claude Code ≥ v2.1.116 requests 1M-context variants with a `[1m]`
+  suffix; run-claude pre-registers those aliases (27 of them) so they route instead of 404.
+- Profiles map opus/sonnet/haiku tiers onto models, so tier-aware agents get sane defaults:
 
 ```yaml
 meta:
-  name: "Profile Name"
-  opus_model: "model-name-for-opus"
-  sonnet_model: "model-name-for-sonnet"
-  haiku_model: "model-name-for-haiku"
+  name: "My Profile"
+  opus_model: "zai/opus"
+  sonnet_model: "zai/sonnet"
+  haiku_model: "cerebras-pro/haiku"
 ```
 
-Built-in profiles:
-- `cerebras` / `cerebras2` - Cerebras inference (fast)
-- `groq` / `groq2` - Groq inference (fast)
-- `anthropic` - Native Anthropic
-- `openai` - OpenAI models
-- `azure` - Azure OpenAI
-- `gemini` - Google Gemini
-- `grok` - xAI Grok
-- `deepseek` - DeepSeek
-- `mistral` - Mistral AI
-- `perplexity` - Perplexity AI
-- `local` - Ollama/vLLM local models
-- `multi` - Multi-provider routing
+Customizing: [docs/howto/customize-models-and-profiles.md](docs/howto/customize-models-and-profiles.md).
 
-User profiles are stored in `~/.config/agent-shim/profiles/`.
+## How it works
 
-## LiteLLM Config
+1. **Shell hook** fires on every prompt; detects the `AGENT_SHIM_TOKEN` direnv sets per directory
+   (stable SHA256 hash of the path).
+2. **`run-claude enter <token> <profile>`** registers the directory's models with the running
+   gateway and bumps refcounts. `leave` decrements.
+3. **Janitor** expires models at refcount 0 after a 15-minute lease (anti-thrash).
+4. **Env vars** route the agent at the front proxy:
 
-The proxy is started with a generated config that includes:
+   ```bash
+   ANTHROPIC_BASE_URL=http://127.0.0.1:4443
+   API_TIMEOUT_MS=3000000
+   ANTHROPIC_DEFAULT_OPUS_MODEL=<profile opus>       # set when the profile defines the tier
+   ANTHROPIC_DEFAULT_SONNET_MODEL=<profile sonnet>
+   ANTHROPIC_DEFAULT_HAIKU_MODEL=<profile haiku>
+   ```
 
-```yaml
-litellm_settings:
-  drop_params: false
-  forward_client_headers_to_llm_api: true
-general_settings:
-  master_key: os.environ/LITELLM_MASTER_KEY
-model_list:
-  # ... all model definitions
+   No auth token is exported — the front proxy does the per-provider auth swap.
+5. **Front proxy** (`:4443`) swaps auth: Anthropic requests keep your OAuth token (subscription
+   billing, `claude-plan`), everything else gets the gateway master key. It also serves
+   `/api/claude_cli/bootstrap` so the Claude CLI sees live models, and writes JSONL request logs.
+6. **Gateway** (`:4444`) does the actual provider routing.
+
+Deeper detail, with diagrams: [docs/PROJ-ARCH.md](docs/PROJ-ARCH.md).
+
+## Reliability: watchdog & lifecycle
+
+```bash
+run-claude proxy start            # front proxy + gateway; clears stop marker, starts watchdog
+run-claude proxy stop [--all]     # --all also removes the DB container + volumes
+run-claude proxy status           # names the live gateway implementation (go-litellm, ex-litellm, …)
+run-claude watchdog start         # detached daemon; auto-restarts crashed proxies (~5s poll)
+run-claude watchdog stop          # respects stop.marker — intentional stops stick
+run-claude db start               # TimescaleDB container (host port 5433)
 ```
 
-## How It Works
+`proxy supervise` still exists but is deprecated — use `watchdog start`. Full lifecycle notes:
+[docs/howto/watchdog-and-proxy-lifecycle.md](docs/howto/watchdog-and-proxy-lifecycle.md);
+stuck-state recovery: [docs/howto/troubleshoot-stuck-state.md](docs/howto/troubleshoot-stuck-state.md).
 
-1. **Shell hook** detects when `AGENT_SHIM_TOKEN` changes (set by direnv)
-2. **run-claude enter** registers models with the LiteLLM proxy
-3. **Environment variables** are set to route traffic through the proxy
-4. **run-claude leave** decrements refcounts when you leave the directory
-5. **run-claude janitor** cleans up unused models after 15 minutes
+## Gateways
 
-## Files
+| Gateway | What it is | When |
+|---|---|---|
+| `go-litellm` *(default)* | Single static CGO-free Go binary; front proxy + LiteLLM on one port, no Postgres/Prisma | Default install (`make install`) |
+| `ex-litellm` | Elixir/OTP; SQLite-backed, runtime-alterable routing, status page with login/session auth | `FRONT_PROXY_COMMAND=ex-litellm` at proxy start |
+| Python LiteLLM | Legacy two-process front proxy + LiteLLM | `FRONT_PROXY_COMMAND=python` at proxy start |
 
-- State: `~/.local/state/agent-shim/state.json`
-- Generated config: `~/.local/state/agent-shim/litellm_config.yaml`
-- Proxy PID: `~/.local/state/agent-shim/proxy.pid`
-- Proxy log: `~/.local/state/agent-shim/proxy.log`
-- User profiles: `~/.config/agent-shim/profiles/`
-- User model overrides: `~/.config/agent-shim/models.yaml`
+`FRONT_PROXY_COMMAND` selects the front-proxy implementation when the proxy starts (runtime env
+var, not an install option). `run-claude proxy status` tells you which implementation is live.
+go-litellm internals: [repos/go-litellm/INTEGRATION.md](repos/go-litellm/INTEGRATION.md).
+
+## Command reference
+
+One line each — `run-claude <cmd> --help` for the rest.
+
+| Area | Commands |
+|---|---|
+| Directory | `set-folder <profile>`, `enter <token> <profile>`, `leave <token>`, `janitor` |
+| Status / env | `status [--health]`, `env <profile> [--export]` |
+| Proxy | `proxy start\|stop\|restart\|status\|health\|db-test` |
+| Watchdog | `watchdog start\|stop\|restart\|status` |
+| Database | `db start\|stop\|status\|migrate` (TimescaleDB :5433) |
+| Profiles | `profiles list\|show <name>\|install` |
+| Models | `models list`, `models enabled [--names-only]`, `models show <name>`, `models avail [--json\|--short]`, `models wipe [--force]` |
+| Chat | `chat [model] [--system S] [--prompt P] [--timeout N]` |
+| One-shot | `with <profile> [cmd…] [--refresh]`; global `-x` / `-xx` shorthands |
+| Secrets | `secrets init [--generate]`, `secrets path`, `secrets export` |
+| Install | `install [--force]` (templates + docker-compose infra) |
+| Global | `--version`, `--debug`, `--enhanced/-x`, `--kitchen-sink/-xx` |
+
+Shell completions: `make install-completions` (bash + zsh).
+
+## Claude Code & OpenCode
+
+The same machinery fronts both agents:
+
+- **Claude Code** — `run-claude` exports `ANTHROPIC_BASE_URL` + tier defaults (above).
+- **OpenCode** — the sibling `run-open-code` CLI (same subcommands, minus `watchdog`/`chat`/
+  `models enabled`/`models avail`; `with` defaults to launching `opencode`) exports
+  `OPENAI_BASE_URL` + `OPENAI_API_KEY` pointed at the same front proxy.
+
+## Configuration, paths & secrets
+
+| Type | Path |
+|---|---|
+| Config, secrets, user profiles | `~/.config/run-claude/` |
+| State, pid files, logs, generated gateway config | `~/.local/state/run-claude/` |
+| Built-in models / profiles | `run_claude/models.yaml`, root `profiles.yaml` |
+| User overrides | `~/.config/run-claude/models.yaml`, `~/.config/run-claude/profiles/` |
+
+User definitions with the same name override built-ins; `model: null` in an override disables an
+entry and falls through. Secrets (`--generate` auto-creates a DB password):
+[SECRETS.md](SECRETS.md) · [SECRETS_ADVANCED.md](SECRETS_ADVANCED.md) ·
+[docs/howto/manage-secrets.md](docs/howto/manage-secrets.md).
+
+## Why not just…?
+
+> **…export `ANTHROPIC_BASE_URL` myself?**
+> That gets you to *a* backend — but you'd still hand-roll an always-on process, track which
+> models are live so requests don't 404, and swap auth per provider. run-claude's front proxy does
+> the auth swap and survives gateway restarts. The honest trade-off: two extra local processes
+> and a little first-registration latency versus one exported variable.
+
+| | plain LiteLLM | run-claude |
+|---|---|---|
+| Auth per provider / OAuth passthrough | manual | front proxy handles it |
+| Per-directory hot model registration | restart w/ new config | refcounted, on `cd` |
+| Keeps itself alive | — | watchdog daemon |
+| Agent sees live models | — | `/api/claude_cli/bootstrap` |
+
+More: [docs/PROJ-FAQ.md](docs/PROJ-FAQ.md).
+
+## Documentation
+
+- [docs/PROJ-HOWTO.md](docs/PROJ-HOWTO.md) — first-hour walkthrough
+- [docs/PROJ-FAQ.md](docs/PROJ-FAQ.md) — why/when/comparisons
+- [docs/howto/](docs/howto/) — customize profiles · manage secrets · Claude-plan passthrough ·
+  watchdog lifecycle · stuck-state recovery
+- [SECRETS.md](SECRETS.md) / [SECRETS_QUICKSTART.md](SECRETS_QUICKSTART.md) — secrets in depth
+- [CHANGELOG.md](CHANGELOG.md) — milestones & release notes

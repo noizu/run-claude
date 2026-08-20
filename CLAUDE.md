@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**run-claude** is an agent shim controller that provides directory-aware model routing via a LiteLLM proxy. When you `cd` into a directory that declares a profile, the required models are added to a running LiteLLM proxy and environment variables are set so Claude Code (or other tools) route through it.
+**run-claude** provides directory-aware model routing for Claude Code and OpenCode via a self-healing local LLM gateway. When you `cd` into a directory that declares a profile, the required models are added to a running LiteLLM proxy and environment variables are set so Claude Code (or other tools) route through it.
 
 **Two-layer configuration:**
-1. **Model Definitions** (`defaults/models.yaml`) — standalone LiteLLM model configs
-2. **Profiles** (`defaults/profiles.yaml`) — lightweight references to model definitions mapping opus/sonnet/haiku tiers
+1. **Model Definitions** (`run_claude/models.yaml`) — standalone LiteLLM model configs
+2. **Profiles** (`profiles.yaml` at repo root) — lightweight references to model definitions mapping opus/sonnet/haiku tiers
 
 For detailed architecture with data flow diagrams, see `docs/PROJ-ARCH.md`.
 For full project layout, see `docs/PROJ-LAYOUT.md`.
@@ -78,6 +78,7 @@ run_claude/
 | State | `~/.local/state/run-claude/` (state.json, proxy.pid, proxy.log) |
 
 **Network defaults:**
+- Front proxy: `127.0.0.1:4443` (auth swapping, OAuth passthrough, `/api/claude_cli/bootstrap`)
 - LiteLLM proxy: `127.0.0.1:4444`
 - TimescaleDB: port `5433` (mapped from container 5432)
 

@@ -1,6 +1,6 @@
 # run_claude/ — Main Package
 
-The core Python package implementing the agent shim controller.
+The core Python package implementing the run-claude CLI.
 
 ## Module Overview
 
