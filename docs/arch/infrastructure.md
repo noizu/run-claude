@@ -88,6 +88,7 @@ Database management via `run-claude db`:
 | `ANTHROPIC_DEFAULT_OPUS_MODEL` | Profile's opus model |
 | `ANTHROPIC_DEFAULT_SONNET_MODEL` | Profile's sonnet model |
 | `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Profile's haiku model |
+| `ANTHROPIC_DEFAULT_FABLE_MODEL` | Profile's fable model, or opus when omitted |
 | `API_TIMEOUT_MS` | API timeout (3000000ms) |
 
 ## Security Considerations

@@ -808,7 +808,7 @@ model_list:
 
   - model_name: "zai/sonnet"
     litellm_params:
-      model: anthropic/glm-5.2
+      model: anthropic/glm-5.3
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -818,13 +818,13 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5.2 (sonnet tier)"
+      description: "ZAI GLM 5.3 (sonnet tier)"
       strengths: "Balanced speed and quality"
       weaknesses: "Less depth than opus tier"
 
   - model_name: "zai/opus"
     litellm_params:
-      model: anthropic/glm-5.2
+      model: anthropic/glm-5.3
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -834,7 +834,7 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5.2 (opus tier)"
+      description: "ZAI GLM 5.3 (opus tier)"
       strengths: "Strong reasoning, high quality"
       weaknesses: "Slower, more expensive"
 
@@ -856,7 +856,7 @@ model_list:
 
   - model_name: "zai/sonnet[1m]"
     litellm_params:
-      model: anthropic/glm-5.2
+      model: anthropic/glm-5.3
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -866,13 +866,13 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5.2 1M context (sonnet tier)"
+      description: "ZAI GLM 5.3 1M context (sonnet tier)"
       strengths: "Balanced, large context"
       weaknesses: "Less depth than opus"
 
   - model_name: "zai/opus[1m]"
     litellm_params:
-      model: anthropic/glm-5.2
+      model: anthropic/glm-5.3
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -882,14 +882,112 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5.2 1M context (opus tier)"
+      description: "ZAI GLM 5.3 1M context (opus tier)"
       strengths: "Strong reasoning, large context"
       weaknesses: "Slower, more expensive"
+
+# Zai - Tyna account (second subscription via ZAI_SUB_KEY_TYNA)
+
+  - model_name: "zai-tyna/haiku"
+    litellm_params:
+      model: anthropic/glm-5-turbo
+      api_key: os.environ/ZAI_SUB_KEY_TYNA
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5 Turbo (haiku tier, Tyna account)"
+      strengths: "Fast, cheap, good for simple tasks"
+      weaknesses: "Limited reasoning depth; second Z.AI subscription"
+
+  - model_name: "zai-tyna/sonnet"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY_TYNA
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.3 (sonnet tier, Tyna account)"
+      strengths: "Balanced speed and quality"
+      weaknesses: "Less depth than opus tier; second Z.AI subscription"
+
+  - model_name: "zai-tyna/opus"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY_TYNA
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.3 (opus tier, Tyna account)"
+      strengths: "Strong reasoning, high quality"
+      weaknesses: "Slower, more expensive; second Z.AI subscription"
+
+  - model_name: "zai-tyna/haiku[1m]"
+    litellm_params:
+      model: anthropic/glm-5-turbo
+      api_key: os.environ/ZAI_SUB_KEY_TYNA
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5 Turbo 1M context (haiku tier, Tyna account)"
+      strengths: "Fast, cheap, large context"
+      weaknesses: "Limited reasoning depth; second Z.AI subscription"
+
+  - model_name: "zai-tyna/sonnet[1m]"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY_TYNA
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.3 1M context (sonnet tier, Tyna account)"
+      strengths: "Balanced, large context"
+      weaknesses: "Less depth than opus; second Z.AI subscription"
+
+  - model_name: "zai-tyna/opus[1m]"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY_TYNA
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.3 1M context (opus tier, Tyna account)"
+      strengths: "Strong reasoning, large context"
+      weaknesses: "Slower, more expensive; second Z.AI subscription"
 
   # Alias for zai/opus - high quality
   - model_name: "ultra"
     litellm_params:
-      model: anthropic/glm-5.2
+      model: anthropic/glm-5.3
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -899,14 +997,14 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5.2 high-reasoning alias"
+      description: "ZAI GLM 5.3 high-reasoning alias"
       strengths: "Strong reasoning, high effort"
       weaknesses: "Slower due to high reasoning"
 
   # Alias for zai/opus - cheap option
   - model_name: "cheap"
     litellm_params:
-      model: anthropic/glm-5.2
+      model: anthropic/glm-5.3
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -916,7 +1014,7 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5.2 budget alias"
+      description: "ZAI GLM 5.3 budget alias"
       strengths: "Cost-effective, good quality"
       weaknesses: "Same as ultra (alias)"
 
@@ -939,7 +1037,7 @@ model_list:
 
   - model_name: "zai-oa/sonnet"
     litellm_params:
-      model: openai/glm-5.2
+      model: openai/glm-5.3
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/coding/paas/v4
       drop_params: true
@@ -947,13 +1045,13 @@ model_list:
       reasoning_effort: "medium"
     metadata:
       provider: zai
-      description: "ZAI GLM 5.2 OpenAI-compat (sonnet tier)"
+      description: "ZAI GLM 5.3 OpenAI-compat (sonnet tier)"
       strengths: "Balanced speed and quality"
       weaknesses: "Less depth than opus tier"
 
   - model_name: "zai-oa/opus"
     litellm_params:
-      model: openai/glm-5.2
+      model: openai/glm-5.3
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/coding/paas/v4
       drop_params: true
@@ -961,13 +1059,13 @@ model_list:
       reasoning_effort: "high"
     metadata:
       provider: zai
-      description: "ZAI GLM 5.2 OpenAI-compat (opus tier)"
+      description: "ZAI GLM 5.3 OpenAI-compat (opus tier)"
       strengths: "Strong reasoning, high quality"
       weaknesses: "Slower, more expensive"
 
-  - model_name: "zai-oa/glm-5.2"
+  - model_name: "zai-oa/glm-5.3"
     litellm_params:
-      model: openai/glm-5.2
+      model: openai/glm-5.3
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/coding/paas/v4
       drop_params: true
@@ -975,7 +1073,7 @@ model_list:
       reasoning_effort: "max"
     metadata:
       provider: zai
-      description: "Z.AI GLM-5.2 via coding plan OpenAI-compatible endpoint"
+      description: "Z.AI GLM-5.3 via coding plan OpenAI-compatible endpoint"
       strengths: "Flagship 1M-context coding model"
       weaknesses: "High quota consumption during peak hours"
 
@@ -990,8 +1088,8 @@ model_list:
     metadata:
       provider: zai
       description: "Z.AI GLM-5-Turbo via coding plan OpenAI-compatible endpoint"
-      strengths: "Advanced coding-plan model, faster than GLM-5.2"
-      weaknesses: "Less capable than GLM-5.2"
+      strengths: "Advanced coding-plan model, faster than GLM-5.3"
+      weaknesses: "Less capable than GLM-5.3"
 
   - model_name: "zai-oa/glm-4.7"
     litellm_params:
@@ -1006,6 +1104,624 @@ model_list:
       description: "Z.AI GLM-4.7 via coding plan OpenAI-compatible endpoint"
       strengths: "Routine coding tasks with lower quota pressure"
       weaknesses: "Older than GLM-5 series"
+
+# Wafer Serverless — Anthropic-compatible Messages at https://pass.wafer.ai
+# Live catalog (GET /v1/models): GLM-5.2, Kimi-K3, Kimi-K2.6, Qwen3.5-397B-A17B,
+# DeepSeek-V4-Flash-0731-Fast. Key: WAFER_AI_API_KEY
+
+  - model_name: "WAFER_GLM52"
+    litellm_params:
+      model: anthropic/GLM-5.2
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer GLM-5.2 (1M context, Z.AI flagship)"
+      strengths: "Long-horizon coding, strong reasoning, 1M context"
+      weaknesses: "Pay-as-you-go; slower than flash tiers"
+
+  - model_name: "WAFER_GLM52[1m]"
+    litellm_params:
+      model: anthropic/GLM-5.2
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer GLM-5.2 1M-context alias"
+      strengths: "Same as WAFER_GLM52; Claude Code [1m] suffix"
+      weaknesses: "Pay-as-you-go"
+
+  - model_name: "WAFER_KIMI_K3"
+    litellm_params:
+      model: anthropic/Kimi-K3
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer Kimi-K3 (1M context, vision, agentic)"
+      strengths: "Strong coding/agentic, 1M context, vision"
+      weaknesses: "Highest Wafer output price in the live catalog"
+
+  - model_name: "WAFER_KIMI_K3[1m]"
+    litellm_params:
+      model: anthropic/Kimi-K3
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer Kimi-K3 1M-context alias"
+      strengths: "Same as WAFER_KIMI_K3; Claude Code [1m] suffix"
+      weaknesses: "Highest Wafer output price in the live catalog"
+
+  - model_name: "WAFER_KIMI_K26"
+    litellm_params:
+      model: anthropic/Kimi-K2.6
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer Kimi-K2.6 (262K, vision, non-ZDR)"
+      strengths: "Fast coding MoE, vision, mid price"
+      weaknesses: "262K not 1M; ZDR requests are rejected"
+
+  - model_name: "WAFER_KIMI_K26[1m]"
+    litellm_params:
+      model: anthropic/Kimi-K2.6
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer Kimi-K2.6 Claude Code [1m] alias (backend is 262K)"
+      strengths: "Prevents [1m] suffix 404s"
+      weaknesses: "Backend cap is 262K, not 1M"
+
+  - model_name: "WAFER_QWEN35_397B"
+    litellm_params:
+      model: anthropic/Qwen3.5-397B-A17B
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer Qwen3.5-397B-A17B (latest Qwen on Wafer, 262K)"
+      strengths: "Fast MoE, good cheap coding/chat"
+      weaknesses: "262K context; no ZDR"
+
+  - model_name: "WAFER_QWEN35_397B[1m]"
+    litellm_params:
+      model: anthropic/Qwen3.5-397B-A17B
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer Qwen3.5-397B Claude Code [1m] alias (backend is 262K)"
+      strengths: "Prevents [1m] suffix 404s"
+      weaknesses: "Backend cap is 262K, not 1M"
+
+  - model_name: "WAFER_DS_V4_FLASH_FAST"
+    litellm_params:
+      model: anthropic/DeepSeek-V4-Flash-0731-Fast
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer DeepSeek V4 Flash 0731 Fast (1M, high TPS)"
+      strengths: "Cheapest Wafer tier, 1M context, high throughput"
+      weaknesses: "Flash quality vs GLM-5.2 / Kimi-K3"
+
+  - model_name: "WAFER_DS_V4_FLASH_FAST[1m]"
+    litellm_params:
+      model: anthropic/DeepSeek-V4-Flash-0731-Fast
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer DeepSeek V4 Flash Fast 1M-context alias"
+      strengths: "Same as WAFER_DS_V4_FLASH_FAST; Claude Code [1m] suffix"
+      weaknesses: "Flash quality vs GLM-5.2 / Kimi-K3"
+
+  - model_name: "wafer/opus"
+    litellm_params:
+      model: anthropic/Kimi-K3
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer opus tier (Kimi-K3)"
+      strengths: "Strong coding/agentic, 1M context, vision"
+      weaknesses: "Highest Wafer output price in the live catalog"
+
+  - model_name: "wafer/opus[1m]"
+    litellm_params:
+      model: anthropic/Kimi-K3
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer opus tier 1M alias (Kimi-K3)"
+      strengths: "Claude Code [1m] suffix"
+      weaknesses: "Highest Wafer output price in the live catalog"
+
+  - model_name: "wafer/sonnet"
+    litellm_params:
+      model: anthropic/GLM-5.2
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer sonnet tier (GLM-5.2)"
+      strengths: "Long-horizon coding, 1M context, daily default"
+      weaknesses: "Pay-as-you-go"
+
+  - model_name: "wafer/sonnet[1m]"
+    litellm_params:
+      model: anthropic/GLM-5.2
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer sonnet tier 1M alias (GLM-5.2)"
+      strengths: "Claude Code [1m] suffix"
+      weaknesses: "Pay-as-you-go"
+
+  - model_name: "wafer/haiku"
+    litellm_params:
+      model: anthropic/DeepSeek-V4-Flash-0731-Fast
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer haiku tier (DeepSeek-V4-Flash-0731-Fast)"
+      strengths: "Cheapest Wafer tier, 1M context, high throughput"
+      weaknesses: "Flash quality vs GLM-5.2 / Kimi-K3"
+
+  - model_name: "wafer/haiku[1m]"
+    litellm_params:
+      model: anthropic/DeepSeek-V4-Flash-0731-Fast
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: wafer
+      description: "Wafer haiku tier 1M alias (DeepSeek-V4-Flash-0731-Fast)"
+      strengths: "Claude Code [1m] suffix; real 1M backend"
+      weaknesses: "Flash quality vs GLM-5.2 / Kimi-K3"
+
+
+# Alibaba Token Plan — Anthropic-compatible Messages API
+# Requires: QWEN_SUB_KEY (Token Plan dedicated key, typically sk-sp-*)
+# Endpoint: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+# Chat models only (image/video/audio are not Claude Code /v1/messages).
+# deepseek-v3.2 is listed on Token Plan but rejected on the Anthropic surface.
+# Tiers: fable=kimi-k3, opus=qwen3.8-max, sonnet=glm-5.2, haiku=qwen3.6-flash
+
+  - model_name: "alibaba/haiku"
+    litellm_params:
+      model: anthropic/qwen3.6-flash
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+    metadata:
+      provider: alibaba
+      description: "Alibaba Qwen 3.6 Flash (haiku tier) via Token Plan Anthropic API"
+      strengths: "Fast, cheap, 1M context, vision — official Token Plan haiku"
+      weaknesses: "Less depth than GLM-5.2 / Qwen 3.8; Token Plan credits"
+
+  - model_name: "alibaba/sonnet"
+    litellm_params:
+      model: anthropic/glm-5.2
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+    metadata:
+      provider: alibaba
+      description: "Alibaba GLM-5.2 (sonnet tier) via Token Plan Anthropic API"
+      strengths: "Strong coding/SWE, 1M context, daily-driver class"
+      weaknesses: "Text-only; Token Plan credits"
+
+  - model_name: "alibaba/opus"
+    litellm_params:
+      model: anthropic/qwen3.8-max
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+    metadata:
+      provider: alibaba
+      description: "Alibaba Qwen 3.8 Max (opus tier) via Token Plan Anthropic API"
+      strengths: "Flagship Qwen, 1M context, vision, agent coding"
+      weaknesses: "Highest Token Plan credit burn"
+
+  - model_name: "alibaba/haiku[1m]"
+    litellm_params:
+      model: anthropic/qwen3.6-flash
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+    metadata:
+      provider: alibaba
+      description: "Alibaba Qwen 3.6 Flash 1M alias (haiku tier)"
+      strengths: "Claude Code [1m] suffix; native 1M context"
+      weaknesses: "Less depth than GLM-5.2 / Qwen 3.8"
+
+  - model_name: "alibaba/sonnet[1m]"
+    litellm_params:
+      model: anthropic/glm-5.2
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+    metadata:
+      provider: alibaba
+      description: "Alibaba GLM-5.2 1M alias (sonnet tier)"
+      strengths: "Claude Code [1m] suffix; native 1M context"
+      weaknesses: "Text-only"
+
+  - model_name: "alibaba/opus[1m]"
+    litellm_params:
+      model: anthropic/qwen3.8-max
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+    metadata:
+      provider: alibaba
+      description: "Alibaba Qwen 3.8 Max 1M alias (opus tier)"
+      strengths: "Claude Code [1m] suffix; native 1M context"
+      weaknesses: "Highest Token Plan credit burn"
+
+  - model_name: "alibaba/fable"
+    litellm_params:
+      model: anthropic/kimi-k3
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+    metadata:
+      provider: alibaba
+      description: "Alibaba Kimi K3 (fable tier) via Token Plan Anthropic API"
+      strengths: "Claude Code fable alias; Kimi K3 flagship, 1M context, vision"
+      weaknesses: "Token Plan credits; thinking-only Kimi SKU"
+
+  - model_name: "alibaba/fable[1m]"
+    litellm_params:
+      model: anthropic/kimi-k3
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+    metadata:
+      provider: alibaba
+      description: "Alibaba Kimi K3 1M alias (fable tier)"
+      strengths: "Claude Code [1m] suffix; native 1M context"
+      weaknesses: "Token Plan credits; thinking-only Kimi SKU"
+
+  - model_name: "alibaba/qwen3.8-max"
+    litellm_params:
+      model: anthropic/qwen3.8-max
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+    metadata:
+      provider: alibaba
+      description: "Alibaba Qwen 3.8 Max via Token Plan Anthropic API"
+      strengths: "Flagship Qwen, 1M context, vision"
+      weaknesses: "Highest Token Plan credit burn"
+
+  - model_name: "alibaba/qwen3.8-max-preview"
+    litellm_params:
+      model: anthropic/qwen3.8-max-preview
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+    metadata:
+      provider: alibaba
+      description: "Alibaba Qwen 3.8 Max Preview via Token Plan Anthropic API"
+      strengths: "Same family as qwen3.8-max; still listed on some Token Plan consoles"
+      weaknesses: "Preview ID; may route to GA qwen3.8-max"
+
+  - model_name: "alibaba/qwen3.7-max"
+    litellm_params:
+      model: anthropic/qwen3.7-max
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+    metadata:
+      provider: alibaba
+      description: "Alibaba Qwen 3.7 Max via Token Plan Anthropic API"
+      strengths: "Strong coding/agent work, 1M context"
+      weaknesses: "Text-only; superseded by 3.8 Max"
+
+  - model_name: "alibaba/qwen3.7-plus"
+    litellm_params:
+      model: anthropic/qwen3.7-plus
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+    metadata:
+      provider: alibaba
+      description: "Alibaba Qwen 3.7 Plus via Token Plan Anthropic API"
+      strengths: "Vision + text, 1M context, balanced cost"
+      weaknesses: "Less peak quality than 3.7/3.8 Max"
+
+  - model_name: "alibaba/qwen3.6-plus"
+    litellm_params:
+      model: anthropic/qwen3.6-plus
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+    metadata:
+      provider: alibaba
+      description: "Alibaba Qwen 3.6 Plus via Token Plan Anthropic API"
+      strengths: "Vision + text, 1M context, Team-tier SKU"
+      weaknesses: "Older than 3.7/3.8; Team plan only"
+
+  - model_name: "alibaba/qwen3.6-flash"
+    litellm_params:
+      model: anthropic/qwen3.6-flash
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+    metadata:
+      provider: alibaba
+      description: "Alibaba Qwen 3.6 Flash via Token Plan Anthropic API"
+      strengths: "Fast, cheap, vision, 1M context"
+      weaknesses: "Least depth of the Qwen Token Plan chat set"
+
+  - model_name: "alibaba/deepseek-v4-pro"
+    litellm_params:
+      model: anthropic/deepseek-v4-pro
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+    metadata:
+      provider: alibaba
+      description: "DeepSeek V4 Pro via Alibaba Token Plan Anthropic API"
+      strengths: "Strong reasoning, 1M context, large output"
+      weaknesses: "Text-only; high credit burn"
+
+  - model_name: "alibaba/deepseek-v4-flash"
+    litellm_params:
+      model: anthropic/deepseek-v4-flash
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+    metadata:
+      provider: alibaba
+      description: "DeepSeek V4 Flash via Alibaba Token Plan Anthropic API"
+      strengths: "Fast/cheap 1M reasoning, high throughput"
+      weaknesses: "Text-only; less quality than V4 Pro"
+
+  - model_name: "alibaba/deepseek-v4-flash-0731"
+    litellm_params:
+      model: anthropic/deepseek-v4-flash-0731
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+    metadata:
+      provider: alibaba
+      description: "DeepSeek V4 Flash 0731 via Alibaba Token Plan Anthropic API"
+      strengths: "Dated Flash snapshot, 1M context"
+      weaknesses: "Text-only; not on every console listing"
+
+  - model_name: "alibaba/kimi-k3"
+    litellm_params:
+      model: anthropic/kimi-k3
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+    metadata:
+      provider: alibaba
+      description: "Kimi K3 via Alibaba Token Plan Anthropic API"
+      strengths: "Moonshot flagship, 1M context, vision, long-horizon agents"
+      weaknesses: "Thinking-only; Token Plan credits"
+
+  - model_name: "alibaba/kimi-k2.7-code"
+    litellm_params:
+      model: anthropic/kimi-k2.7-code
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+    metadata:
+      provider: alibaba
+      description: "Kimi K2.7 Code via Alibaba Token Plan Anthropic API"
+      strengths: "Coding-specialist, vision, 256k context"
+      weaknesses: "Not 1M context; Token Plan credits"
+
+  - model_name: "alibaba/kimi-k2.6"
+    litellm_params:
+      model: anthropic/kimi-k2.6
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+    metadata:
+      provider: alibaba
+      description: "Kimi K2.6 via Alibaba Token Plan Anthropic API"
+      strengths: "Vision + text, 256k context"
+      weaknesses: "Older than K2.7 Code"
+
+  - model_name: "alibaba/kimi-k2.5"
+    litellm_params:
+      model: anthropic/kimi-k2.5
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+    metadata:
+      provider: alibaba
+      description: "Kimi K2.5 via Alibaba Token Plan Anthropic API"
+      strengths: "Vision + text, 256k context"
+      weaknesses: "Oldest Kimi SKU on Token Plan"
+
+  - model_name: "alibaba/glm-5.2"
+    litellm_params:
+      model: anthropic/glm-5.2
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+    metadata:
+      provider: alibaba
+      description: "GLM-5.2 via Alibaba Token Plan Anthropic API"
+      strengths: "Strong coding/SWE, 1M context"
+      weaknesses: "Text-only"
+
+  - model_name: "alibaba/glm-5.1"
+    litellm_params:
+      model: anthropic/glm-5.1
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+    metadata:
+      provider: alibaba
+      description: "GLM-5.1 via Alibaba Token Plan Anthropic API"
+      strengths: "Solid coding, ~200k context"
+      weaknesses: "Text-only; superseded by GLM-5.2"
+
+  - model_name: "alibaba/glm-5"
+    litellm_params:
+      model: anthropic/glm-5
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+    metadata:
+      provider: alibaba
+      description: "GLM-5 via Alibaba Token Plan Anthropic API"
+      strengths: "Inexpensive GLM, ~200k context"
+      weaknesses: "Smaller output cap; oldest GLM on the plan"
+
+  - model_name: "alibaba/minimax-m2.5"
+    litellm_params:
+      model: anthropic/MiniMax-M2.5
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+    metadata:
+      provider: alibaba
+      description: "MiniMax M2.5 via Alibaba Token Plan Anthropic API"
+      strengths: "Reasoning/coding, ~196k context"
+      weaknesses: "Thinking always-on; no structured output on this surface"
 
 
 # Groq - Named
@@ -1022,6 +1738,7 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "low"
+      include_reasoning: false
     metadata:
       provider: groq
       description: "GPT-OSS 20B on Groq (haiku tier)"
@@ -1035,6 +1752,7 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "medium"
+      include_reasoning: false
     metadata:
       provider: groq
       description: "GPT-OSS 120B on Groq (sonnet tier)"
@@ -1048,11 +1766,48 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "high"
+      include_reasoning: false
     metadata:
       provider: groq
       description: "GPT-OSS 120B on Groq (opus tier)"
       strengths: "Fast, high reasoning effort"
       weaknesses: "Rate limits"
+
+  - model_name: "groq/haiku[1m]"
+    litellm_params:
+      model: groq/openai/gpt-oss-20b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+      include_reasoning: false
+    metadata:
+      provider: groq
+      description: "GPT-OSS 20B on Groq (haiku 1M alias)"
+
+  - model_name: "groq/sonnet[1m]"
+    litellm_params:
+      model: groq/openai/gpt-oss-120b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "medium"
+      include_reasoning: false
+    metadata:
+      provider: groq
+      description: "GPT-OSS 120B on Groq (sonnet 1M alias)"
+
+  - model_name: "groq/opus[1m]"
+    litellm_params:
+      model: groq/openai/gpt-oss-120b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      include_reasoning: false
+    metadata:
+      provider: groq
+      description: "GPT-OSS 120B on Groq (opus 1M alias)"
 
   # Alias for groq/opus - fast option
   - model_name: "fast"
@@ -1062,6 +1817,7 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "high"
+      include_reasoning: false
     metadata:
       provider: groq
       description: "GPT-OSS 120B on Groq high-speed alias"
@@ -1094,6 +1850,18 @@ model_list:
       description: "Groq Compound Mini agentic system"
       strengths: "Fast tool-using system"
       weaknesses: "Less capable than full Compound"
+
+  - model_name: "groq-minimax-m2.7"
+    litellm_params:
+      model: groq/minimaxai/minimax-m2.7
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+    metadata:
+      provider: groq
+      description: "MiniMax M2.7 preview on Groq"
+      strengths: "Large context preview model"
+      weaknesses: "Preview / enterprise availability may change"
 
   # Kimi: does NOT support reasoning_effort - must drop
   - model_name: "groq-kimi-k2"
@@ -1178,6 +1946,7 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "low"
+      include_reasoning: false
     metadata:
       provider: groq
       description: "GPT-OSS 20B on Groq"
@@ -1273,6 +2042,7 @@ model_list:
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
       reasoning_effort: "medium"
+      include_reasoning: false
     metadata:
       provider: groq
       description: "GPT-OSS 120B raw on Groq"

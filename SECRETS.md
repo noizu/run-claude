@@ -197,6 +197,8 @@ RUN_CLAUDE_TIMESCALEDB_PORT: "5432"
 ```yaml
 ANTHROPIC_API_KEY: "sk-..."
 OPENAI_API_KEY: "sk-..."
+ZAI_SUB_KEY: "..."
+QWEN_SUB_KEY: "sk-sp-..."   # Alibaba Token Plan (alibaba profile)
 CUSTOM_API_KEY: "..."
 ```
 

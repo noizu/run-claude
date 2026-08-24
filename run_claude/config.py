@@ -196,6 +196,10 @@ ANTHROPIC_API_KEY: "sk-your-key-here"
 # Only set this if you want the proxy to make Anthropic calls with a stored token.
 # ANTHROPIC_OAUTH_TOKEN: "sk-ant-oat01-..."
 
+# Alibaba Token Plan (Qwen) — alibaba profile
+# Dedicated Token Plan key (sk-sp-*), not a pay-as-you-go DashScope sk- key.
+# QWEN_SUB_KEY: "sk-sp-..."
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # OPTIONAL VARIABLES (Uncomment to override defaults)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

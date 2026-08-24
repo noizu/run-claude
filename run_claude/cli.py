@@ -387,6 +387,7 @@ export AGENT_SHIM_PROFILE="{profile_name}"
 
 # Optional: Override specific models
 # export ANTHROPIC_DEFAULT_OPUS_MODEL="custom-opus"
+# export ANTHROPIC_DEFAULT_FABLE_MODEL="custom-fable"
 
 # Optional: Client-specific settings
 # export AGENT_SHIM_CLIENT="claude"
@@ -564,6 +565,9 @@ def cmd_env(args: argparse.Namespace) -> int:
         env_vars["ANTHROPIC_DEFAULT_SONNET_MODEL"] = profile.meta.sonnet_model
     if profile.meta.opus_model:
         env_vars["ANTHROPIC_DEFAULT_OPUS_MODEL"] = profile.meta.opus_model
+    fable_model = profile.meta.effective_fable_model()
+    if fable_model:
+        env_vars["ANTHROPIC_DEFAULT_FABLE_MODEL"] = fable_model
 
     # Output
     for key, value in env_vars.items():
@@ -908,6 +912,7 @@ def cmd_profiles(args: argparse.Namespace) -> int:
         print(f"  opus:   {profile.meta.opus_model or '(not set)'}")
         print(f"  sonnet: {profile.meta.sonnet_model or '(not set)'}")
         print(f"  haiku:  {profile.meta.haiku_model or '(not set)'}")
+        print(f"  fable:  {profile.meta.effective_fable_model() or '(not set)'}")
         if profile.meta.extended:
             print()
             print("Extended Models:")
@@ -978,6 +983,7 @@ def cmd_models(args: argparse.Namespace) -> int:
                 print(f"  opus:   {profile.meta.opus_model or '(not set)'}")
                 print(f"  sonnet: {profile.meta.sonnet_model or '(not set)'}")
                 print(f"  haiku:  {profile.meta.haiku_model or '(not set)'}")
+                print(f"  fable:  {profile.meta.effective_fable_model() or '(not set)'}")
                 print()
         else:
             print("No active profile (AGENT_SHIM_PROFILE not set)")

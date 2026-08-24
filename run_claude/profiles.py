@@ -96,6 +96,7 @@ _USER_PROFILES_TEMPLATE = """\
 #   opus_model: "model-name-for-opus"      # References model from models.yaml
 #   sonnet_model: "model-name-for-sonnet"
 #   haiku_model: "model-name-for-haiku"
+#   fable_model: "model-name-for-fable"    # Optional Claude Code fable alias (defaults to opus_model)
 #   extended:                               # Optional: additional models to load
 #     - "custom-model-1"
 #     - "custom-model-2"
@@ -111,6 +112,7 @@ _USER_PROFILES_TEMPLATE = """\
 #     opus_model: "my-custom-model"
 #     sonnet_model: "my-custom-model"
 #     haiku_model: "my-custom-model"
+#     fable_model: "my-custom-model"
 """
 
 
@@ -319,6 +321,7 @@ class ProfileMeta:
     opus_model: str = ""
     sonnet_model: str = ""
     haiku_model: str = ""
+    fable_model: str = ""
     extended: list[str] = field(default_factory=list)
 
     @classmethod
@@ -331,8 +334,13 @@ class ProfileMeta:
             opus_model=data.get("opus_model", ""),
             sonnet_model=data.get("sonnet_model", ""),
             haiku_model=data.get("haiku_model", ""),
+            fable_model=data.get("fable_model") or "",
             extended=extended,
         )
+
+    def effective_fable_model(self) -> str:
+        """Claude Code fable alias; falls back to opus when fable_model is omitted."""
+        return self.fable_model or self.opus_model
 
 
 @dataclass
@@ -353,6 +361,7 @@ class Profile:
                 "opus_model": self.meta.opus_model,
                 "sonnet_model": self.meta.sonnet_model,
                 "haiku_model": self.meta.haiku_model,
+                "fable_model": self.meta.fable_model,
                 "extended": self.meta.extended,
             },
             "model_list": [m.to_dict() for m in self.model_list],
@@ -476,7 +485,7 @@ def resolve_profile_models(profile: Profile, debug: bool = False) -> list[ModelD
     """
     Resolve profile model references to actual model definitions.
 
-    Takes the model names from profile.meta (opus_model, sonnet_model, haiku_model)
+    Takes the model names from profile.meta (opus_model, sonnet_model, haiku_model, fable_model)
     and resolves them to ModelDef objects from the model definitions.
     Also always includes 'ultra', 'fast', and 'cheap' models.
     Hydrates environment variable references before returning.
@@ -491,6 +500,7 @@ def resolve_profile_models(profile: Profile, debug: bool = False) -> list[ModelD
         profile.meta.opus_model,
         profile.meta.sonnet_model,
         profile.meta.haiku_model,
+        profile.meta.effective_fable_model(),
     ]
 
     # Include extended models from profile
@@ -651,7 +661,7 @@ def _load_profile_from_data(
 
     # Log profile metadata
     print(f"[PROFILE_LOADED] '{name}' from {source_path}", file=sys.stderr)
-    print(f"[PROFILE_MODEL_REFS] opus={meta.opus_model}, sonnet={meta.sonnet_model}, haiku={meta.haiku_model}", file=sys.stderr)
+    print(f"[PROFILE_MODEL_REFS] opus={meta.opus_model}, sonnet={meta.sonnet_model}, haiku={meta.haiku_model}, fable={meta.effective_fable_model()}", file=sys.stderr)
     if meta.extended:
         print(f"[PROFILE_EXTENDED] {len(meta.extended)} additional models: {', '.join(meta.extended)}", file=sys.stderr)
 

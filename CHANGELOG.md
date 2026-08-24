@@ -1,6 +1,10 @@
 # Changelog — utilities/agent/run-claude
 
 ## [Unreleased]
+- Profiles that omit `fable_model` export `ANTHROPIC_DEFAULT_FABLE_MODEL` as the opus model so Claude Code's fable alias still resolves.
+- Alibaba Token Plan (`QWEN_SUB_KEY`, Anthropic-compat `https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic`): `alibaba` profile tiers fable=`kimi-k3`, opus=`qwen3.8-max`, sonnet=`glm-5.2`, haiku=`qwen3.6-flash`. Chat catalog covers Qwen 3.8/3.7/3.6, DeepSeek V4 Pro/Flash, Kimi K3/K2.7/2.6/2.5, GLM-5.2/5.1/5, MiniMax-M2.5 (skips image/video/audio and Anthropic-incompatible `deepseek-v3.2`). Same set on kitchen-sink / claude-plan / all-sub / claude-enhanced. Optional `fable_model` exports as `ANTHROPIC_DEFAULT_FABLE_MODEL` (falls back to opus).
+- Wafer Serverless (`WAFER_AI_API_KEY`, `https://pass.wafer.ai`): live catalog as `WAFER_GLM52`, `WAFER_KIMI_K3`, `WAFER_KIMI_K26`, `WAFER_QWEN35_397B`, `WAFER_DS_V4_FLASH_FAST` plus `[1m]` aliases. `wafer` profile defaults: `wafer/opus[1m]` (Kimi-K3), `wafer/sonnet[1m]` (GLM-5.2), `wafer/haiku` (DeepSeek-V4-Flash-0731-Fast); same set registered on kitchen-sink / claude-plan / all-sub / claude-enhanced.
+- Second Z.AI subscription (`ZAI_SUB_KEY_TYNA`): catalog copies `zai-tyna/{opus,sonnet,haiku}` plus `[1m]` variants, registered alongside the `zai/*` set on `zai-pro`, `kitchen-sink`, `claude-plan`, `all-sub`, and `claude-enhanced`.
 - Restructured `docs/` for the per-level NPL arch/layout doc convention: rewrote `PROJ-ARCH.md`/`PROJ-LAYOUT.md` and their summaries, refreshed `docs/layout/run-claude-package.md` (ff72b3565bf, 2026-07-16)
 - Added `docs/PROJ-HOWTO.md` + summary + `docs/howto/` extractions: task-oriented guides for install/setup, provider switching, secrets, watchdog lifecycle, model/profile customization, and stuck-state troubleshooting (2026-07-17)
 - Added `docs/PROJ-FAQ.md` + summary: motivation/fit/comparison/capability/caveat/trust Q&A cross-linked to PROJ-HOWTO and PROJ-ARCH (2026-07-17)

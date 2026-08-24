@@ -40,6 +40,9 @@ def build_env_vars_anthropic(profile, proxy_url: str, api_key: str) -> dict[str,
         env["ANTHROPIC_DEFAULT_SONNET_MODEL"] = profile.meta.sonnet_model
     if profile.meta.opus_model:
         env["ANTHROPIC_DEFAULT_OPUS_MODEL"] = profile.meta.opus_model
+    fable_model = profile.meta.effective_fable_model()
+    if fable_model:
+        env["ANTHROPIC_DEFAULT_FABLE_MODEL"] = fable_model
 
     return env
 
@@ -103,6 +106,8 @@ def cmd_run_agent(
             print(f"    sonnet_model: {profile.meta.sonnet_model}", file=sys.stderr)
         if profile.meta.haiku_model:
             print(f"    haiku_model: {profile.meta.haiku_model}", file=sys.stderr)
+        if profile.meta.effective_fable_model():
+            print(f"    fable_model: {profile.meta.effective_fable_model()}", file=sys.stderr)
 
     # Get model definitions for config generation
     model_defs = [m.to_dict() for m in profile.model_list]

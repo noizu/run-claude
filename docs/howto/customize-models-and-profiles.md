@@ -23,6 +23,7 @@
      opus_model: "my-custom-model"
      sonnet_model: "my-custom-model"
      haiku_model: "some-other-model"
+     fable_model: "my-custom-model"
    ```
 4. Disable a built-in model entirely by redefining it with `model: null` in your user `models.yaml` — the fallthrough loader treats that as "skip this one."
 

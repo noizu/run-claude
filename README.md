@@ -106,13 +106,13 @@ works but is legacy.
 
 ## The catalog: profiles & models
 
-~25 built-in profiles over 145+ model definitions (`run-claude profiles list`,
+~26 built-in profiles over 145+ model definitions (`run-claude profiles list`,
 `run-claude models list`). Highlights by group:
 
 | Group | Profiles | Notes |
 |---|---|---|
 | Fast inference | `cerebras`, `cerebras2`, `cerebras-pro`, `groq`, `groq2`, `groq-mix`, `groq-pro`, `fast-glm` | `-pro` variants use provider subscriptions |
-| Subscription passthrough | `claude-plan`, `zai-pro`, `zai-oa`, `wafer` | Claude Pro/Max OAuth, Z.AI subs, Wafer PAYG |
+| Subscription passthrough | `claude-plan`, `zai-pro`, `zai-oa`, `wafer`, `alibaba` | Claude Pro/Max OAuth, Z.AI subs, Wafer PAYG, Alibaba Qwen Token Plan |
 | Mega-profiles | `all-sub`, `claude-enhanced` (`-x`), `kitchen-sink` (`-xx`) | Everything you have keys for |
 | Majors | `anthropic`, `openai`, `azure`, `gemini`, `grok`, `deepseek`, `mistral`, `perplexity` | |
 | Local / blended | `local` (Ollama/vLLM/LM Studio), `multi` (best-of-breed) | |
@@ -121,7 +121,7 @@ works but is legacy.
   grouped by provider (`--json` / `--short` for scripts).
 - `[1m]` suffix aliases — Claude Code ≥ v2.1.116 requests 1M-context variants with a `[1m]`
   suffix; run-claude pre-registers those aliases (27 of them) so they route instead of 404.
-- Profiles map opus/sonnet/haiku tiers onto models, so tier-aware agents get sane defaults:
+- Profiles map opus/sonnet/haiku/fable tiers onto models, so tier-aware agents get sane defaults:
 
 ```yaml
 meta:
@@ -129,6 +129,7 @@ meta:
   opus_model: "zai/opus"
   sonnet_model: "zai/sonnet"
   haiku_model: "cerebras-pro/haiku"
+  fable_model: "alibaba/fable"
 ```
 
 Customizing: [docs/howto/customize-models-and-profiles.md](docs/howto/customize-models-and-profiles.md).
@@ -148,6 +149,7 @@ Customizing: [docs/howto/customize-models-and-profiles.md](docs/howto/customize-
    ANTHROPIC_DEFAULT_OPUS_MODEL=<profile opus>       # set when the profile defines the tier
    ANTHROPIC_DEFAULT_SONNET_MODEL=<profile sonnet>
    ANTHROPIC_DEFAULT_HAIKU_MODEL=<profile haiku>
+   ANTHROPIC_DEFAULT_FABLE_MODEL=<profile fable>     # fable_model, else opus
    ```
 
    No auth token is exported — the front proxy does the per-provider auth swap.
