@@ -21,10 +21,10 @@ ln -sf "$INSTALL/bin/ex-litellm" ~/.local/bin/ex-litellm
 
 The release is fully self-contained — it needs no system Elixir/Erlang on PATH.
 
-## Enable the cutover
+## Enable (opt-in)
 
-Set one environment variable so run-claude launches the gateway instead of the
-two Python proxies:
+run-claude's default unified gateway is `go-litellm`. To launch this Mix
+release instead:
 
 ```bash
 export FRONT_PROXY_COMMAND=ex-litellm
@@ -49,11 +49,11 @@ endpoint all work through the one port.
 ## Rollback
 
 ```bash
-unset FRONT_PROXY_COMMAND
+unset FRONT_PROXY_COMMAND               # back to go-litellm (the compiled default)
+export FRONT_PROXY_COMMAND=python       # legacy two-process Python proxies
 ```
 
-run-claude reverts to launching the Python front proxy + litellm proxy exactly
-as before. The switch is a single env var; nothing else changes.
+The switch is a single env var; nothing else changes.
 
 ## Verified
 

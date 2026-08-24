@@ -28,10 +28,11 @@ defmodule ExLiteLLM.Providers.Adapter do
   @typedoc "Normalized streaming chunk — litellm's GenericStreamingChunk."
   @type stream_chunk :: %{
           text: String.t(),
+          reasoning: String.t() | nil,
           is_finished: boolean(),
           finish_reason: String.t() | nil,
           usage: map() | nil,
-          tool_use: map() | nil,
+          tool_use: map() | list() | nil,
           index: non_neg_integer(),
           raw: map() | nil
         }

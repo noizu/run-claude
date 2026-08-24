@@ -38,7 +38,9 @@ defmodule ExLiteLLM.Core.Completion do
     underlying_model = litellm_params["model"] || requested_model
 
     with {:ok, provider, bare_model, adapter} <- Provider.resolve(underlying_model, litellm_params) do
-      mapped = Params.optional(params, adapter, bare_model)
+      drop? = litellm_params["drop_params"] == true or ExLiteLLM.Config.drop_params?()
+      mapped = Params.optional(params, adapter, bare_model, drop?)
+      mapped = apply_deployment_tunables(mapped, litellm_params)
 
       req = %Request{
         model: bare_model,
@@ -63,4 +65,19 @@ defmodule ExLiteLLM.Core.Completion do
 
   defp deployment_params(%{"litellm_params" => lp}, _requested) when is_map(lp), do: lp
   defp deployment_params(_deployment, requested_model), do: %{"model" => requested_model}
+
+  # YAML tunables (reasoning_effort, include_reasoning, …) never used to reach
+  # Groq on the /v1/messages path. Merge them now; additional_drop_params still
+  # wins so models that cannot take reasoning_effort keep dropping it.
+  @deployment_tunables ~w(reasoning_effort include_reasoning temperature max_tokens max_completion_tokens)
+
+  defp apply_deployment_tunables(params, lp) when is_map(lp) do
+    extras = Map.take(lp, @deployment_tunables)
+
+    params
+    |> Map.merge(extras)
+    |> Map.drop(List.wrap(lp["additional_drop_params"]))
+  end
+
+  defp apply_deployment_tunables(params, _), do: params
 end

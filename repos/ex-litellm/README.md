@@ -9,6 +9,13 @@ It is a **drop-in replacement** for the Python `litellm` binary that
 but with **SQLite by default** (no Postgres/Prisma/container required) and a
 **runtime-alterable** front-proxy routing layer.
 
+run-claude's **default** gateway is now [`go-litellm`](../go-litellm) (same
+HTTP/CLI contract, no Elixir). To use this Mix release instead:
+
+```bash
+export FRONT_PROXY_COMMAND=ex-litellm
+```
+
 ## Why
 
 The Python proxy pulls in a Prisma query-engine subprocess and a mandatory

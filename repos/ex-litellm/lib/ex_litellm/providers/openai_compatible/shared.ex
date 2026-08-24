@@ -20,7 +20,8 @@ defmodule ExLiteLLM.Providers.OpenAICompatible.Shared do
     model messages temperature top_p n stream stream_options stop max_tokens
     max_completion_tokens presence_penalty frequency_penalty logit_bias user
     response_format seed tools tool_choice parallel_tool_calls functions
-    function_call logprobs top_logprobs reasoning_effort metadata
+    function_call logprobs top_logprobs reasoning_effort include_reasoning
+    reasoning_format metadata
   )
 
   @doc "The default OpenAI param allowlist."
@@ -121,6 +122,7 @@ defmodule ExLiteLLM.Providers.OpenAICompatible.Shared do
 
     %{
       text: Map.get(delta, "content") || "",
+      reasoning: Map.get(delta, "reasoning") || Map.get(delta, "reasoning_content") || "",
       is_finished: not is_nil(Map.get(choice, "finish_reason")),
       finish_reason: Map.get(choice, "finish_reason"),
       usage: Map.get(event, "usage"),

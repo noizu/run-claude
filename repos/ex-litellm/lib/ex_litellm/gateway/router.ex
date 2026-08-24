@@ -50,8 +50,10 @@ defmodule ExLiteLLM.Gateway.Router do
         messages_via_deployment(conn, body, deployment)
 
       true ->
-        # Unknown model — preserve legacy behavior: passthrough to Anthropic.
-        Forwarder.forward(conn, @anthropic, :passthrough, raw_body())
+        # Unknown non-claude aliases used to passthrough to Anthropic and hang
+        # (groq/opus[1m], retired Groq ids). Fail closed so Claude Code sees
+        # the miss instead of an empty turn. (claude-* is handled above.)
+        json(conn, 404, anthropic_error(Error.new(404, "model not found: #{model}", type: "not_found_error")))
     end
   end
 

@@ -155,7 +155,10 @@ def cmd_run_agent(
     print(f"\n=== {agent_config.agent_name.capitalize()} Agent Status ===", file=sys.stderr)
     if proxy_status.running:
         health = "healthy" if proxy_status.healthy else "unhealthy"
-        print(f"Proxy: running ({health}) - {proxy_status.url}", file=sys.stderr)
+        print(
+            f"Proxy: {proxy_status.implementation} running ({health}) - {proxy_status.url}",
+            file=sys.stderr,
+        )
         print(f"Models: {proxy_status.model_count}", file=sys.stderr)
     print(f"Profile: {profile_name} ({profile.meta.name})", file=sys.stderr)
     print(f"Command: {' '.join(cmd)}\n", file=sys.stderr)

@@ -30,7 +30,22 @@ defmodule ExLiteLLM.Deployments do
   cooldown filtering when the Router is up; first match otherwise).
   """
   @spec lookup(String.t()) :: map() | nil
-  def lookup(model_name) do
+  def lookup(model_name) when is_binary(model_name) do
+    case do_lookup(model_name) do
+      nil ->
+        case strip_context_alias(model_name) do
+          ^model_name -> nil
+          stripped -> do_lookup(stripped)
+        end
+
+      dep ->
+        dep
+    end
+  end
+
+  def lookup(_), do: nil
+
+  defp do_lookup(model_name) do
     if router_up?() do
       case Router.select(model_name) do
         {:ok, deployment} -> deployment
@@ -40,6 +55,12 @@ defmodule ExLiteLLM.Deployments do
       model_name |> group() |> List.first()
     end
   end
+
+  # Claude Code v2.1.116+ appends "[1m]" to the configured default model.
+  # cerebras-pro/zai-pro register explicit aliases; groq-pro did not, so those
+  # requests used to passthrough to Anthropic and hang. Fall back to the base
+  # name when the suffixed alias is missing.
+  defp strip_context_alias(name), do: String.replace(name, ~r/\[1m\]$/, "")
 
   @doc "All configured deployments."
   @spec all() :: [map()]

@@ -35,9 +35,6 @@ packages = ["run_claude"]
 "templates" = "run_claude/templates"
 "dep" = "run_claude/dep"
 
-[tool.uv.sources]
-litellm = { path = "repos/litellm", editable = true }
-
 [dependency-groups]
 dev = [
     "pytest>=8.0",

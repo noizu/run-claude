@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -79,32 +80,150 @@ DEFAULT_MASTER_KEY = "sk-litellm-master-key-12345"
 DEFAULT_LITELLM_COMMAND = "run-litellm-proxy"
 
 
-# The unified ex-litellm gateway is the DEFAULT model layer. It replaces both
-# Python proxies (front proxy + litellm) with one Elixir process. Set
-# FRONT_PROXY_COMMAND to a different launcher to override, or to the sentinel
-# "python" / "legacy" to fall back to the old two-process Python behavior.
-DEFAULT_FRONT_PROXY_COMMAND = "ex-litellm"
+# The unified go-litellm gateway is the DEFAULT model layer. It replaces both
+# Python proxies (front proxy + litellm) with one static binary. No env var is
+# required. FRONT_PROXY_COMMAND is an optional override (e.g. ex-litellm), or
+# the sentinel "python" / "legacy" to fall back to the old two-process Python
+# behavior.
+DEFAULT_FRONT_PROXY_COMMAND = "go-litellm"
 _LEGACY_SENTINELS = {"python", "legacy", "front_proxy", "run_claude.front_proxy"}
+
+# Names shown by `run-claude proxy status`.
+PROXY_KIND_LITELLM = "LiteLLM (real)"
+PROXY_KIND_GO = "GoLiteLLM Proxy"
+PROXY_KIND_ELIXIR = "ElixirLiteLLM Proxy"
+PROXY_KIND_UNKNOWN = "unknown"
+
+
+def default_gateway_candidates() -> list[Path]:
+    """Locations that satisfy the default go-litellm gateway without env or PATH.
+
+    Order: binary shipped next to this package, PATH, ~/.local/bin (uv/make
+    install prefix), then a source-tree build.
+    """
+    pkg_bin = Path(__file__).resolve().parent / "bin" / DEFAULT_FRONT_PROXY_COMMAND
+    home_bin = Path.home() / ".local" / "bin" / DEFAULT_FRONT_PROXY_COMMAND
+    src_bin = (
+        Path(__file__).resolve().parent.parent
+        / "repos"
+        / "go-litellm"
+        / "bin"
+        / DEFAULT_FRONT_PROXY_COMMAND
+    )
+    found: list[Path] = [pkg_bin]
+    which = shutil.which(DEFAULT_FRONT_PROXY_COMMAND)
+    if which:
+        found.append(Path(which))
+    found.extend((home_bin, src_bin))
+    # Preserve order, drop duplicates.
+    seen: set[str] = set()
+    out: list[Path] = []
+    for path in found:
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(path)
+    return out
+
+
+def resolve_default_gateway() -> str:
+    """Absolute path to go-litellm, or the bare name if nothing is installed yet."""
+    for path in default_gateway_candidates():
+        if path.is_file() and os.access(path, os.X_OK):
+            return str(path)
+    return DEFAULT_FRONT_PROXY_COMMAND
 
 
 def get_front_proxy_command() -> str | None:
-    """Command to launch the unified gateway (default: ex-litellm).
+    """Command to launch the unified gateway (default: go-litellm).
 
     run-claude launches this on the front-proxy port and treats it as also
     serving the LiteLLM role — so the separate Python litellm proxy on 4444 is
     not started. Returns None only when explicitly opted back into the legacy
     Python two-process path via FRONT_PROXY_COMMAND=python (or "legacy").
+
+    When FRONT_PROXY_COMMAND is unset, this resolves go-litellm to an absolute
+    path (bundled / ~/.local/bin / PATH / source build) so a login-shell PATH
+    is not required.
     """
-    cmd = os.environ.get("FRONT_PROXY_COMMAND", DEFAULT_FRONT_PROXY_COMMAND).strip()
+    override = os.environ.get("FRONT_PROXY_COMMAND")
+    if override is None or override.strip() == "":
+        return resolve_default_gateway()
+    cmd = override.strip()
     if cmd.lower() in _LEGACY_SENTINELS:
         return None
-    return cmd or None
+    # FRONT_PROXY_COMMAND=go-litellm is the default — still resolve an
+    # absolute path so PATH is not required.
+    if not Path(cmd).is_file() and Path(cmd).name == DEFAULT_FRONT_PROXY_COMMAND:
+        return resolve_default_gateway()
+    return cmd
 
 
 def use_unified_gateway() -> bool:
-    """True when a unified front+litellm gateway (ex-litellm) replaces both
-    Python proxies."""
+    """True when a unified front+litellm gateway (go-litellm by default)
+    replaces both Python proxies."""
     return get_front_proxy_command() is not None
+
+
+def classify_gateway_command(command: str | None) -> str:
+    """Map a launcher path/name to a proxy-status implementation label."""
+    if command is None:
+        return PROXY_KIND_LITELLM
+    name = Path(command).name.lower()
+    blob = f"{name} {command}".lower()
+    if "go-litellm" in blob:
+        return PROXY_KIND_GO
+    if "ex-litellm" in blob:
+        return PROXY_KIND_ELIXIR
+    if "litellm" in blob or name in {"python", "python3"}:
+        return PROXY_KIND_LITELLM
+    return PROXY_KIND_UNKNOWN
+
+
+def configured_proxy_implementation() -> str:
+    """Which implementation start_front_proxy / start_proxy would launch."""
+    if not use_unified_gateway():
+        return PROXY_KIND_LITELLM
+    return classify_gateway_command(get_front_proxy_command())
+
+
+def _pid_command_line(pid: int) -> str:
+    """Best-effort argv for a live pid (Linux /proc, else ``ps``)."""
+    proc_cmdline = Path(f"/proc/{pid}/cmdline")
+    if proc_cmdline.is_file():
+        try:
+            raw = proc_cmdline.read_bytes().replace(b"\x00", b" ").decode("utf-8", "replace")
+            return raw.strip()
+        except OSError:
+            pass
+    try:
+        result = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "args="],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+        return (result.stdout or "").strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def classify_running_proxy(pid: int | None) -> str:
+    """Identify the live process: GoLiteLLM, ElixirLiteLLM, or real LiteLLM."""
+    if pid is None:
+        return PROXY_KIND_UNKNOWN
+    args = _pid_command_line(pid).lower()
+    if not args:
+        return PROXY_KIND_UNKNOWN
+    if "go-litellm" in args:
+        return PROXY_KIND_GO
+    if "ex-litellm" in args or "beam.smp" in args or "/erts-" in args:
+        return PROXY_KIND_ELIXIR
+    if "run-litellm-proxy" in args or " -m litellm" in args or "litellm" in args:
+        return PROXY_KIND_LITELLM
+    return PROXY_KIND_UNKNOWN
 
 HEALTH_CHECK_TIMEOUT = 60.0
 HEALTH_CHECK_RETRIES = 30
@@ -272,11 +391,21 @@ def start_front_proxy(wait: bool = True) -> bool:
     env = os.environ.copy()
 
     if front_cmd:
-        # Unified gateway (ex-litellm): launch it on the front-proxy port with
-        # the litellm-style CLI. It serves BOTH the front routing and the LiteLLM
-        # API surface, so no separate Python litellm proxy is needed. Env carries
-        # the master key + DB so the gateway auths and persists like the Python
-        # proxy did.
+        # Unified gateway (go-litellm by default): launch it on the front-proxy
+        # port with the litellm-style CLI. It serves BOTH the front routing and
+        # the LiteLLM API surface, so no separate Python litellm proxy is needed.
+        # Env carries the master key + DB so the gateway auths and persists like
+        # the Python proxy did.
+        executable = Path(front_cmd)
+        if not executable.is_file() and shutil.which(front_cmd) is None:
+            print(
+                f"[front-proxy] default gateway {DEFAULT_FRONT_PROXY_COMMAND!r} is not installed.\n"
+                f"[front-proxy] from the run-claude tree: make install-go-litellm\n"
+                f"[front-proxy] (no FRONT_PROXY_COMMAND needed; looked in "
+                f"package bin, ~/.local/bin, PATH, repos/go-litellm/bin)",
+                file=sys.stderr,
+            )
+            return False
         env["LITELLM_MASTER_KEY"] = master_key
         cmd = [front_cmd, "--host", DEFAULT_PROXY_HOST, "--port", str(DEFAULT_PORT)]
         config_path = get_config_file()
@@ -411,6 +540,9 @@ class ProxyStatus:
     model_count: int = 0
     db_healthy: bool = False
     db_status: DbStatus | None = None
+    implementation: str = PROXY_KIND_UNKNOWN
+    configured_implementation: str = PROXY_KIND_UNKNOWN
+    unified: bool = False
 
 
 def _hydrate_model_dict(model_dict: dict[str, Any]) -> dict[str, Any]:
@@ -704,7 +836,16 @@ def _report_process_death(death: dict, context: str = "Proxy process died") -> N
 
 
 def is_proxy_running() -> bool:
-    """Check if proxy process is running."""
+    """Check if the model-serving proxy process is running.
+
+    Unified-gateway mode (go-litellm) has no separate LiteLLM process on
+    ``proxy.pid``; the gateway recorded in ``front-proxy.pid`` *is* the proxy.
+    Callers such as ``models enabled``, chat, and the watchdog use this as the
+    liveness gate, so they must follow the same process as ``proxy start``.
+    """
+    if use_unified_gateway():
+        return is_front_proxy_running()
+
     pid_file = get_pid_file()
     if not pid_file.exists():
         return False
@@ -723,8 +864,11 @@ def is_proxy_running() -> bool:
 
 
 def get_proxy_pid() -> int | None:
-    """Get proxy PID if running."""
-    pid_file = get_pid_file()
+    """Get proxy PID if running.
+
+    In unified-gateway mode this is the gateway PID from ``front-proxy.pid``.
+    """
+    pid_file = get_front_proxy_pid_file() if use_unified_gateway() else get_pid_file()
     if not pid_file.exists():
         return None
 
@@ -828,7 +972,7 @@ def start_proxy(config_path: str | None = None, wait: bool = True, empty_config:
     Returns:
         True if proxy started successfully
     """
-    # Unified gateway mode: the ex-litellm gateway launched as the "front proxy"
+    # Unified gateway mode: the go-litellm gateway launched as the "front proxy"
     # already serves the LiteLLM API surface, so there is no separate litellm
     # proxy to start. Ensure it's up (start_front_proxy is idempotent) and treat
     # its health as the proxy's health.
@@ -1158,6 +1302,10 @@ def get_status() -> ProxyStatus:
 
     db_healthy = test_db_connection(debug=False)
     db_status = get_db_status()
+    configured = configured_proxy_implementation()
+    live = classify_running_proxy(pid) if running else PROXY_KIND_UNKNOWN
+    if live == PROXY_KIND_UNKNOWN:
+        live = configured
 
     return ProxyStatus(
         running=running,
@@ -1167,6 +1315,9 @@ def get_status() -> ProxyStatus:
         model_count=model_count,
         db_healthy=db_healthy,
         db_status=db_status,
+        implementation=live,
+        configured_implementation=configured,
+        unified=use_unified_gateway(),
     )
 
 

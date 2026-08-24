@@ -1,4 +1,4 @@
-.PHONY: help compile test test-cov coverage coverage-html coverage-xml clean install install-completions dev refresh setup-litellm
+.PHONY: help compile test test-cov coverage coverage-html coverage-xml clean install install-completions install-go-litellm dev refresh setup-litellm
 
 UV_TOOL_PYTHON ?= $(shell cat .python-version)
 
@@ -10,7 +10,8 @@ help:
 	@echo "  coverage-html Generate HTML coverage report"
 	@echo "  coverage-xml  Generate XML coverage report (for CI)"
 	@echo "  clean         Remove build artifacts and coverage files"
-	@echo "  install       Install the tool via uv (+ shell completions)"
+	@echo "  install       Install the CLI via uv + default go-litellm gateway + completions"
+	@echo "  install-go-litellm  Build/install the Go gateway → ~/.local/bin/go-litellm"
 	@echo "  install-completions  Install bash/zsh completions only"
 	@echo "  refresh       Reinstall the tool (force refresh cache)"
 	@echo "  dev           Install dev dependencies"
@@ -51,7 +52,20 @@ clean:
 	rm -rf dist/
 	rm -rf build/
 
+install-go-litellm:
+	$(MAKE) -C repos/go-litellm install
+	@mkdir -p run_claude/bin
+	@cp repos/go-litellm/bin/go-litellm run_claude/bin/go-litellm
+	@chmod +x run_claude/bin/go-litellm
+	@echo "run-claude: bundled gateway at run_claude/bin/go-litellm (default; no FRONT_PROXY_COMMAND)"
+
 install:
+	@if ! command -v go >/dev/null 2>&1; then \
+		echo "run-claude: go not found; skip default gateway (go-litellm)."; \
+		echo "run-claude: install Go 1.22+ and rerun: make install-go-litellm"; \
+	else \
+		$(MAKE) install-go-litellm; \
+	fi
 	@if ! command -v uv >/dev/null 2>&1; then \
 		echo "run-claude: uv not found; skipping install."; \
 		exit 0; \

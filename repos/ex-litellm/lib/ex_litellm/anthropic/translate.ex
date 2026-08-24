@@ -34,6 +34,7 @@ defmodule ExLiteLLM.Anthropic.Translate do
     |> copy(body, "stop_sequences", "stop")
     |> put_tools(body["tools"])
     |> put_tool_choice(body["tool_choice"])
+    |> put_reasoning_effort(body)
     |> Map.reject(fn {_k, v} -> is_nil(v) end)
   end
 
@@ -161,6 +162,19 @@ defmodule ExLiteLLM.Anthropic.Translate do
 
   defp put_tool_choice(body, _), do: body
 
+  # Anthropic `thinking` is not an OpenAI field. Map it onto reasoning_effort
+  # so gpt-oss / similar models actually spend CoT budget. Deployment YAML
+  # overwrites this later (haiku=low, opus=high).
+  defp put_reasoning_effort(acc, %{"thinking" => %{"type" => t}}) when t in ["enabled", "adaptive"] do
+    Map.put_new(acc, "reasoning_effort", "high")
+  end
+
+  defp put_reasoning_effort(acc, %{"thinking" => %{"type" => "disabled"}}) do
+    Map.put_new(acc, "reasoning_effort", "low")
+  end
+
+  defp put_reasoning_effort(acc, _), do: acc
+
   defp copy(acc, body, key, as \\ nil) do
     case Map.get(body, key) do
       nil -> acc
@@ -191,7 +205,11 @@ defmodule ExLiteLLM.Anthropic.Translate do
 
   defp build_content_blocks(message) do
     text = message["content"] || message[:content]
+    reasoning = message["reasoning"] || message[:reasoning] || message["reasoning_content"] || message[:reasoning_content]
     tool_calls = message["tool_calls"] || message[:tool_calls] || []
+
+    thinking_blocks =
+      if reasoning in [nil, ""], do: [], else: [%{"type" => "thinking", "thinking" => reasoning}]
 
     text_blocks = if text in [nil, ""], do: [], else: [%{"type" => "text", "text" => text}]
 
@@ -207,7 +225,7 @@ defmodule ExLiteLLM.Anthropic.Translate do
         }
       end)
 
-    case text_blocks ++ tool_blocks do
+    case thinking_blocks ++ text_blocks ++ tool_blocks do
       [] -> [%{"type" => "text", "text" => ""}]
       blocks -> blocks
     end
@@ -247,39 +265,45 @@ defmodule ExLiteLLM.Anthropic.Translate do
   # === streaming: normalized chunks → Anthropic SSE events ===
 
   @doc """
-  Build the Anthropic SSE preamble (message_start + content_block_start) for a
-  streamed response.
+  Build the Anthropic SSE preamble (message_start only). Content blocks are
+  opened lazily by `ExLiteLLM.Anthropic.Stream` so tool-only / reasoning-only
+  replies are not wrapped in an empty text block.
   """
   @spec stream_preamble(String.t()) :: [String.t()]
   def stream_preamble(model) do
-    message = %{
-      "id" => "msg_" <> rand(),
-      "type" => "message",
-      "role" => "assistant",
-      "model" => model,
-      "content" => [],
-      "stop_reason" => nil,
-      "stop_sequence" => nil,
-      "usage" => %{"input_tokens" => 0, "output_tokens" => 0}
-    }
-
-    [
-      sse("message_start", %{"type" => "message_start", "message" => message}),
-      sse("content_block_start", %{
-        "type" => "content_block_start",
-        "index" => 0,
-        "content_block" => %{"type" => "text", "text" => ""}
-      })
-    ]
+    {state, frames} = ExLiteLLM.Anthropic.Stream.new(model) |> ExLiteLLM.Anthropic.Stream.preamble()
+    _ = state
+    frames
   end
 
   @doc "Translate one normalized text delta into an Anthropic content_block_delta event."
   @spec stream_text_delta(String.t()) :: String.t()
-  def stream_text_delta(text) do
+  def stream_text_delta(text), do: stream_text_delta(0, text)
+
+  @spec stream_text_delta(non_neg_integer(), String.t()) :: String.t()
+  def stream_text_delta(index, text) do
     sse("content_block_delta", %{
       "type" => "content_block_delta",
-      "index" => 0,
+      "index" => index,
       "delta" => %{"type" => "text_delta", "text" => text}
+    })
+  end
+
+  @spec stream_thinking_delta(non_neg_integer(), String.t()) :: String.t()
+  def stream_thinking_delta(index, text) do
+    sse("content_block_delta", %{
+      "type" => "content_block_delta",
+      "index" => index,
+      "delta" => %{"type" => "thinking_delta", "thinking" => text}
+    })
+  end
+
+  @spec stream_input_json_delta(non_neg_integer(), String.t()) :: String.t()
+  def stream_input_json_delta(index, partial_json) do
+    sse("content_block_delta", %{
+      "type" => "content_block_delta",
+      "index" => index,
+      "delta" => %{"type" => "input_json_delta", "partial_json" => partial_json}
     })
   end
 
@@ -287,7 +311,15 @@ defmodule ExLiteLLM.Anthropic.Translate do
   @spec stream_closing(String.t() | nil, map() | nil) :: [String.t()]
   def stream_closing(finish_reason, usage_map) do
     [
-      sse("content_block_stop", %{"type" => "content_block_stop", "index" => 0}),
+      sse("content_block_stop", %{"type" => "content_block_stop", "index" => 0})
+      | stream_closing_after_blocks(finish_reason, usage_map)
+    ]
+  end
+
+  @doc "message_delta + message_stop after content blocks have already been closed."
+  @spec stream_closing_after_blocks(String.t() | nil, map() | nil) :: [String.t()]
+  def stream_closing_after_blocks(finish_reason, usage_map) do
+    [
       sse("message_delta", %{
         "type" => "message_delta",
         "delta" => %{"stop_reason" => stop_reason(finish_reason), "stop_sequence" => nil},
@@ -295,6 +327,15 @@ defmodule ExLiteLLM.Anthropic.Translate do
       }),
       sse("message_stop", %{"type" => "message_stop"})
     ]
+  end
+
+  @doc "Anthropic error SSE event (used when the upstream 4xx after the stream started)."
+  @spec stream_error(String.t(), String.t()) :: String.t()
+  def stream_error(type, message) do
+    sse("error", %{
+      "type" => "error",
+      "error" => %{"type" => type, "message" => message}
+    })
   end
 
   defp output_tokens(nil), do: 0

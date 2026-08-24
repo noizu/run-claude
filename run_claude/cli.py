@@ -425,6 +425,43 @@ export AGENT_SHIM_PROFILE="{profile_name}"
     return 0
 
 
+def _print_proxy_layers(proxy_mod, status) -> None:
+    """Print Front Proxy + LiteLLM Proxy, naming the live implementation."""
+    print("Front Proxy:")
+    fp_pid_file = proxy_mod.get_front_proxy_pid_file()
+    if proxy_mod.is_front_proxy_running():
+        fp_pid = fp_pid_file.read_text().strip() if fp_pid_file.exists() else "?"
+        print("  Status: running")
+        print(f"  PID: {fp_pid}")
+        print(f"  URL: {proxy_mod.get_front_proxy_url()}")
+        if status.unified:
+            print(f"  Implementation: {status.implementation}")
+    else:
+        print("  Status: stopped")
+        if status.unified:
+            print(f"  Configured: {status.configured_implementation}")
+    print()
+
+    print("LiteLLM Proxy:")
+    print(f"  Implementation: {status.implementation if status.running else status.configured_implementation}")
+    if (
+        status.running
+        and status.configured_implementation
+        and status.implementation != status.configured_implementation
+    ):
+        print(f"  Configured: {status.configured_implementation}")
+    if status.unified:
+        print("  Mode: unified (same process as Front Proxy)")
+    if status.running:
+        health = "healthy" if status.healthy else "unhealthy"
+        print(f"  Status: running ({health})")
+        print(f"  PID: {status.pid}")
+        print(f"  URL: {status.url}")
+        print(f"  Models: {status.model_count}")
+    else:
+        print("  Status: stopped")
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     """Handle status command."""
     import json
@@ -458,28 +495,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         print("  (none loaded)")
     print()
 
-    # Front proxy status
-    print("Front Proxy:")
-    fp_pid_file = proxy.get_front_proxy_pid_file()
-    if proxy.is_front_proxy_running():
-        fp_pid = fp_pid_file.read_text().strip() if fp_pid_file.exists() else "?"
-        print(f"  Status: running")
-        print(f"  PID: {fp_pid}")
-        print(f"  URL: {proxy.get_front_proxy_url()}")
-    else:
-        print("  Status: stopped")
-    print()
-
-    # LiteLLM proxy status
-    print("LiteLLM Proxy:")
-    if proxy_status.running:
-        health = "healthy" if proxy_status.healthy else "unhealthy"
-        print(f"  Status: running ({health})")
-        print(f"  PID: {proxy_status.pid}")
-        print(f"  URL: {proxy_status.url}")
-        print(f"  Models: {proxy_status.model_count}")
-    else:
-        print("  Status: stopped")
+    _print_proxy_layers(proxy, proxy_status)
     print()
 
     # Database container status
@@ -677,29 +693,7 @@ def cmd_proxy(args: argparse.Namespace) -> int:
 
     elif args.proxy_command == "status":
         status = proxy.get_status()
-
-        # Front proxy status
-        print("Front Proxy:")
-        fp_pid_file = proxy.get_front_proxy_pid_file()
-        if proxy.is_front_proxy_running():
-            fp_pid = fp_pid_file.read_text().strip() if fp_pid_file.exists() else "?"
-            print(f"  Status: running")
-            print(f"  PID: {fp_pid}")
-            print(f"  URL: {proxy.get_front_proxy_url()}")
-        else:
-            print("  Status: stopped")
-        print()
-
-        # LiteLLM proxy status
-        print("LiteLLM Proxy:")
-        if status.running:
-            health = "healthy" if status.healthy else "unhealthy"
-            print(f"  Status: running ({health})")
-            print(f"  PID: {status.pid}")
-            print(f"  URL: {status.url}")
-            print(f"  Models: {status.model_count}")
-        else:
-            print("  Status: stopped")
+        _print_proxy_layers(proxy, status)
 
         # Database container status
         print()

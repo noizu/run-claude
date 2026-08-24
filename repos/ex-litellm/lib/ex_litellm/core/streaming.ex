@@ -3,32 +3,22 @@ defmodule ExLiteLLM.Core.Streaming do
   Server-Sent-Events streaming — litellm's `CustomStreamWrapper` +
   `BaseModelResponseIterator`.
 
-  Two responsibilities:
-
-    * **Outbound parse** — take the raw byte stream from the upstream provider,
-      split it into SSE events (`data: {...}\\n\\n`), JSON-decode each `data:`
-      payload, and hand it to the adapter's `chunk_parser/1` to normalize into a
-      `GenericStreamingChunk`.
-    * **Inbound emit** — turn each normalized chunk into an OpenAI
-      `chat.completion.chunk` SSE frame and chunk it back to the client, closing
-      with `data: [DONE]`.
-
-  `stream/4` drives the whole thing over a `Plug.Conn` using `Req`'s streaming
-  response body, writing frames as they arrive with `Plug.Conn.chunk/2`.
+  Upstream is driven with `Finch.stream/5` so we can inspect the HTTP status
+  **before** committing a 200 SSE preamble. Groq (and other strict providers)
+  often 400/404 with a JSON body; treating that as an Anthropic empty turn is
+  how `run-claude with groq-pro` showed "models do not reply".
   """
 
   import Plug.Conn
   require Logger
 
+  alias ExLiteLLM.Anthropic.Stream, as: AnthropicStream
+  alias ExLiteLLM.Anthropic.Translate
   alias ExLiteLLM.Error
   alias ExLiteLLM.Providers.Adapter.Request
 
   @doc """
   Stream a chat completion to the client as OpenAI SSE.
-
-  Sets up the chunked response, opens the upstream streaming request via the
-  adapter + `Req`, parses each provider event through `adapter.chunk_parser/1`,
-  emits OpenAI chunk frames, and terminates with `[DONE]`. Returns the conn.
   """
   @spec stream(Plug.Conn.t(), module(), Request.t(), map()) :: Plug.Conn.t()
   def stream(conn, adapter, %Request{} = req, upstream_body) do
@@ -36,128 +26,139 @@ defmodule ExLiteLLM.Core.Streaming do
     ExLiteLLM.Proxy.MetricsPlug.tag(target: "native:#{req.provider}")
 
     with {:ok, headers} <- adapter.validate_environment(req, %{}) do
-      url = adapter.get_complete_url(req)
-      chunk_id = "chatcmpl-" <> rand()
-      created = System.system_time(:second)
-
-      conn =
-        conn
-        |> put_resp_content_type("text/event-stream")
-        |> put_resp_header("cache-control", "no-cache")
-        |> send_chunked(200)
-
       state = %{
         conn: conn,
         adapter: adapter,
         req: req,
-        chunk_id: chunk_id,
-        created: created,
+        chunk_id: "chatcmpl-" <> rand(),
+        created: System.system_time(:second),
         buffer: "",
-        finished: false
+        finished: false,
+        emit: :openai,
+        sse_started: false,
+        status: nil,
+        error_buf: ""
       }
 
-      final = run_stream(url, headers, upstream_body, req, state)
-      final |> finalize() |> ExLiteLLM.Proxy.MetricsPlug.finalize()
+      case upstream_stream(adapter.get_complete_url(req), headers, upstream_body, req, state) do
+        {:ok, final} ->
+          final |> finalize_openai() |> ExLiteLLM.Proxy.MetricsPlug.finalize()
+
+        {:error, %Error{} = e, %{sse_started: true} = st} ->
+          send_error_frame(st.conn, e)
+
+        {:error, %Error{} = e, _} ->
+          send_error(conn, e)
+      end
     else
       {:error, %Error{} = e} -> send_error(conn, e)
     end
   end
 
   @doc """
-  Stream a chat completion to the client as **Anthropic SSE** (message_start →
-  content_block_delta… → message_delta → message_stop) while the upstream is an
-  OpenAI-family provider. Used by the /v1/messages endpoint when a non-claude
-  deployment serves an Anthropic-SDK client (e.g. Claude Code on a groq/openai
-  model).
+  Stream a chat completion to the client as **Anthropic SSE**.
+
+  Content blocks are opened lazily (`thinking` / `text` / `tool_use`) so
+  Groq gpt-oss reasoning and tool calls are visible to Claude Code.
   """
   @spec stream_anthropic(Plug.Conn.t(), module(), Request.t(), map(), String.t()) :: Plug.Conn.t()
   def stream_anthropic(conn, adapter, %Request{} = req, upstream_body, requested_model) do
-    alias ExLiteLLM.Anthropic.Translate
-
     ExLiteLLM.Proxy.MetricsPlug.defer()
     ExLiteLLM.Proxy.MetricsPlug.tag(target: "native:#{req.provider}")
 
     with {:ok, headers} <- adapter.validate_environment(req, %{}) do
-      url = adapter.get_complete_url(req)
-
-      conn =
-        conn
-        |> put_resp_content_type("text/event-stream")
-        |> put_resp_header("cache-control", "no-cache")
-        |> send_chunked(200)
-
-      # Anthropic clients expect the preamble before any delta.
-      conn =
-        Enum.reduce(Translate.stream_preamble(requested_model), conn, fn frame, acc ->
-          case chunk(acc, frame) do
-            {:ok, c} -> c
-            {:error, _} -> acc
-          end
-        end)
-
       state = %{
         conn: conn,
         adapter: adapter,
         req: req,
         buffer: "",
         finished: false,
-        finish_reason: nil,
-        usage: nil,
-        emit: :anthropic
+        emit: :anthropic,
+        anth: AnthropicStream.new(requested_model),
+        sse_started: false,
+        status: nil,
+        error_buf: ""
       }
 
-      final = run_stream(url, headers, upstream_body, req, state)
+      case upstream_stream(adapter.get_complete_url(req), headers, upstream_body, req, state) do
+        {:ok, final} ->
+          final = flush_anthropic_close(final)
+          ExLiteLLM.Proxy.MetricsPlug.finalize(final.conn)
 
-      # Closing events with the finish_reason/usage gathered from the stream.
-      conn =
-        Enum.reduce(
-          Translate.stream_closing(final[:finish_reason], final[:usage]),
-          final.conn,
-          fn frame, acc ->
-            case chunk(acc, frame) do
-              {:ok, c} -> c
-              {:error, _} -> acc
-            end
-          end
-        )
+        {:error, %Error{} = e, %{sse_started: true} = st} ->
+          _ = chunk_frame(st.conn, Translate.stream_error(e.type, e.message))
+          ExLiteLLM.Proxy.MetricsPlug.finalize(st.conn)
 
-      ExLiteLLM.Proxy.MetricsPlug.finalize(conn)
+        {:error, %Error{} = e, _} ->
+          send_error(conn, e)
+      end
     else
       {:error, %Error{} = e} -> send_error(conn, e)
     end
   end
 
-  # --- upstream streaming via Req ---
+  # --- upstream via Finch (status before client SSE) ---
 
-  defp run_stream(url, headers, body, %Request{litellm_params: lp}, state) do
+  defp upstream_stream(url, headers, body, %Request{litellm_params: lp}, state) do
     timeout = stream_timeout(lp)
+    header_list = Enum.map(headers, fn {k, v} -> {to_string(k), to_string(v)} end)
+    payload = if is_binary(body), do: body, else: Jason.encode!(body)
+    request = Finch.build(:post, url, header_list, payload)
 
-    # Seed the per-call streaming state before Req's into/2 callback fires; the
-    # callback can only thread {req, resp}, so our mutable frame state lives in
-    # the process dictionary (each request runs in its own process).
-    state_ref_put(Map.put_new(state, :error, nil))
+    case Finch.stream(request, ExLiteLLM.HTTP.finch(), state, &finch_step/2, receive_timeout: timeout) do
+      {:ok, %{status: status} = acc} when status in 200..299 ->
+        {:ok, acc}
 
-    result =
-      Req.post(
-        url,
-        [
-          headers: Map.to_list(headers),
-          json: body,
-          receive_timeout: timeout,
-          into: fn {:data, data}, {req, resp} ->
-            state_ref_put(consume(state_ref_get(), data))
-            {:cont, {req, resp}}
-          end
-        ] ++ ExLiteLLM.HTTP.stream_opts()
-      )
+      {:ok, %{status: status} = acc} when is_integer(status) ->
+        {:error, adapter_error(acc.adapter, status, acc.error_buf), acc}
 
-    case result do
-      {:ok, _resp} -> state_ref_get()
-      {:error, exc} -> %{state_ref_get() | error: stream_exc(exc)}
+      {:ok, acc} ->
+        {:error, Error.new(502, "upstream stream failed: no status", type: "api_error"), acc}
+
+      {:error, exc} ->
+        {:error, stream_exc(exc), state}
     end
   end
 
-  # Feed a raw byte blob into the SSE line parser, emitting OpenAI frames.
+  defp finch_step({:status, status}, acc), do: %{acc | status: status}
+  defp finch_step({:headers, _}, acc), do: acc
+  defp finch_step({:trailers, _}, acc), do: acc
+
+  defp finch_step({:data, data}, acc) do
+    if acc.status in 200..299 do
+      acc
+      |> maybe_start_sse()
+      |> consume(data)
+    else
+      %{acc | error_buf: acc.error_buf <> data}
+    end
+  end
+
+  defp maybe_start_sse(%{sse_started: true} = acc), do: acc
+
+  defp maybe_start_sse(%{emit: :anthropic} = acc) do
+    conn =
+      acc.conn
+      |> put_resp_content_type("text/event-stream")
+      |> put_resp_header("cache-control", "no-cache")
+      |> send_chunked(200)
+
+    {anth, frames} = AnthropicStream.preamble(acc.anth)
+    conn = write_frames(conn, frames)
+    %{acc | conn: conn, anth: anth, sse_started: true}
+  end
+
+  defp maybe_start_sse(acc) do
+    conn =
+      acc.conn
+      |> put_resp_content_type("text/event-stream")
+      |> put_resp_header("cache-control", "no-cache")
+      |> send_chunked(200)
+
+    %{acc | conn: conn, sse_started: true}
+  end
+
+  # Feed a raw byte blob into the SSE line parser.
   defp consume(state, data) do
     {events, rest} = split_sse(state.buffer <> data)
     state = %{state | buffer: rest}
@@ -182,27 +183,16 @@ defmodule ExLiteLLM.Core.Streaming do
 
   defp emit(state, :done), do: %{state | finished: true}
 
-  # Anthropic-emit mode: text deltas become content_block_delta events; the
-  # finish/usage are captured for the closing message_delta frame.
   defp emit(%{emit: :anthropic} = state, chunk) when is_map(chunk) do
-    state = %{
+    {anth, frames} = AnthropicStream.push(state.anth, chunk)
+    conn = write_frames(state.conn, frames)
+
+    %{
       state
-      | finish_reason: chunk.finish_reason || state[:finish_reason],
-        usage: chunk.usage || state[:usage],
-        finished: chunk.is_finished || state.finished
+      | anth: anth,
+        conn: conn,
+        finished: chunk[:is_finished] || state.finished
     }
-
-    if chunk.text in [nil, ""] do
-      state
-    else
-      frame = ExLiteLLM.Anthropic.Translate.stream_text_delta(chunk.text)
-      ExLiteLLM.Proxy.MetricsPlug.add_resp_bytes(byte_size(frame))
-
-      case chunk(state.conn, frame) do
-        {:ok, conn} -> %{state | conn: conn}
-        {:error, _} -> %{state | finished: true}
-      end
-    end
   end
 
   defp emit(state, chunk) when is_map(chunk) do
@@ -215,13 +205,35 @@ defmodule ExLiteLLM.Core.Streaming do
     end
   end
 
+  defp flush_anthropic_close(state) do
+    {anth, frames} = AnthropicStream.close(state.anth)
+    %{state | anth: anth, conn: write_frames(state.conn, frames)}
+  end
+
+  defp write_frames(conn, frames) do
+    Enum.reduce(frames, conn, fn frame, acc ->
+      ExLiteLLM.Proxy.MetricsPlug.add_resp_bytes(byte_size(frame))
+
+      case chunk(acc, frame) do
+        {:ok, c} -> c
+        {:error, _} -> acc
+      end
+    end)
+  end
+
+  defp chunk_frame(conn, frame) do
+    ExLiteLLM.Proxy.MetricsPlug.add_resp_bytes(byte_size(frame))
+    chunk(conn, frame)
+  end
+
   # --- OpenAI chunk shaping ---
 
   defp openai_chunk_frame(state, chunk) do
     delta =
       %{}
-      |> put_if(:content, blank_to_nil(chunk.text))
-      |> put_if(:tool_calls, chunk.tool_use)
+      |> put_if(:content, blank_to_nil(chunk[:text] || chunk["text"]))
+      |> put_if(:tool_calls, chunk[:tool_use] || chunk["tool_use"])
+      |> put_if(:reasoning, blank_to_nil(chunk[:reasoning] || chunk["reasoning"]))
 
     %{
       id: state.chunk_id,
@@ -230,28 +242,27 @@ defmodule ExLiteLLM.Core.Streaming do
       model: state.req.model,
       choices: [
         %{
-          index: chunk.index,
+          index: chunk[:index] || 0,
           delta: delta,
-          finish_reason: chunk.finish_reason
+          finish_reason: chunk[:finish_reason]
         }
       ]
     }
-    |> maybe_usage(chunk.usage)
+    |> maybe_usage(chunk[:usage])
   end
 
   defp maybe_usage(frame, nil), do: frame
   defp maybe_usage(frame, usage), do: Map.put(frame, :usage, usage)
 
-  defp finalize(%{error: %Error{} = e, conn: conn}), do: send_error_frame(conn, e)
+  defp finalize_openai(%{error: %Error{} = e, conn: conn}), do: send_error_frame(conn, e)
 
-  defp finalize(state) do
+  defp finalize_openai(state) do
     {:ok, conn} = chunk(state.conn, "data: [DONE]\n\n")
     conn
   end
 
   # --- SSE parsing ---
 
-  # Split a buffer into complete SSE events (separated by blank lines) + remainder.
   defp split_sse(buffer) do
     parts = String.split(buffer, ~r/\r?\n\r?\n/)
 
@@ -261,7 +272,6 @@ defmodule ExLiteLLM.Core.Streaming do
     end
   end
 
-  # An SSE event may have multiple `data:` lines; join them, strip the prefix.
   defp parse_event(event) do
     data =
       event
@@ -284,12 +294,28 @@ defmodule ExLiteLLM.Core.Streaming do
     end
   end
 
-  # --- error paths ---
+  defp adapter_error(adapter, status, buf) do
+    body =
+      case Jason.decode(buf) do
+        {:ok, decoded} -> decoded
+        _ -> buf
+      end
+
+    adapter.get_error_class(status, body, %{})
+  end
 
   defp send_error(conn, %Error{} = e) do
     conn
     |> put_resp_content_type("application/json")
-    |> send_resp(e.status, Jason.encode!(Error.to_body(e)))
+    |> send_resp(e.status, Jason.encode!(anthropic_or_openai(conn, e)))
+  end
+
+  defp anthropic_or_openai(conn, %Error{} = e) do
+    if String.contains?(conn.request_path || "", "/messages") do
+      %{"type" => "error", "error" => %{"type" => e.type, "message" => e.message}}
+    else
+      Error.to_body(e)
+    end
   end
 
   defp send_error_frame(conn, %Error{} = e) do
@@ -297,8 +323,6 @@ defmodule ExLiteLLM.Core.Streaming do
     {:ok, conn} = chunk(conn, "data: [DONE]\n\n")
     conn
   end
-
-  # --- helpers ---
 
   defp put_if(map, _key, nil), do: map
   defp put_if(map, key, value), do: Map.put(map, key, value)
@@ -317,9 +341,4 @@ defmodule ExLiteLLM.Core.Streaming do
     do: Error.new(502, "upstream stream failed: #{inspect(other)}", type: "api_error")
 
   defp rand, do: 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
-
-  # Per-call streaming state carried across Req's into/2 callback via the
-  # process dictionary (each request runs in its own process).
-  defp state_ref_get, do: Process.get(:exll_stream_state)
-  defp state_ref_put(state), do: Process.put(:exll_stream_state, state)
 end

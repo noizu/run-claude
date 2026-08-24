@@ -1,6 +1,8 @@
-# Vendored third-party repos are ignored, EXCEPT our own ex-litellm source.
+# Vendored third-party repos are ignored, EXCEPT first-party gateways.
 repos/*
 !repos/ex-litellm/
+!repos/go-litellm/
+run_claude/bin/go-litellm
 repos/.claude
 .coverage
 htmlcov

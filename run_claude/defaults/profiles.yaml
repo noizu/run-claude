@@ -56,15 +56,18 @@ groq-pro:
   sonnet_model: "groq/sonnet"
   haiku_model: "groq/haiku"
   extended:
-    - "groq-kimi-k2"
-    - "groq-llama-4-scout"
-    - "groq-llama-4-maverick"
-    - "groq-qwen3-32b"
-    - "groq-llama-3.3-70b"
-    - "groq-llama-3.1-8b"
+    - "groq/opus[1m]"
+    - "groq/sonnet[1m]"
+    - "groq/haiku[1m]"
+    - "groq-compound"
+    - "groq-compound-mini"
+    - "groq-qwen3.6-27b"
+    - "groq-gpt-oss-20b"
+    - "groq-minimax-m2.7"
 
 
 # Z.AI Subscription - GLM with thinking tiers
+# Requires: ZAI_SUB_KEY; Tyna copies also need ZAI_SUB_KEY_TYNA
 zai-pro:
   name: "Zai Subscription"
   opus_model: "zai/opus"
@@ -74,6 +77,34 @@ zai-pro:
     - "zai/opus[1m]"
     - "zai/sonnet[1m]"
     - "zai/haiku[1m]"
+    - "zai-tyna/opus"
+    - "zai-tyna/opus[1m]"
+    - "zai-tyna/sonnet"
+    - "zai-tyna/sonnet[1m]"
+    - "zai-tyna/haiku"
+    - "zai-tyna/haiku[1m]"
+
+# Wafer Serverless — Kimi-K3 opus, GLM-5.2 sonnet, DeepSeek V4 Flash Fast haiku
+# Requires: WAFER_AI_API_KEY
+wafer:
+  name: "Wafer Serverless"
+  opus_model: "wafer/opus[1m]"
+  sonnet_model: "wafer/sonnet[1m]"
+  haiku_model: "wafer/haiku"
+  extended:
+    - "wafer/opus"
+    - "wafer/sonnet"
+    - "wafer/haiku[1m]"
+    - "WAFER_GLM52"
+    - "WAFER_GLM52[1m]"
+    - "WAFER_KIMI_K3"
+    - "WAFER_KIMI_K3[1m]"
+    - "WAFER_KIMI_K26"
+    - "WAFER_KIMI_K26[1m]"
+    - "WAFER_QWEN35_397B"
+    - "WAFER_QWEN35_397B[1m]"
+    - "WAFER_DS_V4_FLASH_FAST"
+    - "WAFER_DS_V4_FLASH_FAST[1m]"
 
 
 # Claude Plan - OAuth Pass-through (Pro/Max subscription)
@@ -101,6 +132,20 @@ claude-plan:
     - "zai/opus[1m]"
     - "zai/sonnet[1m]"
     - "zai/haiku[1m]"
+    - "zai-tyna/opus"
+    - "zai-tyna/opus[1m]"
+    - "zai-tyna/sonnet"
+    - "zai-tyna/sonnet[1m]"
+    - "zai-tyna/haiku"
+    - "zai-tyna/haiku[1m]"
+    - "wafer/opus"
+    - "wafer/sonnet"
+    - "wafer/haiku"
+    - "WAFER_GLM52"
+    - "WAFER_KIMI_K3"
+    - "WAFER_KIMI_K26"
+    - "WAFER_QWEN35_397B"
+    - "WAFER_DS_V4_FLASH_FAST"
 
 # glm 4.7 group
 fast-glm:
