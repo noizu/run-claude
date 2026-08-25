@@ -2459,3 +2459,154 @@ model_list:
       description: "Ollama DeepSeek Coder V2 16B local"
       strengths: "Code-focused, small, private"
       weaknesses: "Limited general ability"
+
+  # ==========================================================================
+  # OpenRouter — Free Tier
+  # ==========================================================================
+  # Requires: OPENROUTER_API_KEY
+  # Free-tier catalog (":free" SKUs unless noted). Includes chat, coding,
+  # embedding, rerank, safety, and TTS models exposed via OpenRouter.
+
+  - model_name: "openrouter/lfm-2.5-embedding-350m"
+    litellm_params:
+      model: openrouter/liquid/lfm-2.5-embedding-350m:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "Liquid LFM 2.5 Embedding 350M (free tier) — text embedding"
+
+  - model_name: "openrouter/dots-3-note-preview"
+    litellm_params:
+      model: openrouter/dots-studio/dots-3-note-preview:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "Dots 3 Note Preview (free tier) — text/multimodal MoE LLM"
+
+  - model_name: "openrouter/flux-tts"
+    litellm_params:
+      model: openrouter/deepgram/flux-tts:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "Deepgram Flux TTS (free tier) — text-to-speech"
+
+  - model_name: "openrouter/lfm-2.5-2.6b"
+    litellm_params:
+      model: openrouter/liquid/lfm-2.5-2.6b:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "Liquid LFM 2.5 2.6B (free tier) — text reasoning LLM"
+
+  - model_name: "openrouter/nemotron-3.5-lightning"
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3.5-lightning:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "NVIDIA Nemotron 3.5 Lightning (free tier) — text MoE LLM / agentic"
+
+  - model_name: "openrouter/inkling-small"
+    litellm_params:
+      model: openrouter/thinkingmachines/inkling-small:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "Thinking Machines Inkling Small (free tier) — multimodal MoE LLM"
+
+  - model_name: "openrouter/s2.1-pro-free"
+    litellm_params:
+      model: openrouter/fish-audio/s2.1-pro-free:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "Fish Audio S2.1 Pro (free tier) — text-to-speech"
+
+  - model_name: "openrouter/laguna-s-2.1"
+    litellm_params:
+      model: openrouter/poolside/laguna-s-2.1:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "Poolside Laguna S 2.1 (free tier) — coding/agentic MoE LLM"
+
+  - model_name: "openrouter/inkling"
+    litellm_params:
+      model: openrouter/thinkingmachines/inkling:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "Thinking Machines Inkling (free tier) — multimodal MoE LLM"
+
+  - model_name: "openrouter/nemotron-3-embed-1b"
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3-embed-1b:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "NVIDIA Nemotron 3 Embed 1B (free tier) — text embedding"
+
+  - model_name: "openrouter/laguna-xs-2.1"
+    litellm_params:
+      model: openrouter/poolside/laguna-xs-2.1:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "Poolside Laguna XS 2.1 (free tier) — coding/agentic MoE LLM"
+
+  - model_name: "openrouter/north-mini-code"
+    litellm_params:
+      model: openrouter/cohere/north-mini-code:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "Cohere North Mini Code (free tier) — coding/agentic MoE LLM"
+
+  - model_name: "openrouter/glm-5.2-free"
+    litellm_params:
+      model: openrouter/z-ai/glm-5.2:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "Z.AI GLM 5.2 (free tier) — text reasoning/coding LLM"
+
+  - model_name: "openrouter/llama-nemotron-rerank-vl-1b-v2"
+    litellm_params:
+      model: openrouter/nvidia/llama-nemotron-rerank-vl-1b-v2:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "NVIDIA Llama Nemotron Rerank VL 1B v2 (free tier) — multimodal reranker"
+
+  - model_name: "openrouter/nemotron-3.5-content-safety"
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3.5-content-safety:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "NVIDIA Nemotron 3.5 Content Safety (free tier) — multimodal safety classifier"
+
+  - model_name: "openrouter/nemotron-3-ultra"
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "NVIDIA Nemotron 3 Ultra 550B A55B (free tier) — frontier-reasoning MoE LLM"
+
+  - model_name: "openrouter/minimax-m3"
+    litellm_params:
+      model: openrouter/minimax/minimax-m3:free
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "MiniMax M3 (free tier) — multimodal LLM"
+
+  - model_name: "openrouter/ox-alpha"
+    litellm_params:
+      model: openrouter/stealth/ox-alpha
+      api_key: os.environ/OPENROUTER_API_KEY
+    metadata:
+      provider: openrouter
+      description: "Stealth Ox Alpha — coding LLM (no :free SKU known)"

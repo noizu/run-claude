@@ -171,6 +171,31 @@ alibaba:
     - "alibaba/glm-5"
     - "alibaba/minimax-m2.5"
 
+# OpenRouter — Free Tier models
+# Requires: OPENROUTER_API_KEY
+# No tier mappings (chat/coding/embed/TTS mix; pick per-model via extended).
+openrouter:
+  name: "OpenRouter (Free Tier)"
+  extended:
+    - "openrouter/lfm-2.5-embedding-350m"
+    - "openrouter/dots-3-note-preview"
+    - "openrouter/flux-tts"
+    - "openrouter/lfm-2.5-2.6b"
+    - "openrouter/nemotron-3.5-lightning"
+    - "openrouter/inkling-small"
+    - "openrouter/s2.1-pro-free"
+    - "openrouter/laguna-s-2.1"
+    - "openrouter/inkling"
+    - "openrouter/nemotron-3-embed-1b"
+    - "openrouter/laguna-xs-2.1"
+    - "openrouter/north-mini-code"
+    - "openrouter/glm-5.2-free"
+    - "openrouter/llama-nemotron-rerank-vl-1b-v2"
+    - "openrouter/nemotron-3.5-content-safety"
+    - "openrouter/nemotron-3-ultra"
+    - "openrouter/minimax-m3"
+    - "openrouter/ox-alpha"
+
 # Claude Plan - OAuth Pass-through (Pro/Max subscription)
 # Anthropic models go directly to api.anthropic.com via front proxy.
 # Non-Anthropic models route through LiteLLM for model translation.
