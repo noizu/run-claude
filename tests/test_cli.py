@@ -15,6 +15,7 @@ class TestMain:
         assert result == 0
         captured = capsys.readouterr()
         assert "usage:" in captured.out.lower() or "run-claude" in captured.out
+        assert "keys" in captured.out
 
     def test_invalid_command_exits_with_error(self, capsys):
         """Running with invalid command should exit with error."""

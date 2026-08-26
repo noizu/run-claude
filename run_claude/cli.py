@@ -123,6 +123,33 @@ def main() -> int:
     wipe_p = models_sub.add_parser("wipe", help="Delete all models from proxy database")
     wipe_p.add_argument("--force", "-f", action="store_true", help="Skip confirmation prompt")
 
+    # keys - runtime named-key registry on go-litellm
+    keys_p = subparsers.add_parser("keys", help="Runtime provider key swap (go-litellm)")
+    keys_sub = keys_p.add_subparsers(dest="keys_command")
+    keys_sub.add_parser("list", help="List named keys and live model bindings")
+    add_key_p = keys_sub.add_parser("add", help="Add or replace a named key")
+    add_key_p.add_argument("name", help="Short name (e.g. tyna, extra)")
+    add_key_p.add_argument(
+        "--env", "--from-env", dest="env",
+        help="Read the value from this environment variable (and .secrets)",
+    )
+    add_key_p.add_argument(
+        "--value",
+        help="Literal key value (prefer --env; the value is not shown later)",
+    )
+    del_key_p = keys_sub.add_parser("delete", help="Remove a dynamically added named key")
+    del_key_p.add_argument("name", help="Named key to delete")
+    switch_p = keys_sub.add_parser(
+        "switch",
+        help="Bind a model family (or model) to a named key, e.g. switch zai tyna",
+    )
+    switch_p.add_argument("target", nargs="?", help="Family or model (e.g. zai, zai/opus)")
+    switch_p.add_argument("key", nargs="?", help="Named key (e.g. tyna)")
+    switch_p.add_argument(
+        "--using",
+        help="Rebind every model currently using this named key",
+    )
+
     # chat - directly exercise an enabled model through the LiteLLM proxy
     chat_p = subparsers.add_parser("chat", help="Chat directly with an enabled model")
     chat_p.add_argument("model", nargs="?", help="Enabled model name (prompts when omitted)")
@@ -197,6 +224,8 @@ def main() -> int:
         return cmd_profiles(args)
     elif args.command == "models":
         return cmd_models(args)
+    elif args.command == "keys":
+        return cmd_keys(args)
     elif args.command == "chat":
         return cmd_chat(args)
     elif args.command == "with":
@@ -1127,6 +1156,188 @@ def cmd_models_avail(args: argparse.Namespace) -> int:
 
     print(f"\n{len(records)} model(s) enabled")
     return 0
+
+
+def cmd_keys(args: argparse.Namespace) -> int:
+    """Handle runtime named-key commands against go-litellm."""
+    from . import proxy, state
+    from .keys import (
+        KeyAPIUnsupported,
+        canonical_key_name,
+        env_for_name,
+        format_listing,
+        predefined_keys,
+    )
+
+    proxy.inject_secrets_into_env()
+    command = getattr(args, "keys_command", None) or "list"
+
+    def _need_proxy() -> bool:
+        if not proxy.is_proxy_running():
+            print("Proxy is not running — start it with: run-claude proxy start", file=sys.stderr)
+            return False
+        return True
+
+    try:
+        if command == "list":
+            local = predefined_keys()
+            payload = None
+            if proxy.is_proxy_running():
+                try:
+                    proxy.ensure_named_keys()
+                    payload = proxy.list_named_keys()
+                except KeyAPIUnsupported as exc:
+                    print(str(exc), file=sys.stderr)
+                except Exception as exc:
+                    print(f"Could not read live keys: {exc}", file=sys.stderr)
+            else:
+                print("Proxy is not running; showing local predefined keys only.", file=sys.stderr)
+            print(format_listing(payload, local=local))
+            st = state.load_state()
+            if st.key_families:
+                print("\nPersisted family bindings:")
+                for fam, key in sorted(st.key_families.items()):
+                    print(f"  {fam} -> {key}")
+            return 0
+
+        if command == "add":
+            if not _need_proxy():
+                return 1
+            name = canonical_key_name(args.name)
+            env = getattr(args, "env", None)
+            value = getattr(args, "value", None)
+            if not env and not value:
+                if not sys.stdin.isatty():
+                    print("Provide --env VAR or --value when stdin is not a TTY.", file=sys.stderr)
+                    return 2
+                import getpass
+                value = getpass.getpass(f"API key for {name}: ").strip()
+                if not value:
+                    print("Empty key; aborted.", file=sys.stderr)
+                    return 1
+            if env and not os.environ.get(env):
+                print(f"Environment variable {env} is empty (check .secrets).", file=sys.stderr)
+                return 1
+            proxy.upsert_named_key(name, env=env, api_key=value or os.environ.get(env or ""))
+            if env:
+                st = state.load_state()
+                st.named_key_envs[name] = env
+                state.save_state(st)
+            print(f"Stored named key {name}" + (f" from {env}" if env else ""))
+            return 0
+
+        if command == "delete":
+            if not _need_proxy():
+                return 1
+            name = canonical_key_name(args.name)
+            proxy.delete_named_key(name)
+            st = state.load_state()
+            st.named_key_envs.pop(name, None)
+            state.save_state(st)
+            print(f"Deleted named key {name}")
+            return 0
+
+        if command == "switch":
+            if not _need_proxy():
+                return 1
+            proxy.ensure_named_keys()
+            target = getattr(args, "target", None)
+            key = getattr(args, "key", None)
+            using = getattr(args, "using", None)
+            if using and not key:
+                key = target
+                target = None
+            if (not using and (not target or not key)) and sys.stdin.isatty():
+                target, key = _prompt_key_switch(target, key)
+                if not target or not key:
+                    return 1
+            if not key or (not target and not using):
+                print("Usage: run-claude keys switch <target> <key>", file=sys.stderr)
+                print("Example: run-claude keys switch zai tyna", file=sys.stderr)
+                return 2
+            key = canonical_key_name(key)
+            env = env_for_name(key)
+            if env and os.environ.get(env):
+                proxy.upsert_named_key(key, env=env, api_key=os.environ[env])
+            result = proxy.switch_named_key(key, target=target, using=using)
+            updated = result.get("updated") or []
+            print(f"Bound {key} on {len(updated)} model(s)")
+            for name in updated:
+                print(f"  {name}")
+            if not updated:
+                print("No matching models. Is the family registered? Try: run-claude models enabled")
+            return 0
+
+        print("Usage: run-claude keys {list|add|delete|switch}")
+        return 1
+    except KeyAPIUnsupported as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    except Exception as exc:
+        print(f"keys command failed: {exc}", file=sys.stderr)
+        return 1
+
+
+def _prompt_key_switch(target: str | None, key: str | None) -> tuple[str | None, str | None]:
+    """Interactive family/key picker for `keys switch`."""
+    from . import proxy
+    from .keys import family_of
+
+    try:
+        listing = proxy.list_named_keys()
+    except Exception as exc:
+        print(f"Could not list keys: {exc}", file=sys.stderr)
+        return None, None
+
+    names = [item.get("name") for item in listing.get("keys", []) if item.get("configured")]
+    families: list[str] = []
+    seen: set[str] = set()
+    for row in listing.get("bindings", []):
+        model = row.get("model_name") or ""
+        fam = family_of(model)
+        if fam and fam not in seen:
+            seen.add(fam)
+            families.append(fam)
+
+    if not target:
+        if not families:
+            print("No live model families to switch.", file=sys.stderr)
+            return None, None
+        print("Families:")
+        for i, fam in enumerate(families, 1):
+            print(f"  {i}) {fam}")
+        try:
+            selection = input(f"Family [1-{len(families)} or name]: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return None, None
+        if not selection:
+            target = families[0]
+        elif selection.isdigit() and 1 <= int(selection) <= len(families):
+            target = families[int(selection) - 1]
+        else:
+            target = selection
+
+    if not key:
+        if not names:
+            print("No configured named keys. Add one with: run-claude keys add", file=sys.stderr)
+            return None, None
+        print("Keys:")
+        for i, name in enumerate(names, 1):
+            print(f"  {i}) {name}")
+        try:
+            selection = input(f"Key [1-{len(names)} or name]: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return None, None
+        if not selection:
+            key = names[0]
+        elif selection.isdigit() and 1 <= int(selection) <= len(names):
+            key = names[int(selection) - 1]
+        else:
+            key = selection
+
+    return target, key
 
 
 def cmd_chat(args: argparse.Namespace) -> int:

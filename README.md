@@ -200,6 +200,7 @@ One line each — `run-claude <cmd> --help` for the rest.
 | Database | `db start\|stop\|status\|migrate` (TimescaleDB :5433) |
 | Profiles | `profiles list\|show <name>\|install` |
 | Models | `models list`, `models enabled [--names-only]`, `models show <name>`, `models avail [--json\|--short]`, `models wipe [--force]` |
+| Keys | `keys list`, `keys add <name> [--env VAR]`, `keys switch zai tyna`, `keys delete <name>` |
 | Chat | `chat [model] [--system S] [--prompt P] [--timeout N]` |
 | One-shot | `with <profile> [cmd…] [--refresh]`; global `-x` / `-xx` shorthands |
 | Secrets | `secrets init [--generate]`, `secrets path`, `secrets export` |

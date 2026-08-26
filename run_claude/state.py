@@ -70,6 +70,12 @@ class State:
     model_refcounts: dict[str, int] = field(default_factory=dict)
     model_leases: dict[str, float] = field(default_factory=dict)  # model -> delete_after epoch
     last_janitor_run: float = 0.0
+    # family ("zai") → named key ("tyna"); re-applied after proxy restart
+    key_families: dict[str, str] = field(default_factory=dict)
+    # exact model_name → named key (overrides family)
+    key_bindings: dict[str, str] = field(default_factory=dict)
+    # extra named keys backed by env vars (survive restart)
+    named_key_envs: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -78,6 +84,9 @@ class State:
             "model_refcounts": self.model_refcounts,
             "model_leases": self.model_leases,
             "last_janitor_run": self.last_janitor_run,
+            "key_families": self.key_families,
+            "key_bindings": self.key_bindings,
+            "named_key_envs": self.named_key_envs,
         }
 
     @classmethod
@@ -92,6 +101,9 @@ class State:
             model_refcounts=data.get("model_refcounts", {}),
             model_leases=data.get("model_leases", {}),
             last_janitor_run=data.get("last_janitor_run", 0.0),
+            key_families=data.get("key_families", {}) or {},
+            key_bindings=data.get("key_bindings", {}) or {},
+            named_key_envs=data.get("named_key_envs", {}) or {},
         )
 
 

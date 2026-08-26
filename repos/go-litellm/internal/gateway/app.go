@@ -142,6 +142,15 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodGet && (p == "/model/info" || p == "/v1/model/info"):
 		a.authed(w, r, a.modelInfo)
 
+	case r.Method == http.MethodGet && (p == "/keys" || p == "/v1/keys"):
+		a.authed(w, r, a.keysList)
+	case r.Method == http.MethodPost && (p == "/keys" || p == "/v1/keys"):
+		a.authed(w, r, a.keysPut)
+	case r.Method == http.MethodPost && (p == "/keys/delete" || p == "/v1/keys/delete"):
+		a.authed(w, r, a.keysDelete)
+	case r.Method == http.MethodPost && (p == "/keys/switch" || p == "/v1/keys/switch"):
+		a.authed(w, r, a.keysSwitch)
+
 	case r.Method == http.MethodGet && p == "/front/rules":
 		a.gated(w, r, a.getRules)
 	case r.Method == http.MethodPut && p == "/front/rules":

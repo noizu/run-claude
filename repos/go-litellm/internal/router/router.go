@@ -10,6 +10,7 @@ import (
 
 	"github.com/noizu-labs/go-litellm/internal/config"
 	"github.com/noizu-labs/go-litellm/internal/jsonx"
+	"github.com/noizu-labs/go-litellm/internal/keys"
 )
 
 // Router holds the mutable model list and selects deployments.
@@ -18,14 +19,28 @@ type Router struct {
 	deployments []map[string]any
 	cfg         *config.Config
 	cooldowns   *CooldownCache
+	Keys        *keys.Store
+}
+
+// BindSpec selects which deployments a key switch applies to.
+type BindSpec struct {
+	Target string // family ("zai") or exact model ("zai/opus")
+	Prefix string // explicit prefix ("zai/")
+	Using  string // current api_key_name
 }
 
 // New seeds from config.model_list.
 func New(cfg *config.Config) *Router {
-	r := &Router{cfg: cfg, cooldowns: NewCooldownCache()}
+	ks := keys.New()
+	ks.SeedFromEnv()
+	r := &Router{cfg: cfg, cooldowns: NewCooldownCache(), Keys: ks}
 	if cfg != nil {
 		for _, d := range cfg.SnapshotModelList() {
-			r.deployments = append(r.deployments, ensureID(jsonx.Clone(d)))
+			stored := ensureID(jsonx.Clone(d))
+			if lp := jsonx.Nested(stored, "litellm_params"); lp != nil {
+				ks.InferName(lp)
+			}
+			r.deployments = append(r.deployments, stored)
 		}
 	}
 	return r
@@ -90,15 +105,83 @@ func (r *Router) Select(modelName string) (map[string]any, bool) {
 func (r *Router) Lookup(modelName string) map[string]any {
 	d, ok := r.Select(modelName)
 	if ok {
-		return d
+		return r.applyKey(d)
 	}
 	// Claude Code v2.1.116+ appends "[1m]"; groq-pro used to miss those aliases.
 	if strings.HasSuffix(modelName, "[1m]") {
 		if d, ok = r.Select(strings.TrimSuffix(modelName, "[1m]")); ok {
-			return d
+			return r.applyKey(d)
 		}
 	}
 	return nil
+}
+
+// applyKey clones a deployment with the named key resolved into api_key.
+func (r *Router) applyKey(d map[string]any) map[string]any {
+	if d == nil || r.Keys == nil {
+		return d
+	}
+	lp := jsonx.Nested(d, "litellm_params")
+	if lp == nil {
+		return d
+	}
+	k := r.Keys.Resolve(lp)
+	if k == "" || k == jsonx.Str(lp, "api_key") {
+		return d
+	}
+	out := jsonx.Clone(d)
+	lp2 := jsonx.Clone(lp)
+	lp2["api_key"] = k
+	out["litellm_params"] = lp2
+	return out
+}
+
+// BindKey sets api_key_name on matching deployments. Returns model_names updated.
+func (r *Router) BindKey(spec BindSpec, keyName string) []string {
+	keyName = keys.Canonical(keyName)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var updated []string
+	for _, d := range r.deployments {
+		name := jsonx.Str(d, "model_name")
+		lp := jsonx.Nested(d, "litellm_params")
+		if lp == nil {
+			lp = map[string]any{}
+			d["litellm_params"] = lp
+		}
+		match := false
+		switch {
+		case spec.Using != "":
+			match = jsonx.Str(lp, "api_key_name") == keys.Canonical(spec.Using)
+		case spec.Prefix != "":
+			match = strings.HasPrefix(name, spec.Prefix)
+		case spec.Target != "":
+			match = keys.Matches(name, spec.Target)
+		}
+		if !match {
+			continue
+		}
+		lp["api_key_name"] = keyName
+		updated = append(updated, name)
+	}
+	return updated
+}
+
+// Bindings is the live model → key map (no secrets).
+func (r *Router) Bindings() []map[string]any {
+	var out []map[string]any
+	for _, d := range r.Deployments() {
+		lp := jsonx.Nested(d, "litellm_params")
+		out = append(out, map[string]any{
+			"model_name": jsonx.Str(d, "model_name"),
+			"model_id":   jsonx.Str(d, "model_id"),
+			"key":        jsonx.Str(lp, "api_key_name"),
+		})
+	}
+	if out == nil {
+		out = []map[string]any{}
+	}
+	return out
 }
 
 // Add registers a deployment and assigns a model_id if absent.

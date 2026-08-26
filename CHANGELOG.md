@@ -1,6 +1,7 @@
 # Changelog — utilities/agent/run-claude
 
 ## [Unreleased]
+- Runtime provider-key swap on go-litellm: named key registry (`zai` ← `ZAI_SUB_KEY`, `tyna` ← `ZAI_SUB_KEY_TYNA`) plus `GET/POST /keys`, `POST /keys/switch`. `run-claude keys switch zai tyna` rebinds the `zai/*` family to the Tyna subscription without changing model ids; `keys add` / `keys list` / chat `/key` included. Bindings persist across proxy restarts.
 - Profiles that omit `fable_model` export `ANTHROPIC_DEFAULT_FABLE_MODEL` as the opus model so Claude Code's fable alias still resolves.
 - Alibaba Token Plan (`QWEN_SUB_KEY`, Anthropic-compat `https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic`): `alibaba` profile tiers fable=`kimi-k3`, opus=`qwen3.8-max`, sonnet=`glm-5.2`, haiku=`qwen3.6-flash`. Chat catalog covers Qwen 3.8/3.7/3.6, DeepSeek V4 Pro/Flash, Kimi K3/K2.7/2.6/2.5, GLM-5.2/5.1/5, MiniMax-M2.5 (skips image/video/audio and Anthropic-incompatible `deepseek-v3.2`). Same set on kitchen-sink / claude-plan / all-sub / claude-enhanced. Optional `fable_model` exports as `ANTHROPIC_DEFAULT_FABLE_MODEL` (falls back to opus).
 - Wafer Serverless (`WAFER_AI_API_KEY`, `https://pass.wafer.ai`): live catalog as `WAFER_GLM52`, `WAFER_KIMI_K3`, `WAFER_KIMI_K26`, `WAFER_QWEN35_397B`, `WAFER_DS_V4_FLASH_FAST` plus `[1m]` aliases. `wafer` profile defaults: `wafer/opus[1m]` (Kimi-K3), `wafer/sonnet[1m]` (GLM-5.2), `wafer/haiku` (DeepSeek-V4-Flash-0731-Fast); same set registered on kitchen-sink / claude-plan / all-sub / claude-enhanced.

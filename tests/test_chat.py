@@ -79,6 +79,30 @@ def test_interactive_model_switch_refreshes_live_state(monkeypatch, capsys):
     assert "answer" in output
 
 
+def test_interactive_key_switch_binds_family(monkeypatch, capsys):
+    _healthy_proxy(monkeypatch, models=("zai/opus",))
+    monkeypatch.setattr(chat, "complete", lambda *a, **k: "unused")
+    calls = []
+
+    monkeypatch.setattr(chat.proxy, "ensure_named_keys", lambda: 1)
+    monkeypatch.setattr(
+        chat.proxy,
+        "switch_named_key",
+        lambda key, target=None, **kwargs: calls.append((key, target)) or {
+            "updated": ["zai/opus", "zai/haiku"],
+            "key": key,
+        },
+    )
+    inputs = iter(["/key tyna", "/exit"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(inputs))
+
+    assert chat.run_chat(model="zai/opus") == 0
+    assert calls == [("tyna", "zai")]
+    output = capsys.readouterr().out
+    assert "Bound tyna" in output
+    assert "zai/opus" in output
+
+
 def test_complete_calls_openai_compatible_endpoint(monkeypatch):
     response = Mock(status_code=200)
     response.json.return_value = {

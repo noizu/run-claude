@@ -326,6 +326,17 @@ def get_master_key() -> str:
     return DEFAULT_MASTER_KEY
 
 
+def inject_secrets_into_env() -> None:
+    """Fill os.environ with ~/.config/run-claude/.secrets without overwriting."""
+    try:
+        from .config import load_secrets
+        for key, value in load_secrets(debug=False).to_env().items():
+            if key not in os.environ:
+                os.environ[key] = value
+    except Exception:
+        pass
+
+
 def get_api_key() -> str:
     """Get API key for proxy authentication."""
     return get_master_key()
@@ -383,6 +394,7 @@ def start_front_proxy(wait: bool = True) -> bool:
         return True
 
     master_key = get_master_key()
+    inject_secrets_into_env()
     state_dir = get_state_dir()
     state_dir.mkdir(parents=True, exist_ok=True)
     log_file = state_dir / "front-proxy.log"
@@ -563,19 +575,39 @@ def _hydrate_model_dict(model_dict: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(litellm_params, dict):
         return hydrated
 
+    from .keys import canonical_key_name, env_for_name, family_of, name_from_env
+
     hydrated_params = {}
+    inferred_name: str | None = None
     for key, value in litellm_params.items():
         if isinstance(value, str) and value.startswith("os.environ/"):
             # Extract environment variable name
-            env_var = value.replace("os.environ/", "")
+            env_var = value.replace("os.environ/", "", 1)
             hydrated_value = os.environ.get(env_var)
             if hydrated_value:
                 hydrated_params[key] = hydrated_value
             else:
                 # Keep original if env var not found
                 hydrated_params[key] = value
+            if key == "api_key":
+                inferred_name = name_from_env(env_var)
         else:
             hydrated_params[key] = value
+
+    if inferred_name and not hydrated_params.get("api_key_name"):
+        hydrated_params["api_key_name"] = inferred_name
+
+    st = load_state()
+    model_name = hydrated.get("model_name") or ""
+    bound = st.key_bindings.get(model_name)
+    if not bound:
+        bound = st.key_families.get(family_of(model_name))
+    if bound:
+        bound = canonical_key_name(bound)
+        hydrated_params["api_key_name"] = bound
+        env_name = env_for_name(bound)
+        if env_name and os.environ.get(env_name):
+            hydrated_params["api_key"] = os.environ[env_name]
 
     hydrated["litellm_params"] = hydrated_params
     return hydrated
@@ -1470,6 +1502,163 @@ def add_model(model_def: dict[str, Any], debug: bool = False) -> bool:
         return False
 
 
+def _admin_request(method: str, path: str, body: dict[str, Any] | None = None, timeout: float = 10.0):
+    """Authenticated JSON request to the live gateway."""
+    if httpx is None:
+        raise RuntimeError("httpx is required")
+    return httpx.request(
+        method,
+        f"{get_proxy_url()}{path}",
+        headers={
+            "Authorization": f"Bearer {get_master_key()}",
+            "Content-Type": "application/json",
+        },
+        json=body,
+        timeout=timeout,
+    )
+
+
+def _raise_if_keys_unsupported(resp) -> None:
+    from .keys import KeyAPIUnsupported
+    if resp.status_code in (404, 405):
+        raise KeyAPIUnsupported(
+            "This gateway does not support runtime key swap. "
+            "Need go-litellm (the default). Check: run-claude proxy status"
+        )
+
+
+def list_named_keys() -> dict[str, Any]:
+    """GET /keys — named credentials + live model bindings."""
+    resp = _admin_request("GET", "/keys")
+    _raise_if_keys_unsupported(resp)
+    if resp.status_code != 200:
+        raise RuntimeError(f"GET /keys failed (HTTP {resp.status_code}): {resp.text}")
+    return resp.json()
+
+
+def upsert_named_key(name: str, *, env: str | None = None, api_key: str | None = None) -> dict[str, Any]:
+    """POST /keys — add or replace a named credential."""
+    body: dict[str, Any] = {"name": name}
+    if env:
+        body["env"] = env
+    if api_key:
+        body["api_key"] = api_key
+    resp = _admin_request("POST", "/keys", body)
+    _raise_if_keys_unsupported(resp)
+    if resp.status_code != 200:
+        raise RuntimeError(f"POST /keys failed (HTTP {resp.status_code}): {resp.text}")
+    return resp.json()
+
+
+def delete_named_key(name: str) -> dict[str, Any]:
+    """POST /keys/delete."""
+    resp = _admin_request("POST", "/keys/delete", {"name": name})
+    _raise_if_keys_unsupported(resp)
+    if resp.status_code == 404:
+        raise RuntimeError(f"Named key not found: {name}")
+    if resp.status_code != 200:
+        raise RuntimeError(f"POST /keys/delete failed (HTTP {resp.status_code}): {resp.text}")
+    return resp.json()
+
+
+def switch_named_key(
+    key: str,
+    *,
+    target: str | None = None,
+    prefix: str | None = None,
+    using: str | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """POST /keys/switch — bind a family/model to a named key."""
+    from .keys import canonical_key_name, family_of
+
+    body: dict[str, Any] = {"key": key}
+    if target:
+        body["target"] = target
+    if prefix:
+        body["prefix"] = prefix
+    if using:
+        body["using"] = using
+    resp = _admin_request("POST", "/keys/switch", body)
+    _raise_if_keys_unsupported(resp)
+    if resp.status_code != 200:
+        raise RuntimeError(f"POST /keys/switch failed (HTTP {resp.status_code}): {resp.text}")
+    payload = resp.json()
+    if persist:
+        bound = canonical_key_name(key)
+        st = load_state()
+        updated = payload.get("updated") or []
+        if using:
+            for name in updated:
+                st.key_families[family_of(name)] = bound
+                st.key_bindings.pop(name, None)
+        elif target and "/" not in target.rstrip("/"):
+            fam = target.rstrip("/")
+            st.key_families[fam] = bound
+            st.key_bindings = {
+                k: v for k, v in st.key_bindings.items() if family_of(k) != fam
+            }
+        elif target:
+            st.key_bindings[target] = bound
+        save_state(st)
+    return payload
+
+
+def ensure_named_keys(debug: bool = False) -> int:
+    """Push predefined (and persisted extra) env-backed keys into the gateway."""
+    from .keys import CANONICAL_ENV_NAMES, KeyAPIUnsupported, canonical_key_name, name_from_env
+
+    inject_secrets_into_env()
+    pushed = 0
+    to_push: list[tuple[str, str]] = []
+    for env, name in CANONICAL_ENV_NAMES.items():
+        if os.environ.get(env):
+            to_push.append((name, env))
+    st = load_state()
+    for name, env in st.named_key_envs.items():
+        if os.environ.get(env):
+            to_push.append((canonical_key_name(name), env))
+    for env, value in os.environ.items():
+        derived = name_from_env(env)
+        if derived and value:
+            to_push.append((derived, env))
+
+    seen: set[str] = set()
+    for name, env in to_push:
+        if name in seen:
+            continue
+        seen.add(name)
+        try:
+            upsert_named_key(name, env=env, api_key=os.environ.get(env))
+            pushed += 1
+        except KeyAPIUnsupported:
+            if debug:
+                print("[KEYS] gateway has no /keys API", file=sys.stderr)
+            return 0
+        except Exception as exc:
+            print(f"[KEYS] failed to upsert {name}: {exc}", file=sys.stderr)
+    return pushed
+
+
+def apply_persisted_key_bindings(debug: bool = False) -> None:
+    """Re-apply family/model key bindings after model registration."""
+    from .keys import KeyAPIUnsupported
+
+    st = load_state()
+    if not st.key_families and not st.key_bindings:
+        return
+    try:
+        for fam, key in st.key_families.items():
+            switch_named_key(key, target=fam, persist=False)
+        for model, key in st.key_bindings.items():
+            switch_named_key(key, target=model, persist=False)
+    except KeyAPIUnsupported:
+        if debug:
+            print("[KEYS] gateway has no /keys API", file=sys.stderr)
+    except Exception as exc:
+        print(f"[KEYS] failed to re-apply bindings: {exc}", file=sys.stderr)
+
+
 def delete_model(model_id: str) -> bool:
     """
     Delete a model from the proxy.
@@ -1572,6 +1761,8 @@ def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_fo
         Tuple of (added_count, skipped_count)
     """
     print(f"[ENSURE_MODELS] Processing {len(model_defs)} model(s) (force={force})", file=sys.stderr)
+    inject_secrets_into_env()
+    ensure_named_keys(debug=debug)
 
     # Log all model definitions in YAML format
     if model_defs and yaml is not None:
@@ -1614,6 +1805,7 @@ def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_fo
         else:
             failed += 1
     list_models()
+    apply_persisted_key_bindings(debug=debug)
     # Always show summary
     print(f"[SUMMARY] Added: {added}, Skipped: {skipped}, Failed: {failed}", file=sys.stderr)
 

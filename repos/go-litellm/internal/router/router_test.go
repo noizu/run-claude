@@ -40,6 +40,28 @@ func TestAddDeleteUpdate(t *testing.T) {
 	}
 }
 
+func TestBindKeyFamilyDoesNotTouchTyna(t *testing.T) {
+	r := New(nil)
+	r.Keys.Put("zai", "main", "ZAI_SUB_KEY", "env")
+	r.Keys.Put("tyna", "other", "ZAI_SUB_KEY_TYNA", "env")
+	r.Add(map[string]any{"model_name": "zai/opus", "litellm_params": map[string]any{"api_key": "main", "api_key_name": "zai"}})
+	r.Add(map[string]any{"model_name": "zai-tyna/opus", "litellm_params": map[string]any{"api_key": "other", "api_key_name": "tyna"}})
+	updated := r.BindKey(BindSpec{Target: "zai"}, "tyna")
+	if len(updated) != 1 || updated[0] != "zai/opus" {
+		t.Fatalf("%v", updated)
+	}
+	got := r.Lookup("zai/opus")
+	lp := jsonx.Nested(got, "litellm_params")
+	if jsonx.Str(lp, "api_key_name") != "tyna" || jsonx.Str(lp, "api_key") != "other" {
+		t.Fatalf("%+v", lp)
+	}
+	kept := r.Lookup("zai-tyna/opus")
+	klp := jsonx.Nested(kept, "litellm_params")
+	if jsonx.Str(klp, "api_key_name") != "tyna" {
+		t.Fatalf("tyna family clobbered: %+v", klp)
+	}
+}
+
 func TestLookupStrips1mSuffix(t *testing.T) {
 	r := New(nil)
 	r.Add(map[string]any{"model_name": "groq/opus", "litellm_params": map[string]any{"model": "groq/openai/gpt-oss-120b"}})

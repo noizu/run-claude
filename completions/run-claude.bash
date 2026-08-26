@@ -16,7 +16,7 @@ _run_claude() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
     COMPREPLY=()
 
-    local commands="enter leave janitor set-folder status env proxy watchdog db profiles models chat with install secrets"
+    local commands="enter leave janitor set-folder status env proxy watchdog db profiles models keys chat with install secrets"
     local global_flags="-V --version -d --debug -x --enhanced -xx --kitchen-sink -h --help"
 
     # Flags whose value is the next word.
@@ -133,6 +133,17 @@ _run_claude() {
                 enabled) opts="--names-only" ;;
                 avail)   opts="--json --short" ;;
                 wipe)    opts="-f --force" ;;
+            esac ;;
+        keys)
+            if [[ "$cur" != -* ]]; then
+                if ((pos == 0)); then
+                    COMPREPLY=($(compgen -W "list add delete switch" -- "$cur"))
+                fi
+                return
+            fi
+            case "${COMP_WORDS[cmd_i+1]}" in
+                add)    opts="--env --from-env --value" ;;
+                switch) opts="--using" ;;
             esac ;;
         chat)
             opts="--system --prompt --timeout"

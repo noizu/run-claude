@@ -22,6 +22,7 @@ func (a *App) snapshot() map[string]any {
 			"model":      jsonx.Str(lp, "model"),
 			"api_base":   jsonx.Str(lp, "api_base"),
 			"model_id":   jsonx.Str(d, "model_id"),
+			"key":        jsonx.Str(lp, "api_key_name"),
 		})
 	}
 	dbBackend := "sqlite (default)"
@@ -184,15 +185,19 @@ func deploymentsTable(deps []any) string {
 		return `<p class="empty">none registered</p>`
 	}
 	var b strings.Builder
-	b.WriteString(`<table><tr><th>model_name</th><th>upstream model</th><th>api_base</th><th>id</th></tr>`)
+	b.WriteString(`<table><tr><th>model_name</th><th>upstream model</th><th>key</th><th>api_base</th><th>id</th></tr>`)
 	for _, d := range deps {
 		m := jsonx.AsMap(d)
 		base := jsonx.Str(m, "api_base")
 		if base == "" {
 			base = "provider default"
 		}
-		fmt.Fprintf(&b, "<tr><td><code>%s</code></td><td>%s</td><td>%s</td><td><code>%s</code></td></tr>",
-			h(jsonx.Str(m, "model_name")), h(jsonx.Str(m, "model")), h(base), h(shortID(jsonx.Str(m, "model_id"))))
+		key := jsonx.Str(m, "key")
+		if key == "" {
+			key = "—"
+		}
+		fmt.Fprintf(&b, "<tr><td><code>%s</code></td><td>%s</td><td><code>%s</code></td><td>%s</td><td><code>%s</code></td></tr>",
+			h(jsonx.Str(m, "model_name")), h(jsonx.Str(m, "model")), h(key), h(base), h(shortID(jsonx.Str(m, "model_id"))))
 	}
 	b.WriteString(`</table>`)
 	return b.String()

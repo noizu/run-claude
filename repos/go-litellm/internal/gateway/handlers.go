@@ -81,6 +81,9 @@ func (a *App) modelNew(w http.ResponseWriter, r *http.Request) {
 		body["model_info"] = map[string]any{}
 	}
 	stored := a.Router.Add(body)
+	if lp := jsonx.Nested(stored, "litellm_params"); lp != nil && a.Router.Keys != nil {
+		a.Router.Keys.InferName(lp)
+	}
 	writeJSON(w, 200, map[string]any{
 		"message":  "Model " + name + " added successfully",
 		"model_id": stored["model_id"],

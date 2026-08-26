@@ -16,6 +16,9 @@ from . import proxy
 HELP = """Commands:
   /models           refresh and show enabled models
   /model <name>     switch to another enabled model
+  /keys             list named keys and the binding for this model
+  /key <name>       bind this model's family to a named key (e.g. /key tyna)
+  /key <fam> <key>  bind a family or model (e.g. /key zai tyna)
   /clear            clear conversation history
   /help             show this help
   /exit, /quit      leave the session"""
@@ -88,6 +91,46 @@ def _content_text(content: Any) -> str:
                 parts.append(block["text"])
         return "\n".join(parts)
     return str(content or "")
+
+
+def _chat_keys(current: str) -> None:
+    from .keys import family_of, format_listing
+    try:
+        payload = proxy.list_named_keys()
+    except Exception as exc:
+        print(f"Could not list keys: {exc}", file=sys.stderr)
+        return
+    print(format_listing(payload))
+    fam = family_of(current)
+    bound = None
+    for row in payload.get("bindings") or []:
+        if row.get("model_name") == current:
+            bound = row.get("key") or "(unset)"
+            break
+    print(f"\nCurrent model {current} (family {fam}) -> {bound or '(unset)'}")
+
+
+def _chat_key_switch(current: str, rest: str) -> None:
+    from .keys import canonical_key_name, family_of
+    parts = rest.split()
+    if not parts:
+        print("Usage: /key <name>   or   /key <family> <name>", file=sys.stderr)
+        return
+    if len(parts) == 1:
+        target, key = family_of(current), parts[0]
+    else:
+        target, key = parts[0], parts[1]
+    key = canonical_key_name(key)
+    try:
+        proxy.ensure_named_keys()
+        result = proxy.switch_named_key(key, target=target)
+    except Exception as exc:
+        print(f"Key switch failed: {exc}", file=sys.stderr)
+        return
+    updated = result.get("updated") or []
+    print(f"Bound {key} on {len(updated)} model(s) in {target}")
+    for name in updated:
+        print(f"  {name}")
 
 
 def complete(model: str, messages: list[dict[str, str]], timeout: float) -> str:
@@ -213,6 +256,12 @@ def run_chat(
                     else []
                 )
                 print(f"Switched to {current}; conversation cleared.")
+            continue
+        if text == "/keys":
+            _chat_keys(current)
+            continue
+        if text == "/key" or text.startswith("/key "):
+            _chat_key_switch(current, text[4:].strip())
             continue
         if text.startswith("/"):
             print("Unknown command. Type /help for commands.")

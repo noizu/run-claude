@@ -200,6 +200,11 @@ ANTHROPIC_API_KEY: "sk-your-key-here"
 # Dedicated Token Plan key (sk-sp-*), not a pay-as-you-go DashScope sk- key.
 # QWEN_SUB_KEY: "sk-sp-..."
 
+# Z.AI coding subscription (zai-pro profile, zai/* models)
+# ZAI_SUB_KEY: "..."
+# Second Z.AI subscription (Tyna). Switch live with: run-claude keys switch zai tyna
+# ZAI_SUB_KEY_TYNA: "..."
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # OPTIONAL VARIABLES (Uncomment to override defaults)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

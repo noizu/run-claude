@@ -210,3 +210,128 @@ func TestMessagesClaudePassthrough(t *testing.T) {
 		t.Fatalf("body %s", raw)
 	}
 }
+
+func TestKeysSwitchChangesUpstreamAuth(t *testing.T) {
+	var gotKey string
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotKey = r.Header.Get("X-Api-Key")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"msg_x","type":"message","role":"assistant","content":[{"type":"text","text":"ok"}]}`))
+	}))
+	defer up.Close()
+
+	app := testApp(t, "sk")
+	app.Router.Keys.Put("zai", "default-secret", "ZAI_SUB_KEY", "env")
+	app.Router.Keys.Put("tyna", "tyna-secret", "ZAI_SUB_KEY_TYNA", "env")
+	app.Router.Add(map[string]any{
+		"model_name": "zai/opus",
+		"litellm_params": map[string]any{
+			"model":        "anthropic/glm-5.3",
+			"api_base":     up.URL,
+			"api_key":      "default-secret",
+			"api_key_name": "zai",
+		},
+	})
+	app.Router.Add(map[string]any{
+		"model_name": "zai-tyna/opus",
+		"litellm_params": map[string]any{
+			"model":        "anthropic/glm-5.3",
+			"api_base":     up.URL,
+			"api_key":      "tyna-secret",
+			"api_key_name": "tyna",
+		},
+	})
+
+	ts := httptest.NewServer(app.Handler())
+	defer ts.Close()
+
+	call := func(model string) {
+		t.Helper()
+		body := `{"model":"` + model + `","messages":[{"role":"user","content":"hi"}],"max_tokens":8}`
+		req, _ := http.NewRequest("POST", ts.URL+"/v1/messages", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != 200 {
+			t.Fatalf("%s status %d", model, resp.StatusCode)
+		}
+	}
+
+	call("zai/opus")
+	if gotKey != "default-secret" {
+		t.Fatalf("before switch key=%q", gotKey)
+	}
+
+	payload := `{"target":"zai","key":"tyna"}`
+	req, _ := http.NewRequest("POST", ts.URL+"/keys/switch", strings.NewReader(payload))
+	req.Header.Set("Authorization", "Bearer sk")
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("switch %d %s", resp.StatusCode, raw)
+	}
+	if !strings.Contains(string(raw), "zai/opus") {
+		t.Fatalf("switch body %s", raw)
+	}
+	if strings.Contains(string(raw), "zai-tyna/opus") {
+		t.Fatalf("must not rebind tyna family: %s", raw)
+	}
+
+	call("zai/opus")
+	if gotKey != "tyna-secret" {
+		t.Fatalf("after switch key=%q", gotKey)
+	}
+
+	req, _ = http.NewRequest("GET", ts.URL+"/keys", nil)
+	req.Header.Set("Authorization", "Bearer sk")
+	resp, _ = http.DefaultClient.Do(req)
+	var listing map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&listing)
+	resp.Body.Close()
+	keys, _ := listing["keys"].([]any)
+	if len(keys) < 2 {
+		t.Fatalf("keys %+v", listing)
+	}
+}
+
+func TestKeysPutAndDelete(t *testing.T) {
+	app := testApp(t, "sk")
+	ts := httptest.NewServer(app.Handler())
+	defer ts.Close()
+
+	payload := `{"name":"extra","api_key":"sk-extra"}`
+	req, _ := http.NewRequest("POST", ts.URL+"/keys", strings.NewReader(payload))
+	req.Header.Set("Authorization", "Bearer sk")
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("%d %s", resp.StatusCode, b)
+	}
+	resp.Body.Close()
+
+	if app.Router.Keys.Value("extra") != "sk-extra" {
+		t.Fatal("stored")
+	}
+
+	req, _ = http.NewRequest("POST", ts.URL+"/keys/delete", strings.NewReader(`{"name":"extra"}`))
+	req.Header.Set("Authorization", "Bearer sk")
+	req.Header.Set("Content-Type", "application/json")
+	resp, _ = http.DefaultClient.Do(req)
+	resp.Body.Close()
+	if app.Router.Keys.Get("extra") != nil {
+		t.Fatal("still present")
+	}
+}

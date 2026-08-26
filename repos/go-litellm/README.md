@@ -41,7 +41,7 @@ One process, one port (run-claude uses **4443**):
 |---------|--------|
 | LiteLLM | `/v1/chat/completions`, `/v1/embeddings`, `/v1/models`, `/model/*`, health |
 | Front | `/v1/messages` (Claude Code), Anthropic passthrough, `/front/rules` |
-| Admin | `/status`, `/status.json`, `/status/requests` |
+| Admin | `/status`, `/status.json`, `/status/requests`, `/keys` |
 
 Dev default bind is `127.0.0.1:4445` so a live Python/Elixir proxy on 4443/4444
 is never disturbed. run-claude always passes `--port 4443`.

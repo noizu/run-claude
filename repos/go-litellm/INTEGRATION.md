@@ -50,6 +50,8 @@ export FRONT_PROXY_COMMAND=python       # legacy two-process Python proxies
 Same launch flags and HTTP surface as `ex-litellm`:
 
 - `POST /model/new`, `GET /model/info`, `GET /health`, `/health/readiness`
+- `GET /keys`, `POST /keys`, `POST /keys/delete`, `POST /keys/switch` (named
+  provider keys; `run-claude keys switch zai tyna` rebinds `zai/*`)
 - `/v1/chat/completions` (+ SSE), `/v1/embeddings`, `/v1/models`
 - `POST /v1/messages` (`claude-*` → Anthropic passthrough; other registered
   models → native inference with Anthropic-shaped I/O)
