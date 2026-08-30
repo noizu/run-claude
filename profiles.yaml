@@ -33,31 +33,14 @@ openai:
     - "openai-o3-mini"
 
 # Cerebras - Speed optimized inference
+# Only 3 models available now: gemma-4-31b, zai-glm-4.7, gpt-oss-120b
+# (non-subscription CEREBRAS_API_KEY)
 cerebras:
   name: "Cerebras"
-  opus_model: "cerebras/gpt-oss-120b"
-  sonnet_model: "cerebras/qwen-3-32b"
-  haiku_model: "cerebras/llama3.1-8b"
-
-# Cerebras2 - Alternative Cerebras config with GLM
-cerebras2:
-  name: "Cerebras (GLM)"
-  opus_model: "cerebras/zai-glm-4.7"
+  fable_model: "cerebras/zai-glm-4.7"
+  opus_model: "cerebras/gemma-4-31b"
   sonnet_model: "cerebras/gpt-oss-120b"
-  haiku_model: "cerebras/qwen-3-32b"
-
-# Cerebras Subscription - GLM with thinking tiers
-cerebras-pro:
-  name: "Cerebras Pro Subscription"
-  opus_model: "cerebras-pro/opus"
-  sonnet_model: "cerebras-pro/sonnet"
-  haiku_model: "cerebras-pro/haiku"
-  # Claude Code v2.1.116+ appends "[1m]" for the 1M-context variants; register
-  # aliases so those requests route instead of timing out.
-  extended:
-    - "cerebras-pro/opus[1m]"
-    - "cerebras-pro/sonnet[1m]"
-    - "cerebras-pro/haiku[1m]"
+  haiku_model: "cerebras/gpt-oss-120b"
 
 groq-pro:
   name: "Groq Equivalent"

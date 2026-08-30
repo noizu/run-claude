@@ -58,23 +58,23 @@ class TestEnvCommand:
         captured = capsys.readouterr()
         output = captured.out
 
-        # cerebras profile maps opus->gpt-oss-120b, sonnet->qwen-3-32b, haiku->llama3.1-8b
+        # cerebras profile maps fable->zai-glm-4.7, opus->gemma-4-31b, sonnet/haiku->gpt-oss-120b
         assert "ANTHROPIC_DEFAULT_OPUS_MODEL=" in output
         assert "ANTHROPIC_DEFAULT_SONNET_MODEL=" in output
         assert "ANTHROPIC_DEFAULT_HAIKU_MODEL=" in output
 
-    def test_env_cerebras_pro_profile_uses_pro_models(self, capsys):
-        """cerebras-pro profile should map to its registered model aliases."""
-        with patch("sys.argv", ["run-claude", "env", "cerebras-pro"]):
+    def test_env_cerebras_profile_uses_available_models(self, capsys):
+        """cerebras profile should map tiers to the 3 available Cerebras models."""
+        with patch("sys.argv", ["run-claude", "env", "cerebras"]):
             result = main()
         assert result == 0
         captured = capsys.readouterr()
         output = captured.out
 
-        assert "ANTHROPIC_DEFAULT_OPUS_MODEL=cerebras-pro/opus" in output
-        assert "ANTHROPIC_DEFAULT_SONNET_MODEL=cerebras-pro/sonnet" in output
-        assert "ANTHROPIC_DEFAULT_HAIKU_MODEL=cerebras-pro/haiku" in output
-        assert "ANTHROPIC_DEFAULT_FABLE_MODEL=cerebras-pro/opus" in output
+        assert "ANTHROPIC_DEFAULT_FABLE_MODEL=cerebras/zai-glm-4.7" in output
+        assert "ANTHROPIC_DEFAULT_OPUS_MODEL=cerebras/gemma-4-31b" in output
+        assert "ANTHROPIC_DEFAULT_SONNET_MODEL=cerebras/gpt-oss-120b" in output
+        assert "ANTHROPIC_DEFAULT_HAIKU_MODEL=cerebras/gpt-oss-120b" in output
 
     def test_env_alibaba_profile_uses_qwen_models(self, capsys):
         """alibaba profile should map opus/sonnet/haiku to Token Plan aliases."""
@@ -119,6 +119,28 @@ class TestProfilesCommand:
         assert result == 0
         output = capsys.readouterr().out
         assert "alibaba" in output
+        assert "Alibaba Token Plan" in output
+
+    def test_profiles_list_names_only(self, capsys):
+        """profiles list --names-only should print bare names, one per line."""
+        with patch("sys.argv", ["run-claude", "profiles", "list", "--names-only"]):
+            result = main()
+        assert result == 0
+        names = capsys.readouterr().out.strip().splitlines()
+        assert "alibaba" in names
+        assert "Alibaba Token Plan" not in names
+        assert all(" " not in name for name in names)
+
+    def test_profiles_list_json(self, capsys):
+        """profiles list --json should include name, display_name, and source."""
+        import json
+        with patch("sys.argv", ["run-claude", "profiles", "list", "--json"]):
+            result = main()
+        assert result == 0
+        payload = json.loads(capsys.readouterr().out)
+        alibaba = next(item for item in payload if item["name"] == "alibaba")
+        assert alibaba["display_name"] == "Alibaba Token Plan"
+        assert alibaba["source"]
 
     def test_profiles_show_alibaba(self, capsys):
         """profiles show alibaba should map Token Plan tiers and extra chat SKUs."""
@@ -136,6 +158,62 @@ class TestProfilesCommand:
         assert "alibaba/kimi-k2.7-code" in output
         assert "alibaba/deepseek-v4-pro" in output
         assert "alibaba/minimax-m2.5" in output
+        assert "anthropic/qwen3.8-max" in output
+        assert "anthropic/kimi-k3" in output
+        assert "QWEN_SUB_KEY" in output
+        assert "INSTANCE" in output
+        assert "INTERNAL NAME" in output
+        assert "KEY ENV" in output
+
+    def test_profiles_view_is_show_alias(self, capsys):
+        """profiles view should produce the same inspection as show."""
+        with patch("sys.argv", ["run-claude", "profiles", "view", "alibaba"]):
+            result = main()
+        assert result == 0
+        output = capsys.readouterr().out
+        assert "Profile: alibaba" in output
+        assert "fable" in output
+        assert "QWEN_SUB_KEY" in output
+
+    def test_profiles_view_zai_pro_bindings(self, capsys):
+        """profiles view zai-pro should show instance, internal names, and key env vars."""
+        with patch("sys.argv", ["run-claude", "profiles", "view", "zai-pro"]):
+            result = main()
+        assert result == 0
+        output = capsys.readouterr().out
+        assert "opus:   zai/opus" in output
+        assert "fable:  zai/fable" in output
+        assert "anthropic/glm-5.3-flash" in output
+        assert "anthropic/glm-5.3" in output
+        assert "ZAI_SUB_KEY" in output
+        assert "ZAI_SUB_KEY_TYNA" in output
+        assert "zai-tyna/opus" in output
+
+    def test_profiles_view_json(self, capsys):
+        """profiles view --json should expose instance/internal/key_env per tier."""
+        import json
+        with patch("sys.argv", ["run-claude", "profiles", "view", "alibaba", "--json"]):
+            result = main()
+        assert result == 0
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["name"] == "alibaba"
+        opus = payload["tiers"]["opus"]
+        assert opus["model_name"] == "alibaba/opus"
+        assert opus["internal_name"] == "anthropic/qwen3.8-max"
+        assert opus["key_env"] == "QWEN_SUB_KEY"
+        assert opus["instance"] == "qwen"
+        assert any(item["model_name"] == "alibaba/kimi-k2.7-code" for item in payload["extended"])
+
+    def test_profiles_view_does_not_leak_secrets(self, capsys, monkeypatch):
+        """Profile view must print env var names, never hydrated key values."""
+        monkeypatch.setenv("QWEN_SUB_KEY", "sk-secret-value-do-not-print")
+        with patch("sys.argv", ["run-claude", "profiles", "view", "alibaba"]):
+            result = main()
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "sk-secret-value-do-not-print" not in captured.out
+        assert "sk-secret-value-do-not-print" not in captured.err
+        assert "QWEN_SUB_KEY" in captured.out
 
     def test_profiles_show_missing(self, capsys):
         """profiles show with nonexistent profile should error."""

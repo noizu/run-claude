@@ -26,29 +26,14 @@ openai:
   haiku_model: "openai-gpt4o-mini"
 
 # Cerebras - Speed optimized inference
+# Only 3 models available now: gemma-4-31b, zai-glm-4.7, gpt-oss-120b
+# (non-subscription CEREBRAS_API_KEY)
 cerebras:
   name: "Cerebras"
-  opus_model: "cerebras/gpt-oss-120b"
-  sonnet_model: "cerebras/qwen-3-32b"
-  haiku_model: "cerebras/llama3.1-8b"
-
-# Cerebras2 - Alternative Cerebras config with GLM
-cerebras2:
-  name: "Cerebras (GLM)"
-  opus_model: "cerebras/zai-glm-4.7"
+  fable_model: "cerebras/zai-glm-4.7"
+  opus_model: "cerebras/gemma-4-31b"
   sonnet_model: "cerebras/gpt-oss-120b"
-  haiku_model: "cerebras/qwen-3-32b"
-
-# Cerebras Subscription - GLM with thinking tiers
-cerebras-pro:
-  name: "Cerebras Pro Subscription"
-  opus_model: "cerebras-pro/opus"
-  sonnet_model: "cerebras-pro/sonnet"
-  haiku_model: "cerebras-pro/haiku"
-  extended:
-    - "cerebras-pro/opus[1m]"
-    - "cerebras-pro/sonnet[1m]"
-    - "cerebras-pro/haiku[1m]"
+  haiku_model: "cerebras/gpt-oss-120b"
 
 groq-pro:
   name: "Groq Equivalent"
@@ -67,22 +52,60 @@ groq-pro:
 
 
 # Z.AI Subscription - GLM with thinking tiers
+#   fable  = glm-5.3
+#   opus   = glm-5.3-flash
+#   sonnet = glm-5.2
+#   haiku  = glm-5-turbo
 # Requires: ZAI_SUB_KEY; Tyna copies also need ZAI_SUB_KEY_TYNA
 zai-pro:
   name: "Zai Subscription"
   opus_model: "zai/opus"
   sonnet_model: "zai/sonnet"
   haiku_model: "zai/haiku"
+  fable_model: "zai/fable"
   extended:
     - "zai/opus[1m]"
     - "zai/sonnet[1m]"
     - "zai/haiku[1m]"
+    - "zai/fable[1m]"
     - "zai-tyna/opus"
     - "zai-tyna/opus[1m]"
     - "zai-tyna/sonnet"
     - "zai-tyna/sonnet[1m]"
     - "zai-tyna/haiku"
     - "zai-tyna/haiku[1m]"
+    - "zai-tyna/fable"
+    - "zai-tyna/fable[1m]"
+    - "zai/glm-5.3"
+    - "zai/glm-5.3-flash"
+    - "zai/glm-5.2"
+    - "zai-oa/glm-5.3"
+    - "zai-oa/glm-5.3-flash"
+    - "zai-oa/glm-5.2"
+    - "zai-oa/glm-5-turbo"
+    - "zai-oa/glm-4.7"
+
+# Z.AI Subscription - OpenAI v1 endpoint format
+#   fable  = glm-5.3
+#   opus   = glm-5.3-flash
+#   sonnet = glm-5.2
+#   haiku  = glm-4.7
+zai-oa:
+  name: "Zai Subscription (OpenAI v1)"
+  fable_model: "zai-oa/glm-5.3"
+  opus_model: "zai-oa/glm-5.3-flash"
+  sonnet_model: "zai-oa/glm-5.2"
+  haiku_model: "zai-oa/glm-4.7"
+  extended:
+    - "zai-oa/fable"
+    - "zai-oa/opus"
+    - "zai-oa/sonnet"
+    - "zai-oa/haiku"
+    - "zai-oa/glm-5.3"
+    - "zai-oa/glm-5.3-flash"
+    - "zai-oa/glm-5.2"
+    - "zai-oa/glm-5-turbo"
+    - "zai-oa/glm-4.7"
 
 # Wafer Serverless — Kimi-K3 opus, GLM-5.2 sonnet, DeepSeek V4 Flash Fast haiku
 # Requires: WAFER_AI_API_KEY
@@ -129,15 +152,27 @@ claude-plan:
     - "zai/opus"
     - "zai/sonnet"
     - "zai/haiku"
+    - "zai/fable"
     - "zai/opus[1m]"
     - "zai/sonnet[1m]"
     - "zai/haiku[1m]"
+    - "zai/fable[1m]"
     - "zai-tyna/opus"
     - "zai-tyna/opus[1m]"
     - "zai-tyna/sonnet"
     - "zai-tyna/sonnet[1m]"
     - "zai-tyna/haiku"
     - "zai-tyna/haiku[1m]"
+    - "zai-tyna/fable"
+    - "zai-tyna/fable[1m]"
+    - "zai/glm-5.3"
+    - "zai/glm-5.3-flash"
+    - "zai/glm-5.2"
+    - "zai-oa/glm-5.3"
+    - "zai-oa/glm-5.3-flash"
+    - "zai-oa/glm-5.2"
+    - "zai-oa/glm-5-turbo"
+    - "zai-oa/glm-4.7"
     - "wafer/opus"
     - "wafer/sonnet"
     - "wafer/haiku"

@@ -252,6 +252,24 @@ model_list:
   # num_retries: 10 (aggressive retries on transient 5xx / timeout errors)
   # allowed_fails: 10, cooldown_time: 5 (very short cooldown, recover ASAP)
 
+  # gemma-4-31b
+  - model_name: "cerebras/gemma-4-31b"
+    litellm_params:
+      model: cerebras/gemma-4-31b
+      api_key: os.environ/CEREBRAS_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    allowed_fails: 10
+    cooldown_time: 5
+    metadata:
+      provider: cerebras
+      description: "Gemma 4 31B on Cerebras hardware"
+      strengths: "Fast inference, strong mid-size model"
+      weaknesses: "Flaky availability"
+
   # gpt-oss-120b
   - model_name: "cerebras/gpt-oss-120b"
     litellm_params:
@@ -341,78 +359,6 @@ model_list:
       strengths: "Strongest reasoning on Cerebras"
       weaknesses: "Flaky, slower than instant"
 
-  # llama-3.3-70b
-  - model_name: "cerebras/llama-3.3-70b"
-    litellm_params:
-      model: cerebras/llama-3.3-70b
-      api_key: os.environ/CEREBRAS_API_KEY
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
-      timeout: 600
-      stream_timeout: 600
-      num_retries: 10
-    allowed_fails: 10
-    cooldown_time: 5
-    metadata:
-      provider: cerebras
-      description: "Llama 3.3 70B on Cerebras hardware"
-      strengths: "Fast open-source model, good general use"
-      weaknesses: "Flaky, smaller than 120B"
-
-  # llama3.1-8b
-  - model_name: "cerebras/llama3.1-8b"
-    litellm_params:
-      model: cerebras/llama3.1-8b
-      api_key: os.environ/CEREBRAS_API_KEY
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
-      timeout: 600
-      stream_timeout: 600
-      num_retries: 10
-    allowed_fails: 10
-    cooldown_time: 5
-    metadata:
-      provider: cerebras
-      description: "Llama 3.1 8B on Cerebras hardware"
-      strengths: "Extremely fast, tiny model"
-      weaknesses: "Very limited capability"
-
-  # qwen-3-235b-a22b-instruct-2507
-  - model_name: "cerebras/qwen-3-235b-a22b-instruct-2507"
-    litellm_params:
-      model: cerebras/qwen-3-235b-a22b-instruct-2507
-      api_key: os.environ/CEREBRAS_API_KEY
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
-      timeout: 600
-      stream_timeout: 600
-      num_retries: 10
-    allowed_fails: 10
-    cooldown_time: 5
-    metadata:
-      provider: cerebras
-      description: "Qwen 3 235B MoE on Cerebras hardware"
-      strengths: "Large MoE model, fast inference"
-      weaknesses: "Flaky availability"
-
-  # qwen-3-32b
-  - model_name: "cerebras/qwen-3-32b"
-    litellm_params:
-      model: cerebras/qwen-3-32b
-      api_key: os.environ/CEREBRAS_API_KEY
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
-      timeout: 600
-      stream_timeout: 600
-      num_retries: 10
-    allowed_fails: 10
-    cooldown_time: 5
-    metadata:
-      provider: cerebras
-      description: "Qwen 3 32B on Cerebras hardware"
-      strengths: "Fast, good multilingual support"
-      weaknesses: "Flaky, smaller model"
-
   # zai-glm-4.7
   - model_name: "cerebras/zai-glm-4.7"
     litellm_params:
@@ -501,147 +447,6 @@ model_list:
       description: "ZAI GLM 4.7 thinking (high) on Cerebras"
       strengths: "Strong reasoning on Cerebras"
       weaknesses: "Flaky, slower"
-
-  # cerebras/pro - alias for zai-glm-4.7 with subscription key
-  - model_name: "cerebras_pro"
-    litellm_params:
-      model: cerebras/zai-glm-4.7
-      api_key: os.environ/CEREBRAS_SUB_KEY
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
-      timeout: 600
-      stream_timeout: 600
-      num_retries: 10
-    allowed_fails: 10
-    cooldown_time: 5
-    metadata:
-      provider: cerebras
-      description: "ZAI GLM 4.7 via Cerebras subscription"
-      strengths: "Priority access, fast inference"
-      weaknesses: "Requires subscription key"
-
-  - model_name: "cerebras_pro_instant"
-    litellm_params:
-      model: cerebras/zai-glm-4.7
-      api_key: os.environ/CEREBRAS_SUB_KEY
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
-      timeout: 600
-      stream_timeout: 600
-      num_retries: 10
-    allowed_fails: 10
-    cooldown_time: 5
-    metadata:
-      provider: cerebras
-      description: "ZAI GLM 4.7 instant via Cerebras sub"
-      strengths: "Fastest, priority access"
-      weaknesses: "Requires subscription key"
-
-# Named
-
-  - model_name: "cerebras-pro/haiku"
-    litellm_params:
-      model: cerebras/zai-glm-4.7
-      api_key: os.environ/CEREBRAS_SUB_KEY
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
-      temperature: 0.5
-      timeout: 600
-      stream_timeout: 600
-      num_retries: 10
-    allowed_fails: 10
-    cooldown_time: 5
-    metadata:
-      provider: cerebras
-      description: "Cerebras Pro tier-mapped as haiku"
-      strengths: "Fast, cheap tier equivalent"
-      weaknesses: "Requires subscription"
-
-  - model_name: "cerebras-pro/sonnet"
-    litellm_params:
-      model: cerebras/zai-glm-4.7
-      api_key: os.environ/CEREBRAS_SUB_KEY
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
-      timeout: 600
-      stream_timeout: 600
-      num_retries: 10
-    allowed_fails: 10
-    cooldown_time: 5
-    metadata:
-      provider: cerebras
-      description: "Cerebras Pro tier-mapped as sonnet"
-      strengths: "Balanced tier equivalent"
-      weaknesses: "Requires subscription"
-
-  - model_name: "cerebras-pro/opus"
-    litellm_params:
-      model: cerebras/zai-glm-4.7
-      api_key: os.environ/CEREBRAS_SUB_KEY
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
-      timeout: 600
-      stream_timeout: 600
-      num_retries: 10
-    allowed_fails: 10
-    cooldown_time: 5
-    metadata:
-      provider: cerebras
-      description: "Cerebras Pro tier-mapped as opus"
-      strengths: "Strong tier equivalent"
-      weaknesses: "Requires subscription"
-
-  - model_name: "cerebras-pro/haiku[1m]"
-    litellm_params:
-      model: cerebras/zai-glm-4.7
-      api_key: os.environ/CEREBRAS_SUB_KEY
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
-      temperature: 0.5
-      timeout: 600
-      stream_timeout: 600
-      num_retries: 10
-    allowed_fails: 10
-    cooldown_time: 5
-    metadata:
-      provider: cerebras
-      description: "Cerebras Pro haiku tier (1M alias)"
-      strengths: "Fast, cheap, large context alias"
-      weaknesses: "Requires subscription"
-
-  - model_name: "cerebras-pro/sonnet[1m]"
-    litellm_params:
-      model: cerebras/zai-glm-4.7
-      api_key: os.environ/CEREBRAS_SUB_KEY
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
-      timeout: 600
-      stream_timeout: 600
-      num_retries: 10
-    allowed_fails: 10
-    cooldown_time: 5
-    metadata:
-      provider: cerebras
-      description: "Cerebras Pro sonnet tier (1M alias)"
-      strengths: "Balanced, large context alias"
-      weaknesses: "Requires subscription"
-
-  - model_name: "cerebras-pro/opus[1m]"
-    litellm_params:
-      model: cerebras/zai-glm-4.7
-      api_key: os.environ/CEREBRAS_SUB_KEY
-      drop_params: true
-      additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
-      timeout: 600
-      stream_timeout: 600
-      num_retries: 10
-    allowed_fails: 10
-    cooldown_time: 5
-    metadata:
-      provider: cerebras
-      description: "Cerebras Pro opus tier (1M alias)"
-      strengths: "Strong, large context alias"
-      weaknesses: "Requires subscription"
 
 # Zai - Named
 # Tiers: fable=glm-5.3, opus=glm-5.3-flash, sonnet=glm-5.2, haiku=glm-5-turbo
