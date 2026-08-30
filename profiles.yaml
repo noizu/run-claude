@@ -88,10 +88,10 @@ groq-pro:
 # Requires: ZAI_SUB_KEY; Tyna copies also need ZAI_SUB_KEY_TYNA
 zai-pro:
   name: "Zai Subscription"
-  opus_model: "zai/opus"
-  sonnet_model: "zai/sonnet"
+  opus_model: "zai/glm-5.3-flash (sub)"
+  sonnet_model: "zai/glm-5.3-flash (sub)"
   haiku_model: "zai/haiku"
-  fable_model: "zai/fable"
+  fable_model: "zai/glm-5.3 (sub)"
   extended:
     - "zai/opus[1m]"
     - "zai/sonnet[1m]"
