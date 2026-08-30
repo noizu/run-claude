@@ -51,6 +51,29 @@ def test_inspect_alibaba_tiers_and_extended():
     assert "alibaba/opus" not in extra_names
 
 
+def test_inspect_wafer_tiers():
+    inspection = inspect_profile("wafer")
+    assert inspection is not None
+    assert inspection.name == "wafer"
+    assert inspection.display_name == "Wafer Serverless"
+
+    fable = inspection.tiers["fable"]
+    assert fable.model_name == "wafer/fable[1m]"
+    assert fable.internal_name == "anthropic/Kimi-K3"
+    assert fable.key_env == "WAFER_AI_API_KEY"
+    assert "pass.wafer.ai" in fable.api_base
+
+    for tier in ("opus", "sonnet", "haiku"):
+        binding = inspection.tiers[tier]
+        assert binding.internal_name == "anthropic/GLM-5.3-Flash"
+        assert binding.key_env == "WAFER_AI_API_KEY"
+        assert "pass.wafer.ai" in binding.api_base
+
+    extra_names = {item.model_name for item in inspection.extended}
+    assert "wafer/kimi-k2.6[1m]" in extra_names
+    assert "wafer/glm-5.2[1m]" in extra_names
+
+
 def test_inspect_zai_pro_instances():
     inspection = inspect_profile("zai-pro")
     assert inspection is not None

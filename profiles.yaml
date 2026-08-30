@@ -138,17 +138,24 @@ zai-fast:
   haiku_model: "zai/glm-5.3-flash (sub, low)"
   fable_model: "zai/glm-5.3 (sub, low)"
 
-# Wafer Serverless — Kimi-K3 opus, GLM-5.2 sonnet, DeepSeek V4 Flash Fast haiku
+# Wafer Serverless — fable=Kimi-K3, opus/sonnet/haiku=GLM-5.3-Flash (max/high/low)
+# Named aliases: wafer/kimi-k2.6, wafer/glm-5.2
 # Requires: WAFER_AI_API_KEY
 wafer:
   name: "Wafer Serverless"
+  fable_model: "wafer/fable[1m]"
   opus_model: "wafer/opus[1m]"
   sonnet_model: "wafer/sonnet[1m]"
-  haiku_model: "wafer/haiku"
+  haiku_model: "wafer/haiku[1m]"
   extended:
+    - "wafer/fable"
     - "wafer/opus"
     - "wafer/sonnet"
-    - "wafer/haiku[1m]"
+    - "wafer/haiku"
+    - "wafer/kimi-k2.6"
+    - "wafer/kimi-k2.6[1m]"
+    - "wafer/glm-5.2"
+    - "wafer/glm-5.2[1m]"
     - "WAFER_GLM52"
     - "WAFER_GLM52[1m]"
     - "WAFER_KIMI_K3"

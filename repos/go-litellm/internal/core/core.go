@@ -114,9 +114,16 @@ func Prepare(rt *router.Router, cfg *config.Config, params map[string]any) (*Pre
 		// reasoning_effort surface BEFORE the adapter allowlist drops thinking.
 		params = providers.ApplyZaiThinking(params, res.Model)
 	}
+	wafer := providers.WaferThinkingApplies(lp)
+	if wafer {
+		// wafer.ai routes: same ordering rationale as z.ai — translate
+		// thinking / effort / deployment default BEFORE the adapter allowlist
+		// can strip it. Also consumes lp.default_reasoning_effort.
+		params = providers.ApplyWaferThinking(params, res.Model, lp)
+	}
 	mapped := Optional(params, res.Adapter, res.Model, drop)
 	mapped = applyDeploymentTunables(mapped, lp)
-	if zai && lp["reasoning_effort"] == nil {
+	if (zai || wafer) && lp["reasoning_effort"] == nil {
 		// Deployment didn't pin an effort: keep the mapped client effort even
 		// when additional_drop_params lists reasoning_effort (it is there to
 		// strip raw client values on the python-litellm side).

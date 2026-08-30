@@ -115,9 +115,10 @@ func (AnthropicAdapter) TransformRequest(req *Request) map[string]any {
 	if jsonx.Bool(req.Params, "stream") {
 		body["stream"] = true
 	}
-	// z.ai's GLM endpoints take reasoning_effort as a top-level body field;
-	// the vanilla Anthropic API does not, so only forward it on z.ai routes.
-	if ZaiThinkingApplies(req.LiteLLMParams) {
+	// z.ai and wafer.ai GLM/Kimi endpoints take reasoning_effort as a
+	// top-level body field; the vanilla Anthropic API does not, so only
+	// forward it on those routes.
+	if ZaiThinkingApplies(req.LiteLLMParams) || WaferThinkingApplies(req.LiteLLMParams) {
 		copyParam(body, req.Params, "reasoning_effort", "")
 	}
 	return body
