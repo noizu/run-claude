@@ -103,11 +103,7 @@ def main() -> int:
 
     # profiles subcommands
     profiles_p = subparsers.add_parser("profiles", help="Profile management")
-    profiles_sub = profiles_p.add_subparsers(dest="profiles_command")
-    profiles_sub.add_parser("list", help="List available profiles")
-    show_p = profiles_sub.add_parser("show", help="Show profile details")
-    show_p.add_argument("name", help="Profile name")
-    profiles_sub.add_parser("install", help="Create user profiles config template")
+    add_profiles_subparsers(profiles_p)
 
     # models subcommands
     models_p = subparsers.add_parser("models", help="Model definitions management")
@@ -899,55 +895,68 @@ def cmd_db(args: argparse.Namespace) -> int:
         return 1
 
 
+def add_profiles_subparsers(profiles_p: argparse.ArgumentParser) -> None:
+    """Register profiles list/view/show/install on a profiles subparser."""
+    profiles_sub = profiles_p.add_subparsers(dest="profiles_command")
+    list_p = profiles_sub.add_parser("list", help="List available profiles")
+    list_p.add_argument("--json", dest="output_json", action="store_true", help="Output as JSON")
+    list_p.add_argument("--names-only", action="store_true", help="Print only profile names, one per line")
+    show_p = profiles_sub.add_parser(
+        "show",
+        help="Show profile details (instance, model name, internal name, key env, tiers)",
+    )
+    show_p.add_argument("name", help="Profile name")
+    show_p.add_argument("--json", dest="output_json", action="store_true", help="Output as JSON")
+    view_p = profiles_sub.add_parser(
+        "view",
+        help="View profile: instance, model name, internal name, key env, and fable/opus/sonnet/haiku mapping",
+    )
+    view_p.add_argument("name", help="Profile name")
+    view_p.add_argument("--json", dest="output_json", action="store_true", help="Output as JSON")
+    profiles_sub.add_parser("install", help="Create user profiles config template")
+
+
 def cmd_profiles(args: argparse.Namespace) -> int:
     """Handle profiles commands."""
+    import json
     from . import profiles
 
     debug = getattr(args, 'debug', False)
+    command = args.profiles_command or "list"
 
-    if args.profiles_command == "list":
-        available = profiles.list_profiles(debug=debug)
-        if available:
+    if command == "list":
+        infos = profiles.list_profile_infos(debug=debug)
+        if getattr(args, "output_json", False):
+            print(json.dumps([info.to_dict() for info in infos], indent=2))
+            return 0
+        if getattr(args, "names_only", False):
+            for info in infos:
+                print(info.name)
+            return 0
+        if infos:
             print("Available profiles:")
-            for name in available:
-                print(f"  {name}")
+            width = max(len(info.name) for info in infos)
+            for info in infos:
+                extra = ""
+                if info.display_name and info.display_name != info.name:
+                    extra = f"  {info.display_name}"
+                print(f"  {info.name.ljust(width)}{extra}")
         else:
             print("No profiles found")
         return 0
 
-    elif args.profiles_command == "show":
-        profile = profiles.load_profile(args.name, debug=debug)
-        if profile is None:
+    elif command in ("show", "view"):
+        inspection = profiles.inspect_profile(args.name, debug=debug)
+        if inspection is None:
             print(f"Profile not found: {args.name}", file=sys.stderr)
             return 1
-
-        print(f"Profile: {profile.meta.name}")
-        if profile.source_path:
-            print(f"Loaded from: {profile.source_path}")
-
-        # Also show model file sources
-        loaded = profiles.get_loaded_files()
-        if loaded["models"]:
-            for model_file in loaded["models"]:
-                print(f"Models loaded from: {model_file}")
-        print()
-        print("Model Aliases:")
-        print(f"  opus:   {profile.meta.opus_model or '(not set)'}")
-        print(f"  sonnet: {profile.meta.sonnet_model or '(not set)'}")
-        print(f"  haiku:  {profile.meta.haiku_model or '(not set)'}")
-        print(f"  fable:  {profile.meta.effective_fable_model() or '(not set)'}")
-        if profile.meta.extended:
-            print()
-            print("Extended Models:")
-            for ext_model in profile.meta.extended:
-                print(f"  - {ext_model}")
-        print()
-        print("Models:")
-        for model in profile.model_list:
-            print(f"  - {model.model_name}")
+        if getattr(args, "output_json", False):
+            print(json.dumps(inspection.to_dict(), indent=2))
+            return 0
+        print(profiles.format_profile_view(inspection), end="")
         return 0
 
-    elif args.profiles_command == "install":
+    elif command == "install":
         user_profiles = profiles.get_user_profiles_file()
         user_profiles.parent.mkdir(parents=True, exist_ok=True)
 
@@ -961,7 +970,7 @@ def cmd_profiles(args: argparse.Namespace) -> int:
         return 0
 
     else:
-        print("Usage: run-claude profiles {list|show|install}")
+        print("Usage: run-claude profiles {list|show|view|install}")
         return 1
 
 

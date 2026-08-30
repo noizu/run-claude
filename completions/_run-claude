@@ -8,7 +8,7 @@
 
 _run-claude_profiles() {
   local -a profiles
-  profiles=(${(f)"$(run-claude profiles list 2>/dev/null | awk '/^  /{print $1}')"})
+  profiles=(${(f)"$(run-claude profiles list --names-only 2>/dev/null)"})
   _describe -t profiles 'profile' profiles
 }
 
@@ -49,7 +49,7 @@ _run-claude() {
         'proxy:Manage the LiteLLM proxy'
         'watchdog:Manage the proxy watchdog'
         'db:Manage the TimescaleDB container'
-        'profiles:List/show/install profiles'
+        'profiles:List/view/show/install profiles'
         'models:List/show model definitions'
         'keys:Runtime provider key swap'
         'chat:Chat directly with an enabled model'
@@ -155,11 +155,21 @@ _run-claude() {
             local -a actions=(
               'list:List available profiles'
               'show:Show a profile definition'
+              'view:View instance, model name, internal name, key env, and tiers'
               'install:Install built-in profiles to user config'
             )
             _describe -t actions 'profiles action' actions && ret=0
-          elif [[ $words[2] == show ]] && (( CURRENT == 3 )); then
-            _run-claude_profiles && ret=0
+          else
+            case $words[2] in
+              list)
+                _arguments \
+                  '--json[output as JSON]' \
+                  '--names-only[print bare names, one per line]' && ret=0 ;;
+              show|view)
+                _arguments \
+                  '--json[output as JSON]' \
+                  '1:profile:_run-claude_profiles' && ret=0 ;;
+            esac
           fi
           ;;
         models)

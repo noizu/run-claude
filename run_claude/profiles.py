@@ -343,6 +343,18 @@ class ProfileMeta:
         return self.fable_model or self.opus_model
 
 
+def _profile_meta_from_data(name: str, data: dict[str, Any]) -> ProfileMeta:
+    """Build ProfileMeta from either the new (flat) or legacy ({meta: ...}) YAML shape."""
+    if "meta" in data and isinstance(data["meta"], dict):
+        meta_data = data["meta"]
+    else:
+        meta_data = data
+    meta = ProfileMeta.from_dict(meta_data)
+    if not meta.name:
+        meta.name = name
+    return meta
+
+
 @dataclass
 class Profile:
     """Agent shim profile."""
@@ -391,7 +403,11 @@ def _require_yaml() -> None:
         )
 
 
-def load_model_definitions(force_reload: bool = False, debug: bool = False) -> dict[str, ModelDef]:
+def load_model_definitions(
+    force_reload: bool = False,
+    debug: bool = False,
+    quiet: bool = False,
+) -> dict[str, ModelDef]:
     """
     Load model definitions with base + user override logic.
 
@@ -414,7 +430,8 @@ def load_model_definitions(force_reload: bool = False, debug: bool = False) -> d
 
     # Load from all sources in priority order
     model_files = _find_models_files(debug=debug)
-    print(f"[MODELS_FILES] Found {len(model_files)} model file(s)", file=sys.stderr)
+    if not quiet:
+        print(f"[MODELS_FILES] Found {len(model_files)} model file(s)", file=sys.stderr)
     for models_file in model_files:
         _loaded_model_files.append(models_file)
         if debug:
@@ -428,10 +445,11 @@ def load_model_definitions(force_reload: bool = False, debug: bool = False) -> d
                     model_def.metadata = models[model_def.model_name].metadata
                 models[model_def.model_name] = model_def
                 count += 1
-        print(f"[MODELS_LOADED_FROM] {models_file}: {count} model(s)", file=sys.stderr)
+        if not quiet:
+            print(f"[MODELS_LOADED_FROM] {models_file}: {count} model(s)", file=sys.stderr)
 
     model_names = sorted(models.keys())
-    if model_names:
+    if model_names and not quiet:
         print(f"[MODELS_AVAILABLE] Total {len(models)} models: {', '.join(model_names)}", file=sys.stderr)
 
     _model_definitions_cache = models
@@ -646,18 +664,7 @@ def _load_profile_from_data(
     # Support both formats:
     # 1. New format with profile data directly under profile name
     # 2. Legacy format with 'meta' key
-
-    if "meta" in data:
-        meta_data = data["meta"]
-    else:
-        meta_data = data
-
-    # Create ProfileMeta
-    meta = ProfileMeta.from_dict(meta_data)
-
-    # Use profile name as display name if not specified
-    if not meta.name:
-        meta.name = name
+    meta = _profile_meta_from_data(name, data)
 
     # Log profile metadata
     print(f"[PROFILE_LOADED] '{name}' from {source_path}", file=sys.stderr)
@@ -702,14 +709,80 @@ def load_profile_file(path: Path, debug: bool = False) -> Profile:
     return profile
 
 
-def list_profiles(debug: bool = False) -> list[str]:
-    """
-    List all available profile names from all sources.
+@dataclass
+class ProfileInfo:
+    """Summary of an available profile (for list output)."""
+    name: str
+    display_name: str
+    source_path: Path
 
-    Collects profile names from all profiles.yaml files, excluding
-    disabled profiles (those with model: null or model: false).
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "display_name": self.display_name,
+            "source": str(self.source_path),
+        }
+
+
+@dataclass
+class ModelBinding:
+    """Resolved catalog entry for a profile model reference (unhydrated)."""
+    model_name: str
+    internal_name: str = ""
+    key_env: str = ""
+    instance: str = ""
+    api_base: str = ""
+    missing: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "model_name": self.model_name,
+            "internal_name": self.internal_name,
+            "key_env": self.key_env,
+            "instance": self.instance,
+            "api_base": self.api_base,
+            "missing": self.missing,
+        }
+
+
+@dataclass
+class ProfileInspection:
+    """Full profile view: tier mapping plus additional models, no secret values."""
+    name: str
+    display_name: str
+    source_path: Path | None
+    tiers: dict[str, ModelBinding]
+    fable_fallback: bool
+    extended: list[ModelBinding] = field(default_factory=list)
+    model_files: list[Path] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "display_name": self.display_name,
+            "source": str(self.source_path) if self.source_path else None,
+            "fable_fallback": self.fable_fallback,
+            "tiers": {k: v.to_dict() for k, v in self.tiers.items()},
+            "extended": [e.to_dict() for e in self.extended],
+            "model_files": [str(p) for p in self.model_files],
+        }
+
+
+def _display_name_from_data(name: str, profile_data: Any) -> str:
+    if not isinstance(profile_data, dict):
+        return name
+    if isinstance(profile_data.get("meta"), dict):
+        return profile_data["meta"].get("name") or name
+    return profile_data.get("name") or name
+
+
+def list_profile_infos(debug: bool = False) -> list[ProfileInfo]:
     """
-    profiles = set()
+    List available profiles with display names and winning source file.
+
+    First non-disabled match wins (same fallthrough as load_profile).
+    """
+    infos: dict[str, ProfileInfo] = {}
 
     for profiles_file in _get_profiles_files(debug=debug):
         if debug:
@@ -718,20 +791,226 @@ def list_profiles(debug: bool = False) -> list[str]:
         profiles_data = _load_profiles_file(profiles_file, debug=debug)
 
         for name, profile_data in profiles_data.items():
-            # Skip disabled profiles
+            if name in infos:
+                continue
             if _is_profile_disabled(profile_data):
                 if debug:
                     print(f"DEBUG: Skipping disabled profile: {name}", file=sys.stderr)
                 continue
-
             if debug:
                 print(f"DEBUG: Found profile: {name}", file=sys.stderr)
-            profiles.add(name)
+            infos[name] = ProfileInfo(
+                name=name,
+                display_name=_display_name_from_data(name, profile_data),
+                source_path=profiles_file,
+            )
 
     if debug:
-        print(f"DEBUG: Total profiles found: {len(profiles)}", file=sys.stderr)
+        print(f"DEBUG: Total profiles found: {len(infos)}", file=sys.stderr)
 
-    return sorted(profiles)
+    return [infos[k] for k in sorted(infos)]
+
+
+def list_profiles(debug: bool = False) -> list[str]:
+    """
+    List all available profile names from all sources.
+
+    Collects profile names from all profiles.yaml files, excluding
+    disabled profiles (those with model: null or model: false).
+    """
+    return [info.name for info in list_profile_infos(debug=debug)]
+
+
+def _key_env_var(model_def: ModelDef) -> str:
+    """Return the env var name referenced by api_key (os.environ/VAR), else empty."""
+    api_key = model_def.litellm_params.get("api_key")
+    if isinstance(api_key, str) and api_key.startswith("os.environ/"):
+        return api_key[len("os.environ/"):]
+    return ""
+
+
+def _instance_name(model_def: ModelDef) -> str:
+    """Named-key / provider instance for a model (never a secret value)."""
+    from .keys import family_of, name_from_env
+
+    explicit = model_def.litellm_params.get("api_key_name")
+    if explicit:
+        return str(explicit)
+    env = _key_env_var(model_def)
+    if env:
+        named = name_from_env(env)
+        if named:
+            return named
+    if model_def.metadata.provider:
+        return model_def.metadata.provider
+    return family_of(model_def.model_name)
+
+
+def _binding_for(model_name: str, models: dict[str, ModelDef]) -> ModelBinding:
+    if not model_name:
+        return ModelBinding(model_name="", missing=True)
+    model_def = models.get(model_name)
+    if model_def is None:
+        return ModelBinding(model_name=model_name, missing=True)
+    return ModelBinding(
+        model_name=model_name,
+        internal_name=str(model_def.litellm_params.get("model") or ""),
+        key_env=_key_env_var(model_def),
+        instance=_instance_name(model_def),
+        api_base=str(model_def.litellm_params.get("api_base") or ""),
+        missing=False,
+    )
+
+
+def inspect_profile(name: str, debug: bool = False) -> ProfileInspection | None:
+    """
+    Load a profile for display without hydrating API keys.
+
+    Resolves fable/opus/sonnet/haiku plus extended models to:
+    model name, internal LiteLLM name, key env var, and named-key instance.
+    """
+    global _loaded_profile_files
+    _require_yaml()
+
+    for profiles_file in _get_profiles_files(debug=debug):
+        profiles_data = _load_profiles_file(profiles_file, debug=debug)
+        if name not in profiles_data:
+            continue
+        profile_data = profiles_data[name]
+        if _is_profile_disabled(profile_data) or not isinstance(profile_data, dict):
+            continue
+
+        _loaded_profile_files[name] = profiles_file
+        meta = _profile_meta_from_data(name, profile_data)
+        models = load_model_definitions(debug=debug, quiet=True)
+
+        fable_name = meta.effective_fable_model()
+        fable_fallback = not bool(meta.fable_model) and bool(meta.opus_model)
+        tiers = {
+            "fable": _binding_for(fable_name, models),
+            "opus": _binding_for(meta.opus_model, models),
+            "sonnet": _binding_for(meta.sonnet_model, models),
+            "haiku": _binding_for(meta.haiku_model, models),
+        }
+        tier_model_names = {b.model_name for b in tiers.values() if b.model_name}
+
+        extended: list[ModelBinding] = []
+        seen: set[str] = set()
+        for ext in meta.extended:
+            if not ext or ext in seen or ext in tier_model_names:
+                continue
+            seen.add(ext)
+            extended.append(_binding_for(ext, models))
+
+        return ProfileInspection(
+            name=name,
+            display_name=meta.name or name,
+            source_path=profiles_file,
+            tiers=tiers,
+            fable_fallback=fable_fallback,
+            extended=extended,
+            model_files=_loaded_model_files.copy(),
+        )
+
+    return None
+
+
+def _format_table(headers: list[str], rows: list[list[str]]) -> list[str]:
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            if i < len(widths):
+                widths[i] = max(widths[i], len(cell))
+    sep = "  "
+    lines = [sep.join(h.ljust(widths[i]) for i, h in enumerate(headers))]
+    lines.append(sep.join("-" * w for w in widths))
+    for row in rows:
+        padded = list(row) + [""] * (len(headers) - len(row))
+        lines.append(sep.join(padded[i].ljust(widths[i]) for i in range(len(headers))))
+    return lines
+
+
+def _view_cell(value: str, missing: bool = False) -> str:
+    if missing and not value:
+        return "(missing)"
+    return value or "—"
+
+
+def format_profile_view(inspection: ProfileInspection) -> str:
+    """Human-readable profile view: aliases plus instance/internal/key mapping."""
+    lines: list[str] = []
+    lines.append(f"Profile: {inspection.name}")
+    if inspection.display_name and inspection.display_name != inspection.name:
+        lines.append(f"Display name: {inspection.display_name}")
+    if inspection.source_path:
+        lines.append(f"Loaded from: {inspection.source_path}")
+    for model_file in inspection.model_files:
+        lines.append(f"Models loaded from: {model_file}")
+    lines.append("")
+
+    fable = inspection.tiers.get("fable")
+    opus = inspection.tiers.get("opus")
+    sonnet = inspection.tiers.get("sonnet")
+    haiku = inspection.tiers.get("haiku")
+
+    def _alias(binding: ModelBinding | None) -> str:
+        if binding is None or not binding.model_name:
+            return "(not set)"
+        return binding.model_name
+
+    lines.append("Model Aliases:")
+    lines.append(f"  opus:   {_alias(opus)}")
+    lines.append(f"  sonnet: {_alias(sonnet)}")
+    lines.append(f"  haiku:  {_alias(haiku)}")
+    fable_alias = _alias(fable)
+    if inspection.fable_fallback and fable_alias != "(not set)":
+        lines.append(f"  fable:  {fable_alias} (fallback: opus)")
+    else:
+        lines.append(f"  fable:  {fable_alias}")
+    lines.append("")
+
+    def _row(role: str, binding: ModelBinding) -> list[str]:
+        internal = "(missing)" if binding.missing else _view_cell(binding.internal_name)
+        return [
+            role,
+            _view_cell(binding.model_name),
+            internal,
+            _view_cell(binding.key_env),
+            _view_cell(binding.instance),
+        ]
+
+    lines.append("Tier mapping:")
+    tier_rows = [
+        _row("fable", fable or ModelBinding(model_name="", missing=True)),
+        _row("opus", opus or ModelBinding(model_name="", missing=True)),
+        _row("sonnet", sonnet or ModelBinding(model_name="", missing=True)),
+        _row("haiku", haiku or ModelBinding(model_name="", missing=True)),
+    ]
+    lines.extend(_format_table(
+        ["ROLE", "MODEL NAME", "INTERNAL NAME", "KEY ENV", "INSTANCE"],
+        tier_rows,
+    ))
+    if inspection.fable_fallback:
+        lines.append("  (fable_model omitted; fable uses opus)")
+
+    if inspection.extended:
+        lines.append("")
+        lines.append("Additional models:")
+        extra_rows = [
+            [
+                _view_cell(b.model_name),
+                "(missing)" if b.missing else _view_cell(b.internal_name),
+                _view_cell(b.key_env),
+                _view_cell(b.instance),
+            ]
+            for b in inspection.extended
+        ]
+        lines.extend(_format_table(
+            ["MODEL NAME", "INTERNAL NAME", "KEY ENV", "INSTANCE"],
+            extra_rows,
+        ))
+
+    return "\n".join(lines) + "\n"
 
 
 def list_models() -> list[str]:

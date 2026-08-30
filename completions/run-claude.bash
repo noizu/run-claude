@@ -5,7 +5,7 @@
 #      (done by `make install-completions`; auto-loaded by bash-completion v2).
 #   2. Source this file from .bashrc.
 
-__rc_profiles() { run-claude profiles list 2>/dev/null | awk '/^  /{print $1}'; }
+__rc_profiles() { run-claude profiles list --names-only 2>/dev/null; }
 __rc_model_defs() { run-claude models list 2>/dev/null | awk '/^  /{print $1}'; }
 # NF==1 guard: with the proxy down the command prints a status sentence, not names.
 __rc_enabled_models() { run-claude models enabled --names-only 2>/dev/null | awk 'NF==1'; }
@@ -114,12 +114,16 @@ _run_claude() {
         profiles)
             if [[ "$cur" != -* ]]; then
                 if ((pos == 0)); then
-                    COMPREPLY=($(compgen -W "list show install" -- "$cur"))
-                elif ((pos == 1)) && [[ "${COMP_WORDS[cmd_i+1]}" == "show" ]]; then
+                    COMPREPLY=($(compgen -W "list show view install" -- "$cur"))
+                elif ((pos == 1)) && [[ "${COMP_WORDS[cmd_i+1]}" == "show" || "${COMP_WORDS[cmd_i+1]}" == "view" ]]; then
                     COMPREPLY=($(compgen -W "$(__rc_profiles)" -- "$cur"))
                 fi
                 return
-            fi ;;
+            fi
+            case "${COMP_WORDS[cmd_i+1]}" in
+                list) opts="--json --names-only" ;;
+                show|view) opts="--json" ;;
+            esac ;;
         models)
             if [[ "$cur" != -* ]]; then
                 if ((pos == 0)); then

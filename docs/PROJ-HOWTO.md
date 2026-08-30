@@ -40,7 +40,7 @@ Task-oriented guides for the things you'll actually do with `run-claude`. For *w
 ### How to: configure a project directory for a specific provider
 
 **Goal:** make one directory always route through a chosen profile (e.g. Cerebras, Groq, native Anthropic) when you `cd` into it.
-**Prereqs:** run-claude installed (see above); a profile name from `run-claude profiles list`.
+**Prereqs:** run-claude installed (see above); a profile name from `run-claude profiles list`. Inspect a profile with `run-claude profiles view <name>` (instance, model name, internal name, key env var, and fable/opus/sonnet/haiku mapping).
 
 1. From inside the target directory:
    ```bash
