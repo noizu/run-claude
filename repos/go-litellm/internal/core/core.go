@@ -49,11 +49,9 @@ func applyDeploymentTunables(params, lp map[string]any) map[string]any {
 	if lp == nil {
 		return out
 	}
-	for _, k := range deploymentTunables {
-		if v, ok := lp[k]; ok && v != nil {
-			out[k] = v
-		}
-	}
+	// additional_drop_params strips client-supplied params (litellm semantics);
+	// it must run BEFORE deployment tunables are merged so a model entry that
+	// both sets and drops the same param keeps its own litellm_params value.
 	switch drop := lp["additional_drop_params"].(type) {
 	case []any:
 		for _, d := range drop {
@@ -64,6 +62,11 @@ func applyDeploymentTunables(params, lp map[string]any) map[string]any {
 	case []string:
 		for _, s := range drop {
 			delete(out, s)
+		}
+	}
+	for _, k := range deploymentTunables {
+		if v, ok := lp[k]; ok && v != nil {
+			out[k] = v
 		}
 	}
 	return out
@@ -105,8 +108,22 @@ func Prepare(rt *router.Router, cfg *config.Config, params map[string]any) (*Pre
 	if b, ok := lp["drop_params"].(bool); ok && b {
 		drop = true
 	}
+	zai := providers.ZaiThinkingApplies(lp)
+	if zai {
+		// z.ai routes: normalize anthropic thinking / openai effort onto z.ai's
+		// reasoning_effort surface BEFORE the adapter allowlist drops thinking.
+		params = providers.ApplyZaiThinking(params, res.Model)
+	}
 	mapped := Optional(params, res.Adapter, res.Model, drop)
 	mapped = applyDeploymentTunables(mapped, lp)
+	if zai && lp["reasoning_effort"] == nil {
+		// Deployment didn't pin an effort: keep the mapped client effort even
+		// when additional_drop_params lists reasoning_effort (it is there to
+		// strip raw client values on the python-litellm side).
+		if v, ok := params["reasoning_effort"]; ok {
+			mapped["reasoning_effort"] = v
+		}
+	}
 	if res.Provider == "groq" {
 		mapped = providers.ShapeGroq(mapped, res.Model)
 	}

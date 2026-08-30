@@ -57,6 +57,9 @@ func (a *App) messagesViaDeployment(w http.ResponseWriter, r *http.Request, body
 	url := res.Adapter.CompleteURL(req)
 	out := jsonx.Clone(body)
 	out["model"] = res.Model
+	if providers.ZaiThinkingApplies(lp) {
+		out = providers.ApplyZaiThinking(out, res.Model)
+	}
 	raw, _ := json.Marshal(out)
 	a.tag(r, "", url, "")
 	a.forwardTo(w, r, url, headers, raw)

@@ -644,6 +644,8 @@ model_list:
       weaknesses: "Requires subscription"
 
 # Zai - Named
+# Tiers: fable=glm-5.3, opus=glm-5.3-flash, sonnet=glm-5.2, haiku=glm-5-turbo
+# GLM-5.3 / GLM-5.3-Flash reasoning_effort: low | high | max (medium is invalid)
 
 
   - model_name: "zai/haiku"
@@ -664,23 +666,7 @@ model_list:
 
   - model_name: "zai/sonnet"
     litellm_params:
-      model: anthropic/glm-5.3
-      api_key: os.environ/ZAI_SUB_KEY
-      api_base: https://api.z.ai/api/anthropic
-      drop_params: false
-      additional_drop_params: ["context_management", "thinking"]
-      reasoning_effort: "medium"
-      extra_headers:
-        anthropic-product: claude_code
-    metadata:
-      provider: zai
-      description: "ZAI GLM 5.3 (sonnet tier)"
-      strengths: "Balanced speed and quality"
-      weaknesses: "Less depth than opus tier"
-
-  - model_name: "zai/opus"
-    litellm_params:
-      model: anthropic/glm-5.3
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -690,9 +676,41 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5.3 (opus tier)"
-      strengths: "Strong reasoning, high quality"
-      weaknesses: "Slower, more expensive"
+      description: "ZAI GLM 5.2 (sonnet tier)"
+      strengths: "Strong long-horizon coding, 1M context"
+      weaknesses: "Less capable than glm-5.3-flash opus tier"
+
+  - model_name: "zai/opus"
+    litellm_params:
+      model: anthropic/glm-5.3-flash
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.3 Flash (opus tier)"
+      strengths: "Frontier intelligence at flash cost; native multimodal"
+      weaknesses: "Less depth than glm-5.3 fable tier"
+
+  - model_name: "zai/fable"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "max"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.3 (fable tier)"
+      strengths: "Flagship coding/agent; Claude Fable 5-level"
+      weaknesses: "Slower, more expensive; text-only"
 
   - model_name: "zai/haiku[1m]"
     litellm_params:
@@ -712,23 +730,7 @@ model_list:
 
   - model_name: "zai/sonnet[1m]"
     litellm_params:
-      model: anthropic/glm-5.3
-      api_key: os.environ/ZAI_SUB_KEY
-      api_base: https://api.z.ai/api/anthropic
-      drop_params: false
-      additional_drop_params: ["context_management", "thinking"]
-      reasoning_effort: "medium"
-      extra_headers:
-        anthropic-product: claude_code
-    metadata:
-      provider: zai
-      description: "ZAI GLM 5.3 1M context (sonnet tier)"
-      strengths: "Balanced, large context"
-      weaknesses: "Less depth than opus"
-
-  - model_name: "zai/opus[1m]"
-    litellm_params:
-      model: anthropic/glm-5.3
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -738,9 +740,234 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5.3 1M context (opus tier)"
-      strengths: "Strong reasoning, large context"
-      weaknesses: "Slower, more expensive"
+      description: "ZAI GLM 5.2 1M context (sonnet tier)"
+      strengths: "Strong long-horizon coding, large context"
+      weaknesses: "Less capable than glm-5.3-flash opus tier"
+
+  - model_name: "zai/opus[1m]"
+    litellm_params:
+      model: anthropic/glm-5.3-flash
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.3 Flash 1M context (opus tier)"
+      strengths: "Frontier intelligence at flash cost; native multimodal, large context"
+      weaknesses: "Less depth than glm-5.3 fable tier"
+
+  - model_name: "zai/fable[1m]"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "max"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.3 1M context (fable tier)"
+      strengths: "Flagship coding/agent; Claude Fable 5-level, large context"
+      weaknesses: "Slower, more expensive; text-only"
+
+  - model_name: "zai/glm-5.3"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "max"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.3 (named SKU, Anthropic protocol)"
+      strengths: "Flagship coding/agent; Claude Fable 5-level"
+      weaknesses: "Slower, more expensive; text-only"
+
+  - model_name: "zai/glm-5.3-flash"
+    litellm_params:
+      model: anthropic/glm-5.3-flash
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.3-Flash (named SKU, Anthropic protocol)"
+      strengths: "Frontier intelligence at flash cost; native multimodal"
+      weaknesses: "Less depth than GLM-5.3"
+
+  - model_name: "zai/glm-5.2"
+    litellm_params:
+      model: anthropic/glm-5.2
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.2 (named SKU, Anthropic protocol)"
+      strengths: "Strong long-horizon coding, 1M context"
+      weaknesses: "Less depth than GLM-5.3"
+
+# Zai - Subscription effort variants (explicit reasoning_effort pins)
+# GLM-5.3/5.3-flash only accept low|high|max; 5.2 keeps the full set;
+# pre-5.2 models (glm-5, glm-5.1, glm-5-code) have no reasoning_effort surface.
+
+  - model_name: "zai/glm-5 (sub)"
+    litellm_params:
+      model: anthropic/glm-5
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5 (subscription)"
+      strengths: "Cheap, fast; thinking.type honored natively"
+      weaknesses: "No reasoning_effort support (pre-5.2)"
+
+  - model_name: "zai/glm-5.1 (sub)"
+    litellm_params:
+      model: anthropic/glm-5.1
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.1 (subscription)"
+      strengths: "Balanced prior-gen flagship; thinking.type honored natively"
+      weaknesses: "No reasoning_effort support (pre-5.2)"
+
+  - model_name: "zai/glm-5.3 (sub)"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.3 (subscription, high thinking)"
+      strengths: "Flagship coding/agent at high effort"
+      weaknesses: "Cannot disable thinking (always-think model)"
+
+  - model_name: "zai/glm-5.3 (sub, max)"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      reasoning_effort: "max"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.3 (subscription, max thinking)"
+      strengths: "Deepest reasoning depth"
+      weaknesses: "Slowest, most expensive"
+
+  - model_name: "zai/glm-5.3 (sub, low)"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      reasoning_effort: "low"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.3 (subscription, low thinking)"
+      strengths: "Flagship quality with shallow thinking (cannot disable)"
+      weaknesses: "Still always-thinks; not a true low-latency tier"
+
+  - model_name: "zai/glm-5.3-flash (sub)"
+    litellm_params:
+      model: anthropic/glm-5.3-flash
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.3-Flash (subscription, high thinking)"
+      strengths: "Frontier intelligence at flash cost"
+      weaknesses: "Cannot disable thinking (always-think model)"
+
+  - model_name: "zai/glm-5.3-flash (sub, low)"
+    litellm_params:
+      model: anthropic/glm-5.3-flash
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      reasoning_effort: "low"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.3-Flash (subscription, low thinking)"
+      strengths: "Fastest 5.3 tier (shallowest thinking)"
+      weaknesses: "Reduced reasoning depth"
+
+  - model_name: "zai/glm-5.2 (sub)"
+    litellm_params:
+      model: anthropic/glm-5.2
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.2 (subscription, high thinking)"
+      strengths: "Strong long-horizon coding; full effort set incl. none/minimal"
+      weaknesses: "Less capable than GLM-5.3"
+
+  - model_name: "zai/glm-5-code (sub)"
+    litellm_params:
+      model: anthropic/glm-5-code
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5-Code (subscription)"
+      strengths: "Code-specialized glm-5; thinking.type honored natively"
+      weaknesses: "No reasoning_effort support (pre-5.2)"
 
 # Zai - Tyna account (second subscription via ZAI_SUB_KEY_TYNA)
 
@@ -762,23 +989,7 @@ model_list:
 
   - model_name: "zai-tyna/sonnet"
     litellm_params:
-      model: anthropic/glm-5.3
-      api_key: os.environ/ZAI_SUB_KEY_TYNA
-      api_base: https://api.z.ai/api/anthropic
-      drop_params: false
-      additional_drop_params: ["context_management", "thinking"]
-      reasoning_effort: "medium"
-      extra_headers:
-        anthropic-product: claude_code
-    metadata:
-      provider: zai
-      description: "ZAI GLM 5.3 (sonnet tier, Tyna account)"
-      strengths: "Balanced speed and quality"
-      weaknesses: "Less depth than opus tier; second Z.AI subscription"
-
-  - model_name: "zai-tyna/opus"
-    litellm_params:
-      model: anthropic/glm-5.3
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY_TYNA
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -788,9 +999,41 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5.3 (opus tier, Tyna account)"
-      strengths: "Strong reasoning, high quality"
-      weaknesses: "Slower, more expensive; second Z.AI subscription"
+      description: "ZAI GLM 5.2 (sonnet tier, Tyna account)"
+      strengths: "Strong long-horizon coding, 1M context"
+      weaknesses: "Less capable than glm-5.3-flash opus tier; second Z.AI subscription"
+
+  - model_name: "zai-tyna/opus"
+    litellm_params:
+      model: anthropic/glm-5.3-flash
+      api_key: os.environ/ZAI_SUB_KEY_TYNA
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.3 Flash (opus tier, Tyna account)"
+      strengths: "Frontier intelligence at flash cost; native multimodal"
+      weaknesses: "Less depth than glm-5.3 fable tier; second Z.AI subscription"
+
+  - model_name: "zai-tyna/fable"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY_TYNA
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "max"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.3 (fable tier, Tyna account)"
+      strengths: "Flagship coding/agent; Claude Fable 5-level"
+      weaknesses: "Slower, more expensive; text-only; second Z.AI subscription"
 
   - model_name: "zai-tyna/haiku[1m]"
     litellm_params:
@@ -810,23 +1053,7 @@ model_list:
 
   - model_name: "zai-tyna/sonnet[1m]"
     litellm_params:
-      model: anthropic/glm-5.3
-      api_key: os.environ/ZAI_SUB_KEY_TYNA
-      api_base: https://api.z.ai/api/anthropic
-      drop_params: false
-      additional_drop_params: ["context_management", "thinking"]
-      reasoning_effort: "medium"
-      extra_headers:
-        anthropic-product: claude_code
-    metadata:
-      provider: zai
-      description: "ZAI GLM 5.3 1M context (sonnet tier, Tyna account)"
-      strengths: "Balanced, large context"
-      weaknesses: "Less depth than opus; second Z.AI subscription"
-
-  - model_name: "zai-tyna/opus[1m]"
-    litellm_params:
-      model: anthropic/glm-5.3
+      model: anthropic/glm-5.2
       api_key: os.environ/ZAI_SUB_KEY_TYNA
       api_base: https://api.z.ai/api/anthropic
       drop_params: false
@@ -836,11 +1063,43 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: zai
-      description: "ZAI GLM 5.3 1M context (opus tier, Tyna account)"
-      strengths: "Strong reasoning, large context"
-      weaknesses: "Slower, more expensive; second Z.AI subscription"
+      description: "ZAI GLM 5.2 1M context (sonnet tier, Tyna account)"
+      strengths: "Strong long-horizon coding, large context"
+      weaknesses: "Less capable than glm-5.3-flash opus tier; second Z.AI subscription"
 
-  # Alias for zai/opus - high quality
+  - model_name: "zai-tyna/opus[1m]"
+    litellm_params:
+      model: anthropic/glm-5.3-flash
+      api_key: os.environ/ZAI_SUB_KEY_TYNA
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.3 Flash 1M context (opus tier, Tyna account)"
+      strengths: "Frontier intelligence at flash cost; native multimodal, large context"
+      weaknesses: "Less depth than glm-5.3 fable tier; second Z.AI subscription"
+
+  - model_name: "zai-tyna/fable[1m]"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY_TYNA
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "max"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.3 1M context (fable tier, Tyna account)"
+      strengths: "Flagship coding/agent; Claude Fable 5-level, large context"
+      weaknesses: "Slower, more expensive; text-only; second Z.AI subscription"
+
+  # Alias for zai/fable - high quality
   - model_name: "ultra"
     litellm_params:
       model: anthropic/glm-5.3
@@ -857,7 +1116,7 @@ model_list:
       strengths: "Strong reasoning, high effort"
       weaknesses: "Slower due to high reasoning"
 
-  # Alias for zai/opus - cheap option
+  # Alias for zai/fable - cheap option
   - model_name: "cheap"
     litellm_params:
       model: anthropic/glm-5.3
@@ -873,6 +1132,135 @@ model_list:
       description: "ZAI GLM 5.3 budget alias"
       strengths: "Cost-effective, good quality"
       weaknesses: "Same as ultra (alias)"
+
+# Zai - OpenAI v1 endpoint format (Named)
+# Uses Z.AI's coding PAAS endpoint (OpenAI-compatible, coding subscription)
+
+  - model_name: "zai-oa/haiku"
+    litellm_params:
+      model: openai/glm-5-turbo
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management", "output_config"]
+      reasoning_effort: "low"
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5 Turbo OpenAI-compat (haiku tier)"
+      strengths: "Fast, cheap, OpenAI-compat endpoint"
+      weaknesses: "Limited reasoning depth"
+
+  - model_name: "zai-oa/sonnet"
+    litellm_params:
+      model: openai/glm-5.2
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management", "output_config"]
+      reasoning_effort: "high"
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.2 OpenAI-compat (sonnet tier)"
+      strengths: "Strong long-horizon coding, 1M context"
+      weaknesses: "Less capable than glm-5.3-flash opus tier"
+
+  - model_name: "zai-oa/opus"
+    litellm_params:
+      model: openai/glm-5.3-flash
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management", "output_config"]
+      reasoning_effort: "high"
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.3 Flash OpenAI-compat (opus tier)"
+      strengths: "Frontier intelligence at flash cost; native multimodal"
+      weaknesses: "Less depth than glm-5.3 fable tier"
+
+  - model_name: "zai-oa/fable"
+    litellm_params:
+      model: openai/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management", "output_config"]
+      reasoning_effort: "max"
+    metadata:
+      provider: zai
+      description: "ZAI GLM 5.3 OpenAI-compat (fable tier)"
+      strengths: "Flagship coding/agent; Claude Fable 5-level"
+      weaknesses: "Slower, more expensive; text-only"
+
+  - model_name: "zai-oa/glm-5.3"
+    litellm_params:
+      model: openai/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management", "output_config"]
+      reasoning_effort: "max"
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.3 via coding plan OpenAI-compatible endpoint"
+      strengths: "Flagship 1M-context coding model"
+      weaknesses: "High quota consumption during peak hours"
+
+  - model_name: "zai-oa/glm-5.3-flash"
+    litellm_params:
+      model: openai/glm-5.3-flash
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management", "output_config"]
+      reasoning_effort: "high"
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.3-Flash via coding plan OpenAI-compatible endpoint"
+      strengths: "Frontier intelligence at flash cost; native multimodal; 3x quota vs GLM-5.3"
+      weaknesses: "Less depth than GLM-5.3"
+
+  - model_name: "zai-oa/glm-5.2"
+    litellm_params:
+      model: openai/glm-5.2
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management", "output_config"]
+      reasoning_effort: "high"
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.2 via coding plan OpenAI-compatible endpoint"
+      strengths: "Strong long-horizon coding, 1M context"
+      weaknesses: "Superseded by GLM-5.3 on coding benches"
+
+  - model_name: "zai-oa/glm-5-turbo"
+    litellm_params:
+      model: openai/glm-5-turbo
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management", "output_config"]
+      reasoning_effort: "high"
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5-Turbo via coding plan OpenAI-compatible endpoint"
+      strengths: "Advanced coding-plan model, faster than GLM-5.3"
+      weaknesses: "Less capable than GLM-5.3"
+
+  - model_name: "zai-oa/glm-4.7"
+    litellm_params:
+      model: openai/glm-4.7
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management", "output_config"]
+      reasoning_effort: "medium"
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-4.7 via coding plan OpenAI-compatible endpoint"
+      strengths: "Routine coding tasks with lower quota pressure"
+      weaknesses: "Older than GLM-5 series"
 
 # Wafer Serverless — Anthropic-compatible Messages at https://pass.wafer.ai
 # Live catalog (GET /v1/models): GLM-5.2, Kimi-K3, Kimi-K2.6, Qwen3.5-397B-A17B,
