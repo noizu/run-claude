@@ -1664,7 +1664,7 @@ model_list:
 
   - model_name: "wafer/sonnet"
     litellm_params:
-      model: anthropic/GLM-5.3-Flash
+      model: anthropic/Qwen3.5-397B-A17B
       api_key: os.environ/WAFER_AI_API_KEY
       api_base: https://pass.wafer.ai
       drop_params: false
@@ -1674,13 +1674,13 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: wafer
-      description: "Wafer sonnet tier (GLM-5.3-Flash, default high effort)"
-      strengths: "Daily driver; client effort overrides still honored"
-      weaknesses: "Pay-as-you-go"
+      description: "Wafer sonnet tier (Qwen3.5-397B-A17B, default high effort)"
+      strengths: "Daily driver; fast coding MoE; client effort overrides still honored"
+      weaknesses: "262K context, not 1M; no ZDR; pay-as-you-go"
 
   - model_name: "wafer/sonnet[1m]"
     litellm_params:
-      model: anthropic/GLM-5.3-Flash
+      model: anthropic/Qwen3.5-397B-A17B
       api_key: os.environ/WAFER_AI_API_KEY
       api_base: https://pass.wafer.ai
       drop_params: false
@@ -1690,13 +1690,13 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: wafer
-      description: "Wafer sonnet tier 1M alias (GLM-5.3-Flash, default high effort)"
-      strengths: "Claude Code [1m] suffix"
-      weaknesses: "Pay-as-you-go"
+      description: "Wafer sonnet tier 1M alias (Qwen3.5-397B-A17B, default high effort)"
+      strengths: "Prevents [1m] suffix 404s; client effort overrides still honored"
+      weaknesses: "Backend cap is 262K, not 1M; pay-as-you-go"
 
   - model_name: "wafer/haiku"
     litellm_params:
-      model: anthropic/GLM-5.3-Flash
+      model: anthropic/DeepSeek-V4-Flash-0731-Fast
       api_key: os.environ/WAFER_AI_API_KEY
       api_base: https://pass.wafer.ai
       drop_params: false
@@ -1706,13 +1706,13 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: wafer
-      description: "Wafer haiku tier (GLM-5.3-Flash, default low effort)"
-      strengths: "Fast/cheap; client effort overrides still honored"
-      weaknesses: "Less depth than max/high effort tiers"
+      description: "Wafer haiku tier (DeepSeek-V4-Flash-0731-Fast, default low effort)"
+      strengths: "Cheapest Wafer tier, 1M context, high throughput; client overrides honored"
+      weaknesses: "Flash quality vs GLM-5.2 / Kimi-K3"
 
   - model_name: "wafer/haiku[1m]"
     litellm_params:
-      model: anthropic/GLM-5.3-Flash
+      model: anthropic/DeepSeek-V4-Flash-0731-Fast
       api_key: os.environ/WAFER_AI_API_KEY
       api_base: https://pass.wafer.ai
       drop_params: false
@@ -1722,9 +1722,9 @@ model_list:
         anthropic-product: claude_code
     metadata:
       provider: wafer
-      description: "Wafer haiku tier 1M alias (GLM-5.3-Flash, default low effort)"
-      strengths: "Claude Code [1m] suffix"
-      weaknesses: "Less depth than max/high effort tiers"
+      description: "Wafer haiku tier 1M alias (DeepSeek-V4-Flash-0731-Fast, default low effort)"
+      strengths: "Claude Code [1m] suffix; native 1M context"
+      weaknesses: "Flash quality vs GLM-5.2 / Kimi-K3"
 
   - model_name: "wafer/kimi-k2.6"
     litellm_params:
@@ -2317,6 +2317,30 @@ model_list:
     metadata:
       provider: groq
       description: "GPT-OSS 120B on Groq (opus 1M alias)"
+
+  # Qwen3.6-27B: preview model, distinct voice from the GPT-OSS tiers above.
+  # Only supports "default"/"none" reasoning - drop reasoning_effort.
+  - model_name: "groq/fable"
+    litellm_params:
+      model: groq/qwen/qwen3.6-27b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+    metadata:
+      provider: groq
+      description: "Qwen3.6 27B on Groq (fable tier)"
+      strengths: "Fast preview model, large context, distinct voice"
+      weaknesses: "Preview availability may change, pricier than GPT-OSS"
+
+  - model_name: "groq/fable[1m]"
+    litellm_params:
+      model: groq/qwen/qwen3.6-27b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking", "reasoning_effort"]
+    metadata:
+      provider: groq
+      description: "Qwen3.6 27B on Groq (fable 1M alias)"
 
   # Alias for groq/opus - fast option
   - model_name: "fast"
