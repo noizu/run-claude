@@ -16,6 +16,7 @@ from pathlib import Path
 
 # Re-export all the command handlers from cli since they're shared
 from .cli import (
+    add_profiles_subparsers,
     cmd_enter,
     cmd_leave,
     cmd_janitor,
@@ -100,11 +101,7 @@ def main() -> int:
 
     # profiles subcommands
     profiles_p = subparsers.add_parser("profiles", help="Profile management")
-    profiles_sub = profiles_p.add_subparsers(dest="profiles_command")
-    profiles_sub.add_parser("list", help="List available profiles")
-    show_p = profiles_sub.add_parser("show", help="Show profile details")
-    show_p.add_argument("name", help="Profile name")
-    profiles_sub.add_parser("install", help="Create user profiles config template")
+    add_profiles_subparsers(profiles_p)
 
     # models subcommands
     models_p = subparsers.add_parser("models", help="Model definitions management")

@@ -33,34 +33,18 @@ openai:
     - "openai-o3-mini"
 
 # Cerebras - Speed optimized inference
+# Only 3 models available now: gemma-4-31b, zai-glm-4.7, gpt-oss-120b
+# (non-subscription CEREBRAS_API_KEY)
 cerebras:
   name: "Cerebras"
-  opus_model: "cerebras/gpt-oss-120b"
-  sonnet_model: "cerebras/qwen-3-32b"
-  haiku_model: "cerebras/llama3.1-8b"
-
-# Cerebras2 - Alternative Cerebras config with GLM
-cerebras2:
-  name: "Cerebras (GLM)"
-  opus_model: "cerebras/zai-glm-4.7"
+  fable_model: "cerebras/zai-glm-4.7"
+  opus_model: "cerebras/gemma-4-31b"
   sonnet_model: "cerebras/gpt-oss-120b"
-  haiku_model: "cerebras/qwen-3-32b"
-
-# Cerebras Subscription - GLM with thinking tiers
-cerebras-pro:
-  name: "Cerebras Pro Subscription"
-  opus_model: "cerebras-pro/opus"
-  sonnet_model: "cerebras-pro/sonnet"
-  haiku_model: "cerebras-pro/haiku"
-  # Claude Code v2.1.116+ appends "[1m]" for the 1M-context variants; register
-  # aliases so those requests route instead of timing out.
-  extended:
-    - "cerebras-pro/opus[1m]"
-    - "cerebras-pro/sonnet[1m]"
-    - "cerebras-pro/haiku[1m]"
+  haiku_model: "cerebras/gpt-oss-120b"
 
 groq-pro:
   name: "Groq Equivalent"
+  fable_model: "groq/fable"
   opus_model: "groq/opus"
   sonnet_model: "groq/sonnet"
   haiku_model: "groq/haiku"
@@ -72,6 +56,7 @@ groq-pro:
     - "groq/opus[1m]"
     - "groq/sonnet[1m]"
     - "groq/haiku[1m]"
+    - "groq/fable[1m]"
     - "groq-compound"
     - "groq-compound-mini"
     - "groq-qwen3.6-27b"
@@ -81,48 +66,125 @@ groq-pro:
 
 
 # Z.AI Subscription - GLM with thinking tiers
+#   fable  = glm-5.3
+#   opus   = glm-5.3-flash
+#   sonnet = glm-5.3-flash
+#   haiku  = glm-5-turbo
 # Requires: ZAI_SUB_KEY; Tyna copies also need ZAI_SUB_KEY_TYNA
 zai-pro:
   name: "Zai Subscription"
-  opus_model: "zai/opus"
-  sonnet_model: "zai/sonnet"
+  opus_model: "zai/glm-5.3-flash (sub)"
+  sonnet_model: "zai/glm-5.3-flash (sub)"
   haiku_model: "zai/haiku"
+  fable_model: "zai/glm-5.3 (sub)"
   extended:
     - "zai/opus[1m]"
     - "zai/sonnet[1m]"
     - "zai/haiku[1m]"
+    - "zai/fable[1m]"
     - "zai-tyna/opus"
     - "zai-tyna/opus[1m]"
     - "zai-tyna/sonnet"
     - "zai-tyna/sonnet[1m]"
     - "zai-tyna/haiku"
     - "zai-tyna/haiku[1m]"
+    - "zai-tyna/fable"
+    - "zai-tyna/fable[1m]"
+    - "zai/glm-5.3"
+    - "zai/glm-5.3-flash"
+    - "zai/glm-5.3-flash[1m]"
+    - "zai/glm-5.2"
     - "zai-oa/glm-5.3"
+    - "zai-oa/glm-5.3-flash"
+    - "zai-oa/glm-5.3-flash[1m]"
+    - "zai-oa/glm-5.2"
     - "zai-oa/glm-5-turbo"
     - "zai-oa/glm-4.7"
 
+# Independent SKU-identical clone of zai-pro (family zai-alt/*).
+# Default key: ZAI_SUB_KEY_TYNA. Rebind independently:
+#   run-claude keys switch zai     tyna|zai
+#   run-claude keys switch zai-alt tyna|zai
+zai-alt: &zai-alt-profile
+  name: "Zai Subscription (Alt)"
+  opus_model: "zai-alt/opus"
+  sonnet_model: "zai-alt/sonnet"
+  haiku_model: "zai-alt/haiku"
+  fable_model: "zai-alt/fable"
+  extended:
+    - "zai-alt/opus[1m]"
+    - "zai-alt/sonnet[1m]"
+    - "zai-alt/haiku[1m]"
+    - "zai-alt/fable[1m]"
+    - "zai-alt/glm-5.3"
+    - "zai-alt/glm-5.3-flash"
+    - "zai-alt/glm-5.3-flash[1m]"
+    - "zai-alt/glm-5.2"
+    - "zai-oa-alt/glm-5.3"
+    - "zai-oa-alt/glm-5.3-flash"
+    - "zai-oa-alt/glm-5.3-flash[1m]"
+    - "zai-oa-alt/glm-5.2"
+    - "zai-oa-alt/glm-5-turbo"
+    - "zai-oa-alt/glm-4.7"
+zai-pro-alt: *zai-alt-profile
+
 # Z.AI Subscription - OpenAI v1 endpoint format
+#   fable  = glm-5.3
+#   opus   = glm-5.3-flash
+#   sonnet = glm-5.2
+#   haiku  = glm-4.7 (named coding-plan SKU; zai-pro haiku stays glm-5-turbo)
 zai-oa:
   name: "Zai Subscription (OpenAI v1)"
-  opus_model: "zai-oa/glm-5.3"
-  sonnet_model: "zai-oa/glm-5-turbo"
+  fable_model: "zai-oa/glm-5.3"
+  opus_model: "zai-oa/glm-5.3-flash"
+  sonnet_model: "zai-oa/glm-5.2"
   haiku_model: "zai-oa/glm-4.7"
   extended:
+    - "zai-oa/fable"
     - "zai-oa/opus"
     - "zai-oa/sonnet"
     - "zai-oa/haiku"
+    - "zai-oa/glm-5.3"
+    - "zai-oa/glm-5.3-flash"
+    - "zai-oa/glm-5.3-flash[1m]"
+    - "zai-oa/glm-5.2"
+    - "zai-oa/glm-5-turbo"
+    - "zai-oa/glm-4.7"
 
-# Wafer Serverless — Kimi-K3 opus, GLM-5.2 sonnet, DeepSeek V4 Flash Fast haiku
+# Z.AI Subscription — thinking-depth variants on the explicit-effort (sub) SKUs
+# Requires: ZAI_SUB_KEY
+zai-max:
+  name: "Zai Subscription (Max Thinking)"
+  opus_model: "zai/glm-5.3 (sub, max)"
+  sonnet_model: "zai/glm-5.3 (sub)"
+  haiku_model: "zai/glm-5.3-flash (sub, low)"
+  fable_model: "zai/glm-5.3 (sub, max)"
+
+zai-fast:
+  name: "Zai Subscription (Fast/Low Thinking)"
+  opus_model: "zai/glm-5.3 (sub)"
+  sonnet_model: "zai/glm-5.3-flash (sub, low)"
+  haiku_model: "zai/glm-5.3-flash (sub, low)"
+  fable_model: "zai/glm-5.3 (sub, low)"
+
+# Wafer Serverless — fable=Kimi-K3, opus/sonnet/haiku=GLM-5.3-Flash (max/high/low)
+# Named aliases: wafer/kimi-k2.6, wafer/glm-5.2
 # Requires: WAFER_AI_API_KEY
 wafer:
   name: "Wafer Serverless"
+  fable_model: "wafer/fable[1m]"
   opus_model: "wafer/opus[1m]"
   sonnet_model: "wafer/sonnet[1m]"
-  haiku_model: "wafer/haiku"
+  haiku_model: "wafer/haiku[1m]"
   extended:
+    - "wafer/fable"
     - "wafer/opus"
     - "wafer/sonnet"
-    - "wafer/haiku[1m]"
+    - "wafer/haiku"
+    - "wafer/kimi-k2.6"
+    - "wafer/kimi-k2.6[1m]"
+    - "wafer/glm-5.2"
+    - "wafer/glm-5.2[1m]"
     - "WAFER_GLM52"
     - "WAFER_GLM52[1m]"
     - "WAFER_KIMI_K3"
@@ -154,14 +216,20 @@ alibaba:
     - "alibaba/haiku[1m]"
     - "alibaba/fable[1m]"
     - "alibaba/qwen3.8-max"
+    - "alibaba/qwen3.8-max[1m]"
     - "alibaba/qwen3.8-max-preview"
+    - "alibaba/qwen3.8-flash"
+    - "alibaba/qwen3.8-flash[1m]"
     - "alibaba/qwen3.7-max"
     - "alibaba/qwen3.7-plus"
     - "alibaba/qwen3.6-plus"
     - "alibaba/qwen3.6-flash"
     - "alibaba/deepseek-v4-pro"
+    - "alibaba/deepseek-v4-pro-0813"
+    - "alibaba/deepseek-v4-pro-0813[1m]"
     - "alibaba/deepseek-v4-flash"
     - "alibaba/deepseek-v4-flash-0731"
+    - "alibaba/deepseek-v4-flash-0731[1m]"
     - "alibaba/kimi-k3"
     - "alibaba/kimi-k2.7-code"
     - "alibaba/kimi-k2.6"
@@ -170,6 +238,25 @@ alibaba:
     - "alibaba/glm-5.1"
     - "alibaba/glm-5"
     - "alibaba/minimax-m2.5"
+
+# Alibaba Token Plan — Qwen 3.8 + DeepSeek V4
+# Uses the alibaba catalog SKUs (same Token Plan Anthropic endpoint).
+# Tiers:
+#   fable  = qwen3.8-max
+#   opus   = deepseek-v4-pro-0813
+#   sonnet = qwen3.8-flash
+#   haiku  = deepseek-v4-flash-0731
+qwen:
+  name: "Alibaba Qwen"
+  fable_model: "alibaba/qwen3.8-max"
+  opus_model: "alibaba/deepseek-v4-pro-0813"
+  sonnet_model: "alibaba/qwen3.8-flash"
+  haiku_model: "alibaba/deepseek-v4-flash-0731"
+  extended:
+    - "alibaba/qwen3.8-max[1m]"
+    - "alibaba/deepseek-v4-pro-0813[1m]"
+    - "alibaba/qwen3.8-flash[1m]"
+    - "alibaba/deepseek-v4-flash-0731[1m]"
 
 # OpenRouter — Free Tier models
 # Requires: OPENROUTER_API_KEY
@@ -220,16 +307,27 @@ claude-plan:
     - "zai/opus"
     - "zai/sonnet"
     - "zai/haiku"
+    - "zai/fable"
     - "zai/opus[1m]"
     - "zai/sonnet[1m]"
     - "zai/haiku[1m]"
+    - "zai/fable[1m]"
     - "zai-tyna/opus"
     - "zai-tyna/opus[1m]"
     - "zai-tyna/sonnet"
     - "zai-tyna/sonnet[1m]"
     - "zai-tyna/haiku"
     - "zai-tyna/haiku[1m]"
+    - "zai-tyna/fable"
+    - "zai-tyna/fable[1m]"
+    - "zai/glm-5.3"
+    - "zai/glm-5.3-flash"
+    - "zai/glm-5.3-flash[1m]"
+    - "zai/glm-5.2"
     - "zai-oa/glm-5.3"
+    - "zai-oa/glm-5.3-flash"
+    - "zai-oa/glm-5.3-flash[1m]"
+    - "zai-oa/glm-5.2"
     - "zai-oa/glm-5-turbo"
     - "zai-oa/glm-4.7"
     # Wafer (pay-as-you-go)
@@ -254,14 +352,20 @@ claude-plan:
     - "alibaba/fable"
     - "alibaba/fable[1m]"
     - "alibaba/qwen3.8-max"
+    - "alibaba/qwen3.8-max[1m]"
     - "alibaba/qwen3.8-max-preview"
+    - "alibaba/qwen3.8-flash"
+    - "alibaba/qwen3.8-flash[1m]"
     - "alibaba/qwen3.7-max"
     - "alibaba/qwen3.7-plus"
     - "alibaba/qwen3.6-plus"
     - "alibaba/qwen3.6-flash"
     - "alibaba/deepseek-v4-pro"
+    - "alibaba/deepseek-v4-pro-0813"
+    - "alibaba/deepseek-v4-pro-0813[1m]"
     - "alibaba/deepseek-v4-flash"
     - "alibaba/deepseek-v4-flash-0731"
+    - "alibaba/deepseek-v4-flash-0731[1m]"
     - "alibaba/kimi-k3"
     - "alibaba/kimi-k2.7-code"
     - "alibaba/kimi-k2.6"
@@ -295,13 +399,24 @@ all-sub:
     - "zai/sonnet[1m]"
     - "zai/haiku"
     - "zai/haiku[1m]"
+    - "zai/fable"
+    - "zai/fable[1m]"
     - "zai-tyna/opus"
     - "zai-tyna/opus[1m]"
     - "zai-tyna/sonnet"
     - "zai-tyna/sonnet[1m]"
     - "zai-tyna/haiku"
     - "zai-tyna/haiku[1m]"
+    - "zai-tyna/fable"
+    - "zai-tyna/fable[1m]"
+    - "zai/glm-5.3"
+    - "zai/glm-5.3-flash"
+    - "zai/glm-5.3-flash[1m]"
+    - "zai/glm-5.2"
     - "zai-oa/glm-5.3"
+    - "zai-oa/glm-5.3-flash"
+    - "zai-oa/glm-5.3-flash[1m]"
+    - "zai-oa/glm-5.2"
     - "zai-oa/glm-5-turbo"
     - "zai-oa/glm-4.7"
     # Wafer (pay-as-you-go)
@@ -326,14 +441,20 @@ all-sub:
     - "alibaba/fable"
     - "alibaba/fable[1m]"
     - "alibaba/qwen3.8-max"
+    - "alibaba/qwen3.8-max[1m]"
     - "alibaba/qwen3.8-max-preview"
+    - "alibaba/qwen3.8-flash"
+    - "alibaba/qwen3.8-flash[1m]"
     - "alibaba/qwen3.7-max"
     - "alibaba/qwen3.7-plus"
     - "alibaba/qwen3.6-plus"
     - "alibaba/qwen3.6-flash"
     - "alibaba/deepseek-v4-pro"
+    - "alibaba/deepseek-v4-pro-0813"
+    - "alibaba/deepseek-v4-pro-0813[1m]"
     - "alibaba/deepseek-v4-flash"
     - "alibaba/deepseek-v4-flash-0731"
+    - "alibaba/deepseek-v4-flash-0731[1m]"
     - "alibaba/kimi-k3"
     - "alibaba/kimi-k2.7-code"
     - "alibaba/kimi-k2.6"
@@ -373,13 +494,24 @@ claude-enhanced:
     - "zai/sonnet[1m]"
     - "zai/haiku"
     - "zai/haiku[1m]"
+    - "zai/fable"
+    - "zai/fable[1m]"
     - "zai-tyna/opus"
     - "zai-tyna/opus[1m]"
     - "zai-tyna/sonnet"
     - "zai-tyna/sonnet[1m]"
     - "zai-tyna/haiku"
     - "zai-tyna/haiku[1m]"
+    - "zai-tyna/fable"
+    - "zai-tyna/fable[1m]"
+    - "zai/glm-5.3"
+    - "zai/glm-5.3-flash"
+    - "zai/glm-5.3-flash[1m]"
+    - "zai/glm-5.2"
     - "zai-oa/glm-5.3"
+    - "zai-oa/glm-5.3-flash"
+    - "zai-oa/glm-5.3-flash[1m]"
+    - "zai-oa/glm-5.2"
     - "zai-oa/glm-5-turbo"
     - "zai-oa/glm-4.7"
     # Wafer (pay-as-you-go)
@@ -404,14 +536,20 @@ claude-enhanced:
     - "alibaba/fable"
     - "alibaba/fable[1m]"
     - "alibaba/qwen3.8-max"
+    - "alibaba/qwen3.8-max[1m]"
     - "alibaba/qwen3.8-max-preview"
+    - "alibaba/qwen3.8-flash"
+    - "alibaba/qwen3.8-flash[1m]"
     - "alibaba/qwen3.7-max"
     - "alibaba/qwen3.7-plus"
     - "alibaba/qwen3.6-plus"
     - "alibaba/qwen3.6-flash"
     - "alibaba/deepseek-v4-pro"
+    - "alibaba/deepseek-v4-pro-0813"
+    - "alibaba/deepseek-v4-pro-0813[1m]"
     - "alibaba/deepseek-v4-flash"
     - "alibaba/deepseek-v4-flash-0731"
+    - "alibaba/deepseek-v4-flash-0731[1m]"
     - "alibaba/kimi-k3"
     - "alibaba/kimi-k2.7-code"
     - "alibaba/kimi-k2.6"
@@ -470,12 +608,26 @@ kitchen-sink:
     - "zai/sonnet[1m]"
     - "zai/haiku"
     - "zai/haiku[1m]"
+    - "zai/fable"
+    - "zai/fable[1m]"
     - "zai-tyna/opus"
     - "zai-tyna/opus[1m]"
     - "zai-tyna/sonnet"
     - "zai-tyna/sonnet[1m]"
     - "zai-tyna/haiku"
     - "zai-tyna/haiku[1m]"
+    - "zai-tyna/fable"
+    - "zai-tyna/fable[1m]"
+    - "zai/glm-5.3"
+    - "zai/glm-5.3-flash"
+    - "zai/glm-5.3-flash[1m]"
+    - "zai/glm-5.2"
+    - "zai-oa/glm-5.3"
+    - "zai-oa/glm-5.3-flash"
+    - "zai-oa/glm-5.3-flash[1m]"
+    - "zai-oa/glm-5.2"
+    - "zai-oa/glm-5-turbo"
+    - "zai-oa/glm-4.7"
     # Wafer (pay-as-you-go)
     - "wafer/opus"
     - "wafer/opus[1m]"
@@ -498,14 +650,20 @@ kitchen-sink:
     - "alibaba/fable"
     - "alibaba/fable[1m]"
     - "alibaba/qwen3.8-max"
+    - "alibaba/qwen3.8-max[1m]"
     - "alibaba/qwen3.8-max-preview"
+    - "alibaba/qwen3.8-flash"
+    - "alibaba/qwen3.8-flash[1m]"
     - "alibaba/qwen3.7-max"
     - "alibaba/qwen3.7-plus"
     - "alibaba/qwen3.6-plus"
     - "alibaba/qwen3.6-flash"
     - "alibaba/deepseek-v4-pro"
+    - "alibaba/deepseek-v4-pro-0813"
+    - "alibaba/deepseek-v4-pro-0813[1m]"
     - "alibaba/deepseek-v4-flash"
     - "alibaba/deepseek-v4-flash-0731"
+    - "alibaba/deepseek-v4-flash-0731[1m]"
     - "alibaba/kimi-k3"
     - "alibaba/kimi-k2.7-code"
     - "alibaba/kimi-k2.6"
@@ -569,40 +727,46 @@ fast-glm:
   haiku_model: "cerebras-pro/opus"
 
 # Groq - Ultra-fast inference
+# Llama 3/4, Kimi K2, and Qwen3-32b were shut down / moved to Enterprise-only
+# on Groq (2026); the live catalog is GPT-OSS, Compound, Qwen3.6-27B,
+# MiniMax M2.7, and the safety/guard models. See groq-pro for the [1m]-suffixed
+# aliases Claude Code v2.1.116+ appends for 1M-context requests.
 groq:
   name: "Groq"
-  opus_model: "groq-compound"
-  sonnet_model: "groq.qwen3-32b"
-  haiku_model: "groq.gpt-oss-120b"
+  fable_model: "groq/fable"
+  opus_model: "groq/opus"
+  sonnet_model: "groq/sonnet"
+  haiku_model: "groq/haiku"
   extended:
+    - "groq/opus[1m]"
+    - "groq/sonnet[1m]"
+    - "groq/haiku[1m]"
+    - "groq/fable[1m]"
+    - "groq-compound"
     - "groq-compound-mini"
-    - "groq.kimi-k2-instruct"
-    - "groq-kimi-k2"
-    - "groq-qwen3.6-27b"
     - "groq-gpt-oss-20b"
+    - "groq-safety-gpt-oss-20b"
+    - "groq-minimax-m2.7"
 
 # Groq2 - Alternative Groq config (speed optimized)
 groq2:
   name: "Groq (Speed)"
   opus_model: "groq.gpt-oss-120b"
-  sonnet_model: "groq.qwen3-32b"
-  haiku_model: "groq.llama-3.3-70b"
+  sonnet_model: "groq-gpt-oss-20b"
+  haiku_model: "groq-gpt-oss-20b"
 
 # Groq Mix - Optimized Groq blend (intelligence-first)
 groq-mix:
   name: "Groq Mix (Intelligence-First)"
   opus_model: "groq-compound"
   sonnet_model: "groq.gpt-oss-120b"
-  haiku_model: "groq.qwen3-32b"
+  haiku_model: "groq-qwen3.6-27b"
+  fable_model: "groq/fable"
   extended:
     - "groq-compound-mini"
-    - "groq.kimi-k2-instruct"
     - "groq-gpt-oss-20b"
-    - "groq-qwen3.6-27b"
-    - "groq.llama-3.3-70b"
-    - "groq-llama-3.1-8b"
-    - "groq-llama-4-scout"
-    - "groq-llama-4-maverick"
+    - "groq-safety-gpt-oss-20b"
+    - "groq-minimax-m2.7"
 
 # Gemini - Google AI models
 gemini:

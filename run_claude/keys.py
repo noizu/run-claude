@@ -4,6 +4,13 @@ Predefined names are derived from env vars (ZAI_SUB_KEY → zai,
 ZAI_SUB_KEY_TYNA → tyna). Models bind via litellm_params.api_key_name so
 ``run-claude keys switch zai tyna`` re-points the zai/* family without
 changing model ids.
+
+``zai-alt/*`` (and ``zai-oa-alt/*``) are catalog clones of ``zai/*`` /
+``zai-oa/*``. Each family is rebound independently:
+
+    run-claude keys switch zai     tyna   # zai-pro group
+    run-claude keys switch zai-alt zai    # zai-pro-alt group
+    run-claude keys switch zai-alt tyna
 """
 
 from __future__ import annotations
@@ -26,6 +33,14 @@ ALIASES: dict[str, str] = {
     "default": "zai",
     "zai-default": "zai",
 }
+
+# Catalog clones: dest family is a SKU-identical copy of source with its own
+# default key env. `keys switch <dest> <key>` does not move the source family.
+# (source_family, dest_family, default_api_key_env)
+FAMILY_CLONES: tuple[tuple[str, str, str], ...] = (
+    ("zai", "zai-alt", "ZAI_SUB_KEY_TYNA"),
+    ("zai-oa", "zai-oa-alt", "ZAI_SUB_KEY_TYNA"),
+)
 
 _SUB_KEY_TAIL = re.compile(r"^(?P<head>.+)_SUB_KEY(?:_(?P<suffix>.+))?$")
 
@@ -74,7 +89,7 @@ def family_of(model_name: str) -> str:
 
 
 def matches_target(model_name: str, target: str) -> bool:
-    """Family ``zai`` matches ``zai/haiku`` but not ``zai-tyna/haiku``."""
+    """Family ``zai`` matches ``zai/haiku`` but not ``zai-tyna/haiku`` or ``zai-alt/haiku``."""
     if not target or not model_name:
         return False
     if model_name == target:

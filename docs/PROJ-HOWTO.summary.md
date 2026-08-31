@@ -5,6 +5,7 @@ Task list only, no steps. Full guides: [PROJ-HOWTO.md](PROJ-HOWTO.md).
 ## First Hour
 - **Install run-claude and get a directory routing through it** — go from a fresh checkout to `claude` running through the LiteLLM proxy in one directory.
 - **Configure a project directory for a specific provider** — make one directory always route through a chosen profile when you `cd` into it.
+- **Run two independent Z.AI groups** — SKU-identical `zai/*` and `zai-alt/*`; `keys switch zai tyna` / `keys switch zai-alt zai` rebind each family independently.
 
 ## Recurring Workflow
 - **Check what's running and pick a provider on the fly** — see proxy/model state, and run one-off commands against a provider without touching directory config.

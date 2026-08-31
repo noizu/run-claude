@@ -80,7 +80,7 @@ $ run-claude status --health
 {"front_proxy": "healthy", "litellm": "healthy", "db": "running", ...}
 
 $ run-claude models avail --short # what's live in the gateway right now
-zai/opus  zai/sonnet  zai/haiku  zai/opus[1m]  ...
+zai/fable  zai/opus  zai/sonnet  zai/haiku  zai/opus[1m]  ...
 
 $ run-claude chat zai/sonnet      # kick the tires without launching Claude
 You: reply with OK
@@ -112,11 +112,15 @@ works but is legacy.
 | Group | Profiles | Notes |
 |---|---|---|
 | Fast inference | `cerebras`, `cerebras2`, `cerebras-pro`, `groq`, `groq2`, `groq-mix`, `groq-pro`, `fast-glm` | `-pro` variants use provider subscriptions |
-| Subscription passthrough | `claude-plan`, `zai-pro`, `zai-oa`, `wafer`, `alibaba` | Claude Pro/Max OAuth, Z.AI subs, Wafer PAYG, Alibaba Qwen Token Plan |
+| Subscription passthrough | `claude-plan`, `zai-pro`, `zai-pro-alt` (`zai-alt`), `zai-oa`, `wafer`, `alibaba` | Claude Pro/Max OAuth, Z.AI subs (alt family independently keyed), Wafer PAYG, Alibaba Qwen Token Plan |
 | Mega-profiles | `all-sub`, `claude-enhanced` (`-x`), `kitchen-sink` (`-xx`) | Everything you have keys for |
 | Majors | `anthropic`, `openai`, `azure`, `gemini`, `grok`, `deepseek`, `mistral`, `perplexity` | |
 | Local / blended | `local` (Ollama/vLLM/LM Studio), `multi` (best-of-breed) | |
 
+- `run-claude profiles list` — catalog of profile slugs, display names, key sets, and
+  `keys switch` overrides (`--names-only` / `--json`).
+- `run-claude profiles view <name>` (alias: `show`) — key sets/overrides, instance, model name,
+  internal LiteLLM name, key env var, and the fable/opus/sonnet/haiku + additional-models mapping.
 - `run-claude models avail` — live gateway models with **descriptions, strengths, and weaknesses**,
   grouped by provider (`--json` / `--short` for scripts).
 - `[1m]` suffix aliases — Claude Code ≥ v2.1.116 requests 1M-context variants with a `[1m]`
@@ -198,9 +202,9 @@ One line each — `run-claude <cmd> --help` for the rest.
 | Proxy | `proxy start\|stop\|restart\|status\|health\|db-test` |
 | Watchdog | `watchdog start\|stop\|restart\|status` |
 | Database | `db start\|stop\|status\|migrate` (TimescaleDB :5433) |
-| Profiles | `profiles list\|show <name>\|install` |
+| Profiles | `profiles list [--names-only|--json]` (includes key sets/overrides), `profiles show\|view <name> [--json]`, `profiles install` |
 | Models | `models list`, `models enabled [--names-only]`, `models show <name>`, `models avail [--json\|--short]`, `models wipe [--force]` |
-| Keys | `keys list`, `keys add <name> [--env VAR]`, `keys switch zai tyna`, `keys delete <name>` |
+| Keys | `keys list`, `keys add <name> [--env VAR]`, `keys switch zai tyna`, `keys switch zai-alt zai`, `keys delete <name>` |
 | Chat | `chat [model] [--system S] [--prompt P] [--timeout N]` |
 | One-shot | `with <profile> [cmd…] [--refresh]`; global `-x` / `-xx` shorthands |
 | Secrets | `secrets init [--generate]`, `secrets path`, `secrets export` |
