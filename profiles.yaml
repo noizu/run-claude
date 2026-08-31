@@ -44,6 +44,7 @@ cerebras:
 
 groq-pro:
   name: "Groq Equivalent"
+  fable_model: "groq/fable"
   opus_model: "groq/opus"
   sonnet_model: "groq/sonnet"
   haiku_model: "groq/haiku"
@@ -55,6 +56,7 @@ groq-pro:
     - "groq/opus[1m]"
     - "groq/sonnet[1m]"
     - "groq/haiku[1m]"
+    - "groq/fable[1m]"
     - "groq-compound"
     - "groq-compound-mini"
     - "groq-qwen3.6-27b"
@@ -698,40 +700,46 @@ fast-glm:
   haiku_model: "cerebras-pro/opus"
 
 # Groq - Ultra-fast inference
+# Llama 3/4, Kimi K2, and Qwen3-32b were shut down / moved to Enterprise-only
+# on Groq (2026); the live catalog is GPT-OSS, Compound, Qwen3.6-27B,
+# MiniMax M2.7, and the safety/guard models. See groq-pro for the [1m]-suffixed
+# aliases Claude Code v2.1.116+ appends for 1M-context requests.
 groq:
   name: "Groq"
-  opus_model: "groq-compound"
-  sonnet_model: "groq.qwen3-32b"
-  haiku_model: "groq.gpt-oss-120b"
+  fable_model: "groq/fable"
+  opus_model: "groq/opus"
+  sonnet_model: "groq/sonnet"
+  haiku_model: "groq/haiku"
   extended:
+    - "groq/opus[1m]"
+    - "groq/sonnet[1m]"
+    - "groq/haiku[1m]"
+    - "groq/fable[1m]"
+    - "groq-compound"
     - "groq-compound-mini"
-    - "groq.kimi-k2-instruct"
-    - "groq-kimi-k2"
-    - "groq-qwen3.6-27b"
     - "groq-gpt-oss-20b"
+    - "groq-safety-gpt-oss-20b"
+    - "groq-minimax-m2.7"
 
 # Groq2 - Alternative Groq config (speed optimized)
 groq2:
   name: "Groq (Speed)"
   opus_model: "groq.gpt-oss-120b"
-  sonnet_model: "groq.qwen3-32b"
-  haiku_model: "groq.llama-3.3-70b"
+  sonnet_model: "groq-gpt-oss-20b"
+  haiku_model: "groq-gpt-oss-20b"
 
 # Groq Mix - Optimized Groq blend (intelligence-first)
 groq-mix:
   name: "Groq Mix (Intelligence-First)"
   opus_model: "groq-compound"
   sonnet_model: "groq.gpt-oss-120b"
-  haiku_model: "groq.qwen3-32b"
+  haiku_model: "groq-qwen3.6-27b"
+  fable_model: "groq/fable"
   extended:
     - "groq-compound-mini"
-    - "groq.kimi-k2-instruct"
     - "groq-gpt-oss-20b"
-    - "groq-qwen3.6-27b"
-    - "groq.llama-3.3-70b"
-    - "groq-llama-3.1-8b"
-    - "groq-llama-4-scout"
-    - "groq-llama-4-maverick"
+    - "groq-safety-gpt-oss-20b"
+    - "groq-minimax-m2.7"
 
 # Gemini - Google AI models
 gemini:

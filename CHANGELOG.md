@@ -1,6 +1,8 @@
 # Changelog — utilities/agent/run-claude
 
 ## [Unreleased]
+- go-litellm Cerebras/Groq: flatten in-array Anthropic `system` content blocks to strings and strip `cache_control` / `provider_specific_fields`. Fixes Cerebras 400 `messages.N.system.content.str` + unsupported `cache_control` on Claude Code system reminders.
+- go-litellm Anthropic SSE now streams Groq/OpenAI `tool_calls` as `tool_use` + `input_json_delta` (port of ex-litellm's lazy content-block assembler). The previous Go path opened an empty text block and dropped tool deltas, so Claude Code reported "The model's tool call could not be parsed" on groq/haiku and other GPT-OSS tiers.
 - Claude Code `[1m]` aliases registered as additional models (not tier maps): `zai/glm-5.3-flash[1m]`, `zai-oa/glm-5.3-flash[1m]`, and qwen SKUs `alibaba/qwen3.8-max[1m]`, `alibaba/deepseek-v4-pro-0813[1m]`, `alibaba/qwen3.8-flash[1m]`, `alibaba/deepseek-v4-flash-0731[1m]`.
 - `zai-pro` sonnet is `glm-5.3-flash` (`zai/sonnet` / `zai/sonnet[1m]`); named SKU `zai/glm-5.3-flash[1m]` added. `zai/glm-5.2` remains a picker SKU.
 - `run-claude profiles list` prints display names (plus `--names-only` / `--json`). `profiles show` and new `profiles view` print instance, model name, internal LiteLLM name, key env var, and the fable/opus/sonnet/haiku + additional-models mapping without hydrating secrets.
