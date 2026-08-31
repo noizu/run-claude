@@ -1,0 +1,240 @@
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="container hero-inner">
+    <p class="eyebrow">Per-directory model routing · Claude Code + OpenCode · MIT</p>
+    <h1>Claude Code. Your models.</h1>
+    <p class="lede">
+      run-claude routes Claude Code — and OpenCode — through a local, self-healing model gateway.
+      Map the <code>opus</code> / <code>sonnet</code> / <code>haiku</code> / <code>fable</code>
+      tiers onto any provider you bring, per project directory. Your keys, your machine,
+      your economics.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary btn-lg" href="#install">Install in one command</a>
+      <a class="btn btn-ghost btn-lg" href="#tiers">See the tier mappings</a>
+    </div>
+    <p class="cta-fine"><em>Local-only gateway (127.0.0.1) · BYO API keys · MIT licensed</em></p>
+
+    <figure class="install-block" id="install" aria-label="Install commands">
+      <figcaption class="install-title">Quick start</figcaption>
+      <pre><code>git clone https://github.com/noizu/run-claude &amp;&amp; cd run-claude
+make install
+run-claude secrets init --generate
+
+cd /path/to/my/project
+run-claude set-folder groq &amp;&amp; direnv allow
+claude</code></pre>
+    </figure>
+  </div>
+</section>
+
+<!-- BENEFITS (3-up) -->
+<section class="section" id="features">
+  <div class="container">
+    <h2 class="visually-hidden">Why run-claude</h2>
+    <div class="benefit-grid">
+      <article class="card">
+        <h3>Claude Code, your models</h3>
+        <p>
+          Keep the Code UX, swap the economics. Directory-scoped profiles map the
+          <code>opus</code> / <code>sonnet</code> / <code>haiku</code> / <code>fable</code> tiers
+          onto 145+ models across ~26 provider profiles. <code>cd</code> into a project and that
+          project's models come with it — no flags, no restarts.
+        </p>
+      </article>
+      <article class="card">
+        <h3>Your subscription, where it makes sense</h3>
+        <p>
+          The <code>claude-plan</code> profile forwards Anthropic requests with your original
+          OAuth token — Pro/Max billing, not API billing — while other providers in the same
+          profile use their own keys. Blend all of it in one profile.
+        </p>
+      </article>
+      <article class="card">
+        <h3>Local gateway, no middleman</h3>
+        <p>
+          Front proxy and gateway run on <code>127.0.0.1</code>; your keys stay in
+          <code>~/.config/run-claude/.secrets</code>. A watchdog daemon restarts crashed proxies
+          (~5s poll), a janitor expires idle models after a 15-minute lease, and the default
+          gateway is a single static Go binary.
+        </p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- TIER TABLE -->
+<section class="section section-tiers" id="tiers">
+  <div class="container">
+    <h2>Tier mappings are one YAML stanza</h2>
+    <p class="section-lede">
+      Every profile maps Claude Code's model tiers. User overrides in
+      <code>~/.config/run-claude/profiles/</code> win over built-ins; <code>model: null</code>
+      disables an entry.
+    </p>
+    <div class="table-scroll">
+      <table class="tier-table">
+        <thead>
+          <tr>
+            <th scope="col">Profile</th>
+            <th scope="col">fable</th>
+            <th scope="col">opus</th>
+            <th scope="col">sonnet</th>
+            <th scope="col">haiku</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>anthropic</td>
+            <td>—</td>
+            <td>claude-opus-4</td>
+            <td>claude-sonnet-4</td>
+            <td>claude-3-5-haiku</td>
+          </tr>
+          <tr>
+            <td>claude-plan <span class="tag">OAuth</span></td>
+            <td>opus tier</td>
+            <td>claude-opus-4-8</td>
+            <td>claude-sonnet-5</td>
+            <td>claude-haiku-4-5</td>
+          </tr>
+          <tr>
+            <td>wafer</td>
+            <td>kimi-k3</td>
+            <td>glm-5.3-flash (max)</td>
+            <td>glm-5.3-flash (high)</td>
+            <td>glm-5.3-flash (low)</td>
+          </tr>
+          <tr>
+            <td>zai-pro</td>
+            <td>glm-5.3</td>
+            <td>glm-5.3-flash</td>
+            <td>glm-5.3-flash</td>
+            <td>glm-5-turbo</td>
+          </tr>
+          <tr>
+            <td>cerebras</td>
+            <td>zai-glm-4.7</td>
+            <td>gemma-4-31b</td>
+            <td>gpt-oss-120b</td>
+            <td>gpt-oss-120b</td>
+          </tr>
+          <tr>
+            <td>alibaba</td>
+            <td>kimi-k3</td>
+            <td>qwen3.8-max</td>
+            <td>glm-5.2</td>
+            <td>qwen3.6-flash</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-caption">
+      Six of ~26 built-in profiles. Groq, DeepSeek, OpenAI, Gemini, Grok, Azure, Mistral,
+      Perplexity, OpenRouter, and local Ollama/vLLM ship too — or write your own.
+    </p>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how">
+  <div class="container">
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li>
+        <h3>Point a directory at a profile</h3>
+        <p>
+          <code>run-claude set-folder groq &amp;&amp; direnv allow</code>. One <code>.envrc</code>,
+          one stable directory token.
+        </p>
+      </li>
+      <li>
+        <h3>Enter the directory</h3>
+        <p>
+          The shell hook hot-registers the profile's models on the running gateway (refcounted,
+          leased, janitored) and swaps auth per provider. Anthropic requests keep your OAuth
+          token; everything else uses the gateway master key.
+        </p>
+      </li>
+      <li>
+        <h3>Run <code>claude</code></h3>
+        <p>
+          Tier env vars are already set, requests flow through <code>127.0.0.1:4443</code>, and
+          the CLI sees the live catalog via its bootstrap endpoint. <code>run-claude with groq</code>
+          does the same in a one-shot without pinning the directory.
+        </p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section section-faq" id="faq">
+  <div class="container container-narrow">
+    <h2>Questions you'd ask before trusting it</h2>
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>Do my API keys leave my machine?</summary>
+        <p>
+          No. Keys live in <code>~/.config/run-claude/.secrets</code> and are read by the gateway
+          on your localhost. Provider calls go from your machine to the provider — there is no
+          hosted relay, no account, and nothing to opt out of.
+        </p>
+      </details>
+      <details class="faq-item">
+        <summary>Does it break Claude Code features?</summary>
+        <p>
+          No. Code still speaks the Anthropic API it already speaks: the front proxy serves the
+          CLI's bootstrap endpoint, pre-registers <code>[1m]</code> 1M-context aliases (27 of
+          them) so big-context requests route instead of 404, and a provider-compat callback
+          strips fields strict providers reject. Tools, MCP, sessions — unchanged.
+        </p>
+      </details>
+      <details class="faq-item">
+        <summary>Which providers are supported?</summary>
+        <p>
+          Anthropic, OpenAI, Z.AI, Groq, Cerebras, Wafer, Alibaba (Qwen Token Plan), DeepSeek,
+          Gemini, Azure, Grok, Mistral, Perplexity, OpenRouter — plus local Ollama / vLLM /
+          LM Studio. ~26 built-in profiles, 145+ model definitions.
+        </p>
+      </details>
+      <details class="faq-item">
+        <summary>Where does the configuration live?</summary>
+        <p>
+          Built-ins ship with the tool. Your overrides in
+          <code>~/.config/run-claude/profiles/</code> and
+          <code>~/.config/run-claude/models.yaml</code> take priority — same name wins,
+          <code>model: null</code> disables and falls through. Per-directory routing is a
+          <code>.envrc</code>.
+        </p>
+      </details>
+      <details class="faq-item">
+        <summary>Can I still use my Claude Pro/Max subscription?</summary>
+        <p>
+          Yes — that's the <code>claude-plan</code> profile: your original OAuth token is
+          forwarded, so subscription billing applies to Claude models while other providers in
+          the profile bill their own keys.
+        </p>
+      </details>
+      <details class="faq-item">
+        <summary>What's the license?</summary>
+        <p>MIT. Fork it, fork the gateway, ship your own profile pack.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- CLOSING CTA -->
+<section class="closing" id="get-started">
+  <div class="container closing-inner">
+    <h2>Claude Code. Your models.</h2>
+    <figure class="install-block" aria-label="Install commands">
+      <pre><code>git clone https://github.com/noizu/run-claude &amp;&amp; cd run-claude
+make install
+run-claude secrets init --generate</code></pre>
+    </figure>
+    <div class="cta-row">
+      <a class="btn btn-primary btn-lg" href="#install">Install in one command</a>
+    </div>
+  </div>
+</section>
