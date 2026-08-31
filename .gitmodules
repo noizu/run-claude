@@ -1,3 +1,6 @@
 [submodule "repos/litellm"]
 	path = repos/litellm
 	url = git@github.com:noizu/litellm.git
+[submodule "repos/go-litellm"]
+	path = repos/go-litellm
+	url = git@github.com:the-robot-lives/go-litellm.git
