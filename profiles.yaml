@@ -101,6 +101,33 @@ zai-pro:
     - "zai-oa/glm-5-turbo"
     - "zai-oa/glm-4.7"
 
+# Independent SKU-identical clone of zai-pro (family zai-alt/*).
+# Default key: ZAI_SUB_KEY_TYNA. Rebind independently:
+#   run-claude keys switch zai     tyna|zai
+#   run-claude keys switch zai-alt tyna|zai
+zai-alt: &zai-alt-profile
+  name: "Zai Subscription (Alt)"
+  opus_model: "zai-alt/opus"
+  sonnet_model: "zai-alt/sonnet"
+  haiku_model: "zai-alt/haiku"
+  fable_model: "zai-alt/fable"
+  extended:
+    - "zai-alt/opus[1m]"
+    - "zai-alt/sonnet[1m]"
+    - "zai-alt/haiku[1m]"
+    - "zai-alt/fable[1m]"
+    - "zai-alt/glm-5.3"
+    - "zai-alt/glm-5.3-flash"
+    - "zai-alt/glm-5.3-flash[1m]"
+    - "zai-alt/glm-5.2"
+    - "zai-oa-alt/glm-5.3"
+    - "zai-oa-alt/glm-5.3-flash"
+    - "zai-oa-alt/glm-5.3-flash[1m]"
+    - "zai-oa-alt/glm-5.2"
+    - "zai-oa-alt/glm-5-turbo"
+    - "zai-oa-alt/glm-4.7"
+zai-pro-alt: *zai-alt-profile
+
 # Z.AI Subscription - OpenAI v1 endpoint format
 #   fable  = glm-5.3
 #   opus   = glm-5.3-flash

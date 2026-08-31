@@ -1812,6 +1812,28 @@ def ensure_models(model_defs: list[dict[str, Any]], debug: bool = False, wait_fo
     return added, skipped, failed
 
 
+def ensure_catalog_family(target: str, debug: bool = False) -> tuple[int, int, int]:
+    """Register catalog models matching a keys-switch target if they aren't live.
+
+    ``keys switch zai-alt tyna`` only rebinds models already in the gateway.
+    Pull the family from the catalog (including synthesized clones) and add it.
+    """
+    from .keys import matches_target
+    from .profiles import load_model_definitions
+
+    if not target:
+        return 0, 0, 0
+    models = load_model_definitions(quiet=True)
+    defs = [
+        _hydrate_model_dict(model.to_dict())
+        for name, model in models.items()
+        if matches_target(name, target)
+    ]
+    if not defs:
+        return 0, 0, 0
+    return ensure_models(defs, debug=debug)
+
+
 def regenerate_config_and_restart() -> bool:
     """
     Regenerate the LiteLLM config and restart the proxy.

@@ -16,6 +16,7 @@ as not found and the search continues to the next file.
 
 from __future__ import annotations
 
+import copy
 import os
 import sys
 from dataclasses import dataclass, field
@@ -448,11 +449,55 @@ def load_model_definitions(
         if not quiet:
             print(f"[MODELS_LOADED_FROM] {models_file}: {count} model(s)", file=sys.stderr)
 
+    models = _synthesize_family_clones(models, debug=debug, quiet=quiet)
+
     model_names = sorted(models.keys())
     if model_names and not quiet:
         print(f"[MODELS_AVAILABLE] Total {len(models)} models: {', '.join(model_names)}", file=sys.stderr)
 
     _model_definitions_cache = models
+    return models
+
+
+def _synthesize_family_clones(
+    models: dict[str, ModelDef],
+    debug: bool = False,
+    quiet: bool = False,
+) -> dict[str, ModelDef]:
+    """Clone source families into dest families (SKU-identical, own default key).
+
+    Explicit dest entries already in ``models`` win and are not overwritten.
+    """
+    from .keys import FAMILY_CLONES
+
+    added = 0
+    for src_fam, dst_fam, default_env in FAMILY_CLONES:
+        src_prefix = src_fam + "/"
+        dst_prefix = dst_fam + "/"
+        for name, defn in list(models.items()):
+            if not name.startswith(src_prefix):
+                continue
+            alt_name = dst_prefix + name[len(src_prefix):]
+            if alt_name in models:
+                continue
+            cloned = ModelDef(
+                model_name=alt_name,
+                litellm_params=copy.deepcopy(defn.litellm_params),
+                model_info=copy.deepcopy(defn.model_info),
+                metadata=copy.deepcopy(defn.metadata),
+            )
+            cloned.litellm_params["api_key"] = f"os.environ/{default_env}"
+            cloned.litellm_params.pop("api_key_name", None)
+            if cloned.metadata.description:
+                cloned.metadata.description = (
+                    f"{cloned.metadata.description} ({dst_fam} family)"
+                )
+            models[alt_name] = cloned
+            added += 1
+            if debug:
+                print(f"DEBUG: cloned {name} -> {alt_name} key={default_env}", file=sys.stderr)
+    if added and not quiet:
+        print(f"[MODELS_CLONED] synthesized {added} family-clone model(s)", file=sys.stderr)
     return models
 
 
@@ -710,17 +755,70 @@ def load_profile_file(path: Path, debug: bool = False) -> Profile:
 
 
 @dataclass
+class KeySet:
+    """Catalog key for a model family, plus a persisted keys-switch override."""
+    family: str
+    key_env: str = ""
+    instance: str = ""
+    override: str = ""
+    override_env: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "family": self.family,
+            "key_env": self.key_env,
+            "instance": self.instance,
+            "override": self.override,
+            "override_env": self.override_env,
+            "effective": self.effective_instance,
+            "effective_env": self.effective_env,
+        }
+
+    @property
+    def effective_instance(self) -> str:
+        return self.override or self.instance
+
+    @property
+    def effective_env(self) -> str:
+        return self.override_env or self.key_env
+
+    def brief(self) -> str:
+        ident = self.key_env or self.instance or self.family
+        text = f"{self.family}={ident}"
+        if self.override:
+            text += f"->{self.override}"
+        return text
+
+
+@dataclass
+class ModelKeyOverride:
+    """Per-model keys-switch binding (overrides the family)."""
+    model_name: str
+    key: str
+    key_env: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "model_name": self.model_name,
+            "key": self.key,
+            "key_env": self.key_env,
+        }
+
+
+@dataclass
 class ProfileInfo:
     """Summary of an available profile (for list output)."""
     name: str
     display_name: str
     source_path: Path
+    key_sets: list[KeySet] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "display_name": self.display_name,
             "source": str(self.source_path),
+            "key_sets": [ks.to_dict() for ks in self.key_sets],
         }
 
 
@@ -755,6 +853,8 @@ class ProfileInspection:
     fable_fallback: bool
     extended: list[ModelBinding] = field(default_factory=list)
     model_files: list[Path] = field(default_factory=list)
+    key_sets: list[KeySet] = field(default_factory=list)
+    model_overrides: list[ModelKeyOverride] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -765,6 +865,8 @@ class ProfileInspection:
             "tiers": {k: v.to_dict() for k, v in self.tiers.items()},
             "extended": [e.to_dict() for e in self.extended],
             "model_files": [str(p) for p in self.model_files],
+            "key_sets": [ks.to_dict() for ks in self.key_sets],
+            "model_overrides": [mo.to_dict() for mo in self.model_overrides],
         }
 
 
@@ -776,11 +878,13 @@ def _display_name_from_data(name: str, profile_data: Any) -> str:
     return profile_data.get("name") or name
 
 
-def list_profile_infos(debug: bool = False) -> list[ProfileInfo]:
+def list_profile_infos(debug: bool = False, with_keys: bool = False) -> list[ProfileInfo]:
     """
     List available profiles with display names and winning source file.
 
     First non-disabled match wins (same fallthrough as load_profile).
+    When ``with_keys`` is true, attach catalog key sets and persisted
+    ``keys switch`` overrides (same data as ``profiles view``).
     """
     infos: dict[str, ProfileInfo] = {}
 
@@ -808,7 +912,13 @@ def list_profile_infos(debug: bool = False) -> list[ProfileInfo]:
     if debug:
         print(f"DEBUG: Total profiles found: {len(infos)}", file=sys.stderr)
 
-    return [infos[k] for k in sorted(infos)]
+    result = [infos[k] for k in sorted(infos)]
+    if with_keys:
+        for info in result:
+            inspection = inspect_profile(info.name, debug=debug)
+            if inspection is not None:
+                info.key_sets = inspection.key_sets
+    return result
 
 
 def list_profiles(debug: bool = False) -> list[str]:
@@ -846,6 +956,67 @@ def _instance_name(model_def: ModelDef) -> str:
     return family_of(model_def.model_name)
 
 
+def _load_key_state() -> tuple[dict[str, str], dict[str, str]]:
+    """Persisted family/model key bindings; empty if state is missing."""
+    try:
+        from .state import load_state
+        st = load_state()
+        return dict(st.key_families or {}), dict(st.key_bindings or {})
+    except Exception:
+        return {}, {}
+
+
+def collect_key_sets(
+    bindings: list[ModelBinding],
+    key_families: dict[str, str] | None = None,
+    key_bindings: dict[str, str] | None = None,
+) -> tuple[list[KeySet], list[ModelKeyOverride]]:
+    """Unique family key sets plus per-model overrides. Never hydrates secrets."""
+    from .keys import canonical_key_name, env_for_name, family_of
+
+    families = key_families or {}
+    bindings_map = key_bindings or {}
+    grouped: dict[tuple[str, str, str], KeySet] = {}
+    model_overrides: list[ModelKeyOverride] = []
+    seen_models: set[str] = set()
+
+    for binding in bindings:
+        name = binding.model_name
+        if not name:
+            continue
+        fam = family_of(name)
+        if "/" not in name:
+            fam = binding.instance or binding.key_env or fam
+        slot = (fam, binding.key_env, binding.instance)
+        if slot not in grouped:
+            raw = families.get(fam, "")
+            override = canonical_key_name(raw) if raw else ""
+            if override and override == binding.instance:
+                override = ""
+            override_env = env_for_name(override) or "" if override else ""
+            grouped[slot] = KeySet(
+                family=fam,
+                key_env=binding.key_env,
+                instance=binding.instance,
+                override=override,
+                override_env=override_env,
+            )
+        bound = bindings_map.get(name)
+        if bound and name not in seen_models:
+            seen_models.add(name)
+            key = canonical_key_name(bound)
+            if key and key != grouped[slot].effective_instance:
+                model_overrides.append(ModelKeyOverride(
+                    model_name=name,
+                    key=key,
+                    key_env=env_for_name(key) or "",
+                ))
+
+    key_sets = sorted(grouped.values(), key=lambda ks: (ks.family, ks.key_env, ks.instance))
+    model_overrides.sort(key=lambda mo: mo.model_name)
+    return key_sets, model_overrides
+
+
 def _binding_for(model_name: str, models: dict[str, ModelDef]) -> ModelBinding:
     if not model_name:
         return ModelBinding(model_name="", missing=True)
@@ -867,7 +1038,8 @@ def inspect_profile(name: str, debug: bool = False) -> ProfileInspection | None:
     Load a profile for display without hydrating API keys.
 
     Resolves fable/opus/sonnet/haiku plus extended models to:
-    model name, internal LiteLLM name, key env var, and named-key instance.
+    model name, internal LiteLLM name, key env var, named-key instance,
+    family key sets, and persisted keys-switch overrides. Never hydrates secrets.
     """
     global _loaded_profile_files
     _require_yaml()
@@ -902,6 +1074,12 @@ def inspect_profile(name: str, debug: bool = False) -> ProfileInspection | None:
             seen.add(ext)
             extended.append(_binding_for(ext, models))
 
+        families, model_binds = _load_key_state()
+        all_bindings = [b for b in tiers.values() if b.model_name] + extended
+        key_sets, model_overrides = collect_key_sets(
+            all_bindings, families, model_binds
+        )
+
         return ProfileInspection(
             name=name,
             display_name=meta.name or name,
@@ -910,6 +1088,8 @@ def inspect_profile(name: str, debug: bool = False) -> ProfileInspection | None:
             fable_fallback=fable_fallback,
             extended=extended,
             model_files=_loaded_model_files.copy(),
+            key_sets=key_sets,
+            model_overrides=model_overrides,
         )
 
     return None
@@ -969,6 +1149,30 @@ def format_profile_view(inspection: ProfileInspection) -> str:
         lines.append(f"  fable:  {fable_alias}")
     lines.append("")
 
+    if inspection.key_sets or inspection.model_overrides:
+        lines.append("Key sets:")
+        key_rows = [
+            [
+                ks.family,
+                _view_cell(ks.key_env),
+                _view_cell(ks.instance),
+                _view_cell(ks.override),
+                _view_cell(ks.effective_env),
+            ]
+            for ks in inspection.key_sets
+        ]
+        if key_rows:
+            lines.extend(_format_table(
+                ["FAMILY", "DEFAULT ENV", "DEFAULT KEY", "OVERRIDE", "EFFECTIVE ENV"],
+                key_rows,
+            ))
+        if inspection.model_overrides:
+            lines.append("  Model overrides:")
+            for mo in inspection.model_overrides:
+                env = f" ({mo.key_env})" if mo.key_env else ""
+                lines.append(f"    {mo.model_name} -> {mo.key}{env}")
+        lines.append("")
+
     def _row(role: str, binding: ModelBinding) -> list[str]:
         internal = "(missing)" if binding.missing else _view_cell(binding.internal_name)
         return [
@@ -1010,6 +1214,26 @@ def format_profile_view(inspection: ProfileInspection) -> str:
             extra_rows,
         ))
 
+    return "\n".join(lines) + "\n"
+
+
+def format_profile_list(infos: list[ProfileInfo]) -> str:
+    """Human-readable profiles list with key sets and overrides.
+
+    Key sets sit on an indented line under each profile so a wide kitchen-sink
+    catalog does not pad every other row.
+    """
+    if not infos:
+        return "No profiles found\n"
+    width = max(len(info.name) for info in infos)
+    lines = ["Available profiles:"]
+    for info in infos:
+        extra = ""
+        if info.display_name and info.display_name != info.name:
+            extra = f"  {info.display_name}"
+        lines.append(f"  {info.name.ljust(width)}{extra}")
+        if info.key_sets:
+            lines.append("    " + "  ".join(ks.brief() for ks in info.key_sets))
     return "\n".join(lines) + "\n"
 
 

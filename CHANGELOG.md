@@ -1,6 +1,10 @@
 # Changelog — utilities/agent/run-claude
 
 ## [Unreleased]
+- Gemini catalog: 3.1 Pro / 3.7 Flash / 3.5 Flash-Lite plus `gemini-image-premium` (Nano Banana Pro) and `gemini-image-fast` (Nano Banana 2).
+- `run-claude keys switch <family> <key>` registers matching catalog models (including synthesized `zai-alt/*`) when the family is not yet live on the gateway, then rebinds.
+- `run-claude profiles list` (and `show`/`view`) report each profile's key sets (family, default env, named key) plus persisted `keys switch` overrides. `--names-only` stays bare names; `--json` includes `key_sets`.
+- Independent Z.AI groups: `zai-alt/*` (and `zai-oa-alt/*`) are SKU-identical catalog clones of `zai/*` / `zai-oa/*`. Profile `zai-pro-alt` (alias `zai-alt`) defaults to that family with `ZAI_SUB_KEY_TYNA`. `run-claude keys switch zai tyna` and `keys switch zai-alt zai` rebind each family independently, so the two groups can share a key or use different keys.
 - go-litellm Cerebras/Groq: flatten in-array Anthropic `system` content blocks to strings and strip `cache_control` / `provider_specific_fields`. Fixes Cerebras 400 `messages.N.system.content.str` + unsupported `cache_control` on Claude Code system reminders.
 - go-litellm Anthropic SSE now streams Groq/OpenAI `tool_calls` as `tool_use` + `input_json_delta` (port of ex-litellm's lazy content-block assembler). The previous Go path opened an empty text block and dropped tool deltas, so Claude Code reported "The model's tool call could not be parsed" on groq/haiku and other GPT-OSS tiers.
 - Claude Code `[1m]` aliases registered as additional models (not tier maps): `zai/glm-5.3-flash[1m]`, `zai-oa/glm-5.3-flash[1m]`, and qwen SKUs `alibaba/qwen3.8-max[1m]`, `alibaba/deepseek-v4-pro-0813[1m]`, `alibaba/qwen3.8-flash[1m]`, `alibaba/deepseek-v4-flash-0731[1m]`.

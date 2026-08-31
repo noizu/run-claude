@@ -202,7 +202,9 @@ ANTHROPIC_API_KEY: "sk-your-key-here"
 
 # Z.AI coding subscription (zai-pro profile, zai/* models)
 # ZAI_SUB_KEY: "..."
-# Second Z.AI subscription (Tyna). Switch live with: run-claude keys switch zai tyna
+# Second Z.AI subscription (Tyna). zai-alt / zai-pro-alt defaults here.
+# Rebind independently: run-claude keys switch zai tyna
+#                       run-claude keys switch zai-alt zai
 # ZAI_SUB_KEY_TYNA: "..."
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

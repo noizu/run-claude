@@ -198,6 +198,7 @@ RUN_CLAUDE_TIMESCALEDB_PORT: "5432"
 ANTHROPIC_API_KEY: "sk-..."
 OPENAI_API_KEY: "sk-..."
 ZAI_SUB_KEY: "..."
+ZAI_SUB_KEY_TYNA: "..."     # second Z.AI account (zai-alt / zai-pro-alt default)
 QWEN_SUB_KEY: "sk-sp-..."   # Alibaba Token Plan (alibaba profile)
 CUSTOM_API_KEY: "..."
 ```

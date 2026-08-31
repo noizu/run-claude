@@ -21,6 +21,7 @@ Question list only, no answers. Full Q&A: [PROJ-FAQ.md](PROJ-FAQ.md).
 - Can I keep my Claude subscription billing while also using other providers in the same session?
 - Does it survive proxy crashes automatically?
 - Can two directories on different profiles run against the proxy at the same time?
+- Can I run both Z.AI subscriptions at the same time?
 - Does `run-claude models avail` show every model I have defined, or just the ones currently in use?
 
 ## Caveats
