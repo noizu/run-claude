@@ -249,6 +249,19 @@ entry and falls through. Secrets (`--generate` auto-creates a DB password):
 
 More: [docs/PROJ-FAQ.md](docs/PROJ-FAQ.md).
 
+## Landing site (web/)
+
+`web/` is the marketing one-pager at **run-claude.therobotlives.com** — server-rendered
+Phoenix/Hologram on Bandit (not a static site). Deploys are git-driven:
+
+1. Merge to `main` → CI builds `web/Dockerfile`, smoke-probes `/healthz` + hero content.
+2. CI pushes `ops.noizu.com/run-claude.therobotlives.com/web:sha-<short>` and bumps the tag in
+   `helm/run-claude-landing/values.yaml` (`[skip ci]`).
+3. ArgoCD auto-syncs `helm/run-claude-landing/` (deployment + service + ingress, TLS via
+   `therobotlives-com-tls`).
+
+Never hand-edit chart image tags or run helm-upgrade to ship.
+
 ## Documentation
 
 - [docs/PROJ-HOWTO.md](docs/PROJ-HOWTO.md) — first-hour walkthrough

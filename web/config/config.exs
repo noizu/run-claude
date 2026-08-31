@@ -13,3 +13,6 @@ config :run_claude_web, RunClaudeWeb.Endpoint,
 config :phoenix, :json_library, Jason
 
 config :logger, level: :info
+
+# Runtime overrides (PORT / BIND_IP / PHX_HOST) — prod only, see runtime.exs.
+import_config "runtime.exs"

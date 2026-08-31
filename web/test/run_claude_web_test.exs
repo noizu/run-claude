@@ -4,6 +4,12 @@ defmodule RunClaudeWeb.RequestTest do
 
   @endpoint RunClaudeWeb.Endpoint
 
+  test "GET /healthz returns ok for k8s probes" do
+    conn = get(build_conn(), "/healthz")
+    assert conn.status == 200
+    assert conn.resp_body == "ok"
+  end
+
   test "GET / renders the landing page with the hero headline" do
     conn = get(build_conn(), "/")
     assert conn.status == 200
