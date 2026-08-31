@@ -40,7 +40,7 @@ Task-oriented guides for the things you'll actually do with `run-claude`. For *w
 ### How to: configure a project directory for a specific provider
 
 **Goal:** make one directory always route through a chosen profile (e.g. Cerebras, Groq, native Anthropic) when you `cd` into it.
-**Prereqs:** run-claude installed (see above); a profile name from `run-claude profiles list`. Inspect a profile with `run-claude profiles view <name>` (instance, model name, internal name, key env var, and fable/opus/sonnet/haiku mapping).
+**Prereqs:** run-claude installed (see above); a profile name from `run-claude profiles list`. Inspect a profile with `run-claude profiles view <name>` (key sets/overrides, instance, model name, internal name, key env var, and fable/opus/sonnet/haiku mapping).
 
 1. From inside the target directory:
    ```bash
@@ -54,6 +54,36 @@ Task-oriented guides for the things you'll actually do with `run-claude`. For *w
 **Gotchas:**
 - `run-claude set-folder` only writes `.envrc` if one doesn't already exist — if you already have a custom `.envrc`, add `source_env_if_exists .envrc.user` and the `eval "$(run-claude env "$AGENT_SHIM_PROFILE")"` block yourself.
 - Profile must exist first — check spelling with `run-claude profiles list`.
+
+### How to: run two independent Z.AI groups (same models, own keys)
+
+**Goal:** two SKU-identical Z.AI groups (`zai/*` and `zai-alt/*`) that can share a key or use different keys.
+**Prereqs:** `ZAI_SUB_KEY` (and optionally `ZAI_SUB_KEY_TYNA`) in `~/.config/run-claude/.secrets`; proxy running.
+
+`zai-pro` talks to family `zai/*` (default `ZAI_SUB_KEY`). `zai-pro-alt` / `zai-alt` talks to family `zai-alt/*` (default `ZAI_SUB_KEY_TYNA`). The SKUs are the same; only the key binding differs.
+
+1. Two sessions on different keys (the default):
+   ```bash
+   run-claude with zai-pro        # zai/*  → ZAI_SUB_KEY
+   run-claude with zai-pro-alt    # zai-alt/* → ZAI_SUB_KEY_TYNA
+   ```
+2. Point either group at either named key without touching the other:
+   ```bash
+   run-claude keys switch zai tyna      # zai-pro now uses Tyna
+   run-claude keys switch zai-alt zai   # zai-pro-alt now uses the main key
+   run-claude keys switch zai-alt tyna  # put alt back on Tyna
+   ```
+3. From zellij:
+   ```bash
+   zj-tab --zai .
+   zj-tab --zai-alt .
+   ```
+
+**Verify:** `run-claude profiles view zai-pro-alt` shows opus/sonnet/haiku/fable as `zai-alt/*` with `KEY ENV` `ZAI_SUB_KEY_TYNA`. After a switch, `run-claude keys list` shows persisted family bindings (`zai -> tyna`, `zai-alt -> zai`).
+**Gotchas:**
+- `keys switch zai tyna` does **not** move `zai-alt/*`. Each family is independent.
+- Concurrent quota only doubles if `ZAI_SUB_KEY` and `ZAI_SUB_KEY_TYNA` are actually different accounts. Same value in both env vars means two groups, one quota.
+- `zai-tyna/*` catalog copies still exist as hardcoded Tyna SKUs on `zai-pro`'s picker; the switchable clone is `zai-alt/*`.
 
 ## Recurring Workflow
 

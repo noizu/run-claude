@@ -1,6 +1,7 @@
 """Tests for run_claude.profiles inspection helpers."""
 
 from run_claude.profiles import (
+    format_profile_list,
     format_profile_view,
     inspect_profile,
     list_profile_infos,
@@ -88,6 +89,53 @@ def test_inspect_zai_pro_instances():
     assert tyna.internal_name == "anthropic/glm-5.3-flash"
 
 
+def test_inspect_zai_pro_alt_defaults_to_tyna():
+    inspection = inspect_profile("zai-pro-alt")
+    assert inspection is not None
+    assert inspection.display_name == "Zai Subscription (Alt)"
+    assert inspection.tiers["opus"].model_name == "zai-alt/opus"
+    assert inspection.tiers["sonnet"].model_name == "zai-alt/sonnet"
+    assert inspection.tiers["haiku"].model_name == "zai-alt/haiku"
+    assert inspection.tiers["fable"].model_name == "zai-alt/fable"
+    assert inspection.tiers["opus"].internal_name == "anthropic/glm-5.3-flash"
+    assert inspection.tiers["fable"].internal_name == "anthropic/glm-5.3"
+    assert inspection.tiers["opus"].key_env == "ZAI_SUB_KEY_TYNA"
+    assert inspection.tiers["opus"].instance == "tyna"
+
+    extra_names = {item.model_name for item in inspection.extended}
+    assert "zai-alt/opus[1m]" in extra_names
+    assert "zai-alt/glm-5.3" in extra_names
+    assert "zai-oa-alt/glm-5.3" in extra_names
+    assert "zai-alt/opus" not in extra_names
+    assert "zai/opus" not in extra_names
+
+
+def test_zai_alt_profile_is_alias_of_zai_pro_alt():
+    alt = inspect_profile("zai-alt")
+    pro_alt = inspect_profile("zai-pro-alt")
+    assert alt is not None and pro_alt is not None
+    assert alt.tiers["opus"].model_name == pro_alt.tiers["opus"].model_name
+    assert alt.tiers["opus"].key_env == "ZAI_SUB_KEY_TYNA"
+
+
+def test_zai_alt_catalog_clone_mirrors_zai_skus():
+    from run_claude.profiles import load_model_definitions
+
+    models = load_model_definitions(force_reload=True, quiet=True)
+    assert "zai-alt/opus" in models
+    src = models["zai/opus"]
+    dst = models["zai-alt/opus"]
+    assert dst.litellm_params["model"] == src.litellm_params["model"]
+    assert dst.litellm_params["api_base"] == src.litellm_params["api_base"]
+    assert src.litellm_params["api_key"] == "os.environ/ZAI_SUB_KEY"
+    assert dst.litellm_params["api_key"] == "os.environ/ZAI_SUB_KEY_TYNA"
+    assert "zai-alt/opus[1m]" in models
+    assert "zai-oa-alt/glm-5.3" in models
+    assert models["zai-oa-alt/glm-5.3"].litellm_params["model"] == (
+        models["zai-oa/glm-5.3"].litellm_params["model"]
+    )
+
+
 def test_inspect_cerebras_explicit_fable_tier():
     inspection = inspect_profile("cerebras")
     assert inspection is not None
@@ -103,6 +151,14 @@ def test_inspect_missing_returns_none():
     assert inspect_profile("definitely-not-a-profile") is None
 
 
+def test_unprefixed_models_group_by_named_key():
+    inspection = inspect_profile("anthropic")
+    assert inspection is not None
+    families = {ks.family for ks in inspection.key_sets}
+    assert "anthropic" in families
+    assert not any(name.startswith("claude-") for name in families)
+
+
 def test_format_profile_view_headers():
     inspection = inspect_profile("alibaba")
     text = format_profile_view(inspection)
@@ -112,3 +168,66 @@ def test_format_profile_view_headers():
     assert "KEY ENV" in text
     assert "INSTANCE" in text
     assert "Additional models:" in text
+    assert "Key sets:" in text
+    assert "FAMILY" in text
+    assert "DEFAULT ENV" in text
+    assert "OVERRIDE" in text
+    assert "QWEN_SUB_KEY" in text
+
+
+def test_inspect_zai_pro_key_sets(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    inspection = inspect_profile("zai-pro")
+    assert inspection is not None
+    families = {ks.family: ks for ks in inspection.key_sets}
+    assert "zai" in families
+    assert families["zai"].key_env == "ZAI_SUB_KEY"
+    assert families["zai"].instance == "zai"
+    assert families["zai"].override == ""
+    assert "zai-tyna" in families
+    assert families["zai-tyna"].key_env == "ZAI_SUB_KEY_TYNA"
+
+
+def test_inspect_zai_pro_alt_key_sets(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    inspection = inspect_profile("zai-pro-alt")
+    assert inspection is not None
+    families = {ks.family: ks for ks in inspection.key_sets}
+    assert "zai-alt" in families
+    assert families["zai-alt"].key_env == "ZAI_SUB_KEY_TYNA"
+    assert families["zai-alt"].instance == "tyna"
+    assert "zai" not in families
+
+
+def test_inspect_key_set_family_override(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    from run_claude.state import State, save_state
+
+    save_state(State(key_families={"zai": "tyna"}))
+    inspection = inspect_profile("zai-pro")
+    assert inspection is not None
+    zai = next(ks for ks in inspection.key_sets if ks.family == "zai")
+    assert zai.override == "tyna"
+    assert zai.override_env == "ZAI_SUB_KEY_TYNA"
+    assert zai.effective_instance == "tyna"
+    assert zai.effective_env == "ZAI_SUB_KEY_TYNA"
+    text = format_profile_view(inspection)
+    assert "tyna" in text
+    assert "OVERRIDE" in text
+
+
+def test_list_profile_infos_with_keys_includes_overrides(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    from run_claude.state import State, save_state
+
+    save_state(State(key_families={"zai-alt": "zai"}))
+    infos = {info.name: info for info in list_profile_infos(with_keys=True)}
+    assert "zai-pro-alt" in infos
+    brief = " ".join(ks.brief() for ks in infos["zai-pro-alt"].key_sets)
+    assert "zai-alt=" in brief
+    assert "->zai" in brief
+    listing = format_profile_list(list(infos.values()))
+    assert "zai-pro-alt" in listing
+    assert "alibaba" in listing
+    assert "QWEN_SUB_KEY" in listing
+    assert "zai-alt=" in listing

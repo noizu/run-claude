@@ -72,6 +72,21 @@ Yes, as long as the watchdog is running (it's auto-spawned by `proxy start` and 
 
 Yes — models are refcounted, not directory-exclusive, so directory A on `cerebras` and directory B on `groq` can both have their models live in the same LiteLLM proxy simultaneously. Each `enter` increments the refcount for the models its profile needs; each `leave` decrements it; a model only gets a teardown lease once its refcount hits zero.
 
+The same mechanism is how two Z.AI groups infer at once: directory A on `zai-pro` (`zai/*`) and directory B on `zai-pro-alt` (`zai-alt/*`). Each family has its own key binding.
+
+### Can I run both Z.AI subscriptions at the same time?
+
+Yes. `zai-pro` and `zai-pro-alt` (`zai-alt`) are SKU-identical groups with independent keys. Defaults: `zai/*` → `ZAI_SUB_KEY`, `zai-alt/*` → `ZAI_SUB_KEY_TYNA`. Rebind either family without moving the other:
+
+```
+run-claude keys switch zai tyna
+run-claude keys switch zai-alt zai
+```
+
+Same key on both groups is valid (two sessions, one quota). Different keys are valid (two quotas). Concurrent doubling only happens when the two env vars are actually different accounts.
+
+→ *See [PROJ-HOWTO.md](PROJ-HOWTO.md#how-to-run-two-independent-zai-groups-same-models-own-keys).*
+
 ### Does `run-claude models avail` show every model I have defined, or just the ones currently in use?
 
 Just the ones currently registered ("enabled") in the running LiteLLM proxy — a model sitting in `models.yaml` that no active profile has pulled in yet won't appear. This trips people up right after adding a custom model: it exists in config but stays invisible to `avail`/`show` until some directory `enter`s a profile that references it (or you register it via a one-off `with`).

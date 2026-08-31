@@ -27,7 +27,7 @@
    ```
 4. Disable a built-in model entirely by redefining it with `model: null` in your user `models.yaml` — the fallthrough loader treats that as "skip this one."
 
-**Verify:** `run-claude profiles list` shows the slug and display name; `run-claude profiles view <name>` (alias: `show`) prints instance, model name, internal LiteLLM name, key env var, and the fable/opus/sonnet/haiku + additional-models mapping, plus which file each was loaded from (`Loaded from: ...`, `Models loaded from: ...`); `run-claude models list` / `run-claude models show <name>` confirm the definition resolved as expected.
+**Verify:** `run-claude profiles list` shows the slug, display name, key sets, and any `keys switch` overrides; `run-claude profiles view <name>` (alias: `show`) prints key sets/overrides, instance, model name, internal LiteLLM name, key env var, and the fable/opus/sonnet/haiku + additional-models mapping, plus which file each was loaded from (`Loaded from: ...`, `Models loaded from: ...`); `run-claude models list` / `run-claude models show <name>` confirm the definition resolved as expected.
 **Gotchas:**
 - Resolution order is **user override > user > built-in** per file, not merged field-by-field — a `model_name` match in a higher-priority file fully replaces the built-in entry.
 - `run-claude profiles install` / `run-claude install` refuse to overwrite existing user files unless you pass `--force` — expect "already exist" messages on a second run, that's not a failure.

@@ -120,6 +120,10 @@ class TestProfilesCommand:
         output = capsys.readouterr().out
         assert "alibaba" in output
         assert "Alibaba Token Plan" in output
+        assert "QWEN_SUB_KEY" in output
+        assert "zai-pro" in output
+        assert "ZAI_SUB_KEY" in output
+        assert "qwen=" in output or "QWEN_SUB_KEY" in output
 
     def test_profiles_list_names_only(self, capsys):
         """profiles list --names-only should print bare names, one per line."""
@@ -141,6 +145,9 @@ class TestProfilesCommand:
         alibaba = next(item for item in payload if item["name"] == "alibaba")
         assert alibaba["display_name"] == "Alibaba Token Plan"
         assert alibaba["source"]
+        assert any(ks["key_env"] == "QWEN_SUB_KEY" for ks in alibaba["key_sets"])
+        zai_pro = next(item for item in payload if item["name"] == "zai-pro")
+        assert any(ks["family"] == "zai" and ks["key_env"] == "ZAI_SUB_KEY" for ks in zai_pro["key_sets"])
 
     def test_profiles_show_alibaba(self, capsys):
         """profiles show alibaba should map Token Plan tiers and extra chat SKUs."""
@@ -164,6 +171,8 @@ class TestProfilesCommand:
         assert "INSTANCE" in output
         assert "INTERNAL NAME" in output
         assert "KEY ENV" in output
+        assert "Key sets:" in output
+        assert "FAMILY" in output
 
     def test_profiles_view_is_show_alias(self, capsys):
         """profiles view should produce the same inspection as show."""
@@ -189,6 +198,19 @@ class TestProfilesCommand:
         assert "ZAI_SUB_KEY_TYNA" in output
         assert "zai-tyna/opus" in output
 
+    def test_profiles_view_zai_pro_alt_bindings(self, capsys):
+        """profiles view zai-pro-alt should default tiers to the zai-alt family."""
+        with patch("sys.argv", ["run-claude", "profiles", "view", "zai-pro-alt"]):
+            result = main()
+        assert result == 0
+        output = capsys.readouterr().out
+        assert "opus:   zai-alt/opus" in output
+        assert "fable:  zai-alt/fable" in output
+        assert "anthropic/glm-5.3-flash" in output
+        assert "anthropic/glm-5.3" in output
+        assert "ZAI_SUB_KEY_TYNA" in output
+        assert "zai-alt/opus[1m]" in output
+
     def test_profiles_view_json(self, capsys):
         """profiles view --json should expose instance/internal/key_env per tier."""
         import json
@@ -203,6 +225,7 @@ class TestProfilesCommand:
         assert opus["key_env"] == "QWEN_SUB_KEY"
         assert opus["instance"] == "qwen"
         assert any(item["model_name"] == "alibaba/kimi-k2.7-code" for item in payload["extended"])
+        assert any(ks["family"] and ks["key_env"] == "QWEN_SUB_KEY" for ks in payload["key_sets"])
 
     def test_profiles_view_does_not_leak_secrets(self, capsys, monkeypatch):
         """Profile view must print env var names, never hydrated key values."""
