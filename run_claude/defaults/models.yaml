@@ -189,51 +189,76 @@ model_list:
   # ==========================================================================
   - model_name: "gemini-pro"
     litellm_params:
-      model: gemini/gemini-2.5-pro-preview-06-05
+      model: gemini/gemini-3.1-pro-preview
       api_key: os.environ/GEMINI_API_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
     metadata:
       provider: gemini
-      description: "Gemini 2.5 Pro via Google AI"
+      description: "Gemini 3.1 Pro (preview) via Google AI"
       strengths: "Huge context (1M+), strong coding, fast"
       weaknesses: "Occasional hallucinations, less precise"
 
   - model_name: "gemini-flash"
     litellm_params:
-      model: gemini/gemini-2.5-flash-preview-05-20
+      model: gemini/gemini-3.7-flash
       api_key: os.environ/GEMINI_API_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
     metadata:
       provider: gemini
-      description: "Gemini 2.5 Flash via Google AI"
+      description: "Gemini 3.7 Flash via Google AI"
       strengths: "Very fast, large context, cheap"
       weaknesses: "Less depth than Pro"
 
   - model_name: "gemini-flash-lite"
     litellm_params:
-      model: gemini/gemini-2.0-flash-lite
+      model: gemini/gemini-3.5-flash-lite
       api_key: os.environ/GEMINI_API_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
     metadata:
       provider: gemini
-      description: "Gemini 2.0 Flash Lite via Google AI"
+      description: "Gemini 3.5 Flash-Lite via Google AI"
       strengths: "Extremely fast, minimal cost"
-      weaknesses: "Limited capability, older gen"
+      weaknesses: "Limited capability, lighter gen"
 
   - model_name: "gemini-thinking"
     litellm_params:
-      model: gemini/gemini-2.5-flash-preview-04-17-thinking
+      model: gemini/gemini-3.7-flash
+      api_key: os.environ/GEMINI_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management"]
+    metadata:
+      provider: gemini
+      description: "Gemini 3.7 Flash with thinking mode"
+      strengths: "Chain-of-thought reasoning, fast"
+      weaknesses: "Higher latency than base Flash"
+
+  # Image-generation models (not chat tiers)
+  - model_name: "gemini-image-premium"
+    litellm_params:
+      model: gemini/gemini-3-pro-image  # Nano Banana Pro — premium image gen
       api_key: os.environ/GEMINI_API_KEY
       drop_params: true
       additional_drop_params: ["context_management", "thinking"]
     metadata:
       provider: gemini
-      description: "Gemini 2.5 Flash with thinking mode"
-      strengths: "Chain-of-thought reasoning, fast"
-      weaknesses: "Higher latency than base Flash"
+      description: "Nano Banana Pro via Google AI — premium image generation"
+      strengths: "Highest quality image output"
+      weaknesses: "Slower, premium cost"
+
+  - model_name: "gemini-image-fast"
+    litellm_params:
+      model: gemini/gemini-3.1-flash-image  # Nano Banana 2 — fast image gen
+      api_key: os.environ/GEMINI_API_KEY
+      drop_params: true
+      additional_drop_params: ["context_management", "thinking"]
+    metadata:
+      provider: gemini
+      description: "Nano Banana 2 via Google AI — fast image generation"
+      strengths: "Fast, cheap image output"
+      weaknesses: "Lower fidelity than premium tier"
 
   # ==========================================================================
   # Cerebras

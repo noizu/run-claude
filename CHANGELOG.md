@@ -1,6 +1,7 @@
 # Changelog — utilities/agent/run-claude
 
 ## [Unreleased]
+- Gemini catalog: 3.1 Pro / 3.7 Flash / 3.5 Flash-Lite plus `gemini-image-premium` (Nano Banana Pro) and `gemini-image-fast` (Nano Banana 2).
 - `run-claude keys switch <family> <key>` registers matching catalog models (including synthesized `zai-alt/*`) when the family is not yet live on the gateway, then rebinds.
 - `run-claude profiles list` (and `show`/`view`) report each profile's key sets (family, default env, named key) plus persisted `keys switch` overrides. `--names-only` stays bare names; `--json` includes `key_sets`.
 - Independent Z.AI groups: `zai-alt/*` (and `zai-oa-alt/*`) are SKU-identical catalog clones of `zai/*` / `zai-oa/*`. Profile `zai-pro-alt` (alias `zai-alt`) defaults to that family with `ZAI_SUB_KEY_TYNA`. `run-claude keys switch zai tyna` and `keys switch zai-alt zai` rebind each family independently, so the two groups can share a key or use different keys.
