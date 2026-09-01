@@ -37,7 +37,8 @@ run-claude/
 │   └── models.yaml          #   Base model definitions
 ├── scripts/                 # Utility scripts (proxy runners)
 ├── templates/               # direnv templates
-├── tests/                   # Test suite (cli, chat, callbacks, hooks, front proxy, watchdog, proxy)
+├── tests/                   # Test suite (cli, profiles, keys, chat, callbacks, hooks,
+│                            #   front proxy, watchdog, proxy startup/liveness/logging, packaging)
 ├── web/                     # Landing site (Elixir Hologram)
 ├── CHANGELOG.md             # Release history
 ├── CLAUDE.md                # Claude Code project instructions

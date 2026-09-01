@@ -142,3 +142,21 @@ registration. Regenerated on profile change — treat as build output.
 
 - `<project>/.envrc` — from `templates/envrc.tmpl`: exports `AGENT_SHIM_TOKEN` (SHA256 of path), sources `.envrc.user`, evals `run-claude env <profile>`
 - `<project>/.envrc.user` — user-editable; sets `AGENT_SHIM_PROFILE`; gitignored
+
+### Front proxy state & logs (`run_claude/front_proxy.py`)
+
+| File | Format | Location | Contents |
+|------|--------|----------|----------|
+| `front-proxy-auth-state.json` | JSON | state dir (override `RUN_CLAUDE_AUTH_STATE`) | `{headers: {name: value}}` — persisted upstream auth headers swapped into `/v1/messages` requests |
+| `request-log.jsonl` | JSONL | `/var/log/run-cluade` (sic; override `RUN_CLAUDE_REQUEST_LOG`; falls back to state dir on permission error) | One JSON object per proxied request |
+
+## Front Proxy HTTP Interface (`127.0.0.1:4443`)
+
+Starlette app (`front_proxy.py`); proxies to LiteLLM at `127.0.0.1:4444`.
+
+| Route | Method | Behavior |
+|-------|--------|----------|
+| `/v1/messages` | POST | Anthropic passthrough: strips Anthropic-prefixed (`claude-`) models per routing rules, swaps auth from `front-proxy-auth-state.json`; `/v1/messages/count_tokens` passes through unmodified |
+| `/v1/chat/completions`, `/v1/completions`, `/v1/embeddings`, `/v1/images`, `/v1/audio`, `/v1/responses` | any | OpenAI-compatible paths → direct LiteLLM passthrough |
+| `/api/claude_cli/bootstrap` | GET | Returns `additional_model_options` for the Claude CLI: merges LiteLLM `/model/info` with `models.yaml` metadata (provider/strengths/weaknesses) |
+| everything else | any | Generic reverse proxy to LiteLLM (hop-by-hop headers stripped; OAuth flows pass through) |

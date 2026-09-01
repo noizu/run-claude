@@ -13,7 +13,7 @@ run-claude provides directory-aware model routing for Claude Code and OpenCode v
 - **Proxy lifecycle** (`proxy.py`): Gateway start/stop + health; resolves go-litellm (default), ex-litellm override, or legacy Python chain.
 - **Key switching** (`keys.py`): Named provider keys from `<FAMILY>_SUB_KEY[_SUFFIX]` env vars, swapped live against go-litellm without changing model ids.
 - **Unified Go gateway** (`repos/go-litellm`, vendored binary `run_claude/bin/go-litellm`): Default one-process endpoint + provider routing (wafer.ai, z.ai, Groq, Anthropic, OpenAI-compatible) with runtime named-key registry.
-- **Front proxy** (`front_proxy.py`, legacy): Reverse proxy :4443 → :4444; passthrough mode forwards Anthropic models to api.anthropic.com with original OAuth auth.
+- **Front proxy** (`front_proxy.py`, legacy): Reverse proxy :4443 → :4444; passthrough mode forwards Anthropic models to api.anthropic.com with original OAuth auth; `GET /api/claude_cli/bootstrap` serves model options to the Claude CLI; auth state + request logs persisted as JSON/JSONL files.
 - **Watchdog** (`watchdog.py`): Detached daemon restarting gateway process(es) when down; a stop.marker sentinel distinguishes intentional stops from crashes.
 - **LiteLLM launcher** (`litellm_proxy.py`): `run-litellm-proxy` entry; prisma schema patching then exec litellm (legacy).
 - **Config** (`config.py`): Secrets (mode 0600), .env generation, env var hydration.

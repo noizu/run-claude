@@ -28,7 +28,9 @@ run-claude/
 │   ├── cerebras-project/    #   Cerebras profile test
 │   ├── groq-project/        #   Groq profile test
 │   ├── local-project/       #   Local (Ollama) profile test
-│   └── multi-project/       #   Multi-provider test
+│   ├── multi-project/       #   Multi-provider test
+│   ├── test-switching.sh    #   Manual profile-switching test script
+│   └── README.md            #   Playground usage notes
 ├── repos/                   # Gateway implementations → [layout/repos.md](layout/repos.md)
 │   ├── ex-litellm/          #   Elixir LiteLLM port (gateway + Anthropic translate)
 │   └── go-litellm/          #   Go gateway (active release target, git submodule)
@@ -56,14 +58,20 @@ run-claude/
 ├── templates/               # direnv templates
 │   ├── envrc.tmpl           #   .envrc template (auto-generated)
 │   └── envrc.user.tmpl      #   .envrc.user template (user-editable)
-├── tests/                   # Test suite
+├── tests/                   # Test suite → [layout/run-claude-package.md](layout/run-claude-package.md)
 │   ├── test_cli.py          #   CLI command tests
+│   ├── test_profiles.py     #   Profile loading/fallthrough tests
+│   ├── test_keys.py         #   Provider-key switching tests
+│   ├── test_chat.py         #   Chat client tests
 │   ├── test_callbacks.py    #   Callback system tests
 │   ├── test_hooks.py        #   Hook system tests
 │   ├── test_front_proxy.py  #   Front proxy tests
 │   ├── test_watchdog.py     #   Watchdog daemon tests
-│   └── test_proxy_logging.py#   Proxy logging tests
-├── .gitmodules              # Submodule references (repos/litellm, repos/go-litellm)
+│   ├── test_proxy_*.py      #   Proxy startup/liveness/logging tests
+│   └── test_packaging_sources.py  # Wheel force-include checks
+├── .gitignore               # Ignores .venv, caches, generated state
+├── .gitmodules              # Submodule refs: repos/litellm (upstream, not checked
+│                            #   out locally), repos/go-litellm
 ├── .python-version          # Python version pin
 ├── .tool-versions           # asdf/mise tool versions
 ├── CLAUDE.md                # Claude Code project instructions
