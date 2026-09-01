@@ -1,0 +1,109 @@
+name: CI
+
+# Landing image (context: web/ — server-rendered Phoenix/Hologram on Bandit).
+# PR: docker smoke (boot container, probe /healthz + hero content).
+# main: push sha-* to ops.noizu.com then bump helm [skip ci].
+# ArgoCD auto-syncs helm/run-claude-landing @ main.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ops.noizu.com
+  IMAGE: ops.noizu.com/run-claude.therobotlives.com/web
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      # load:true cannot export type=gha cache; cache-from only.
+      - name: Build landing image
+        uses: docker/build-push-action@v6
+        with:
+          context: web
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: run-claude-landing:ci
+          cache-from: type=gha,scope=web
+      - name: Probe /healthz and hero content
+        run: |
+          docker run -d --name rc-landing -p 8150:8150 run-claude-landing:ci
+          trap 'docker rm -f rc-landing >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:8150/healthz | grep -q ok; then
+              PAGE=$(curl -fsS http://127.0.0.1:8150/)
+              echo "$PAGE" | grep -q "Claude Code. Your models."
+              echo "$PAGE" | grep -q "Tier mappings are one YAML stanza"
+              echo "$PAGE" | grep -q "How it works"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "landing smoke failed"
+          docker logs rc-landing || true
+          exit 1
+
+  build-push:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require registry secrets
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          if [ -z "$REGISTRY_USER" ] || [ -z "$REGISTRY_PASSWORD" ]; then
+            echo "::error::REGISTRY_USER / REGISTRY_PASSWORD missing on this repo"
+            exit 1
+          fi
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Short SHA
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - name: Build & push landing
+        uses: docker/build-push-action@v6
+        with:
+          context: web
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE }}:sha-${{ steps.sha.outputs.short }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+  bump-chart:
+    needs: build-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bump image tag
+        run: |
+          SHORT=${GITHUB_SHA::7}
+          sed -i -E "s|(image: ops\.noizu\.com/run-claude\.therobotlives\.com/web:).*|\1sha-${SHORT}|" helm/run-claude-landing/values.yaml
+      - name: Commit & push
+        run: |
+          git config user.name "run-claude-ci"
+          git config user.email "ci@noizu.com"
+          git add helm/run-claude-landing/values.yaml
+          git diff --cached --quiet && exit 0
+          git commit -m "ci: deploy sha-${GITHUB_SHA::7} [skip ci]"
+          git push
