@@ -1,0 +1,6 @@
+apiVersion: v2
+name: run-claude-landing
+description: run-claude marketing site — server-rendered Phoenix/Hologram (Bandit)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
