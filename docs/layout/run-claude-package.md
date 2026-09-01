@@ -7,16 +7,19 @@ The core Python package implementing the run-claude CLI.
 | File | Lines | Purpose |
 |------|-------|---------|
 | `__init__.py` | ~7 | Package initialization, version |
-| `cli.py` | ~1213 | CLI entry point, command dispatch (argparse) |
-| `config.py` | ~326 | Secrets management, .env generation, YAML parsing |
-| `profiles.py` | ~796 | Profile loading with fallthrough, model resolution |
-| `proxy.py` | ~2101 | LiteLLM proxy lifecycle, health checks, model API |
+| `cli.py` | ~1477 | CLI entry point, command dispatch (argparse) |
+| `chat.py` | ~270 | Interactive chat client against the local proxy |
+| `config.py` | ~337 | Secrets management, .env generation, YAML parsing |
+| `profiles.py` | ~1309 | Profile loading with fallthrough, model resolution |
+| `proxy.py` | ~2560 | LiteLLM proxy lifecycle, health checks, model API |
 | `front_proxy.py` | ~526 | Always-on reverse proxy between Claude Code (:4443) and LiteLLM (:4444); routing, auth, logging/transforms |
-| `watchdog.py` | ~300 | Self-healing detached daemon (setsid) keeping front proxy and LiteLLM alive |
-| `state.py` | ~186 | JSON state persistence (tokens, refcounts, leases) |
-| `agent_runner.py` | ~166 | Agent execution wrapper for running AI agents |
+| `watchdog.py` | ~307 | Self-healing detached daemon (setsid) keeping front proxy and LiteLLM alive |
+| `state.py` | ~198 | JSON state persistence (tokens, refcounts, leases) |
+| `keys.py` | ~158 | Named provider keys for runtime swap against go-litellm (`run-claude keys switch`) |
+| `agent_runner.py` | ~174 | Agent execution wrapper for running AI agents |
 | `litellm_proxy.py` | ~150 | LiteLLM proxy helper utilities |
 | `opencode_cli.py` | ~190 | OpenCode CLI integration layer |
+| `bin/go-litellm` | - | Vendored Go gateway binary (used when profile routes through go-litellm) |
 | `models.yaml` | - | Built-in LiteLLM model definitions |
 
 ## defaults/

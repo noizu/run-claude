@@ -7,12 +7,19 @@ This document describes the folder structure and file organization of the run-cl
 ```
 run-claude/
 ├── .claude/                 # Claude Code config → [layout/claude-config.md](layout/claude-config.md)
+├── .github/                 # GitHub config
+│   └── workflows/ci.yml     #   CI pipeline (pytest)
+├── completions/             # Shell completions
+│   ├── run-claude.bash      #   Bash completion
+│   └── _run-claude          #   Zsh completion
 ├── dep/                     # Docker infrastructure (TimescaleDB, LiteLLM)
 │   ├── docker-compose.yaml  #   TimescaleDB service definition
 │   ├── docker-compose.override.yaml  # Dev overrides (port 5433)
 │   ├── litellm.Dockerfile   #   Custom LiteLLM proxy image
 │   └── config/timescaledb/  #   DB init scripts
 ├── docs/                    # Documentation → [layout/docs.md](layout/docs.md)
+├── helm/                    # Helm charts → [layout/web.md](layout/web.md)
+│   └── run-claude-landing/  #   Landing-site chart (web/ image)
 ├── hooks/                   # Shell integration (bash/zsh hooks, installer)
 │   ├── bash_hook.sh         #   Bash PROMPT_COMMAND hook
 │   ├── zsh_hook.zsh         #   Zsh precmd hook
@@ -22,22 +29,26 @@ run-claude/
 │   ├── groq-project/        #   Groq profile test
 │   ├── local-project/       #   Local (Ollama) profile test
 │   └── multi-project/       #   Multi-provider test
-├── repos/                   # Third-party source (git submodules)
-│   └── litellm/             #   LiteLLM upstream (pinned)
+├── repos/                   # Gateway implementations → [layout/repos.md](layout/repos.md)
+│   ├── ex-litellm/          #   Elixir LiteLLM port (gateway + Anthropic translate)
+│   └── go-litellm/          #   Go gateway (active release target, git submodule)
 ├── run_claude/              # Main Python package → [layout/run-claude-package.md](layout/run-claude-package.md)
 │   ├── callbacks/           #   Provider compatibility layer (runs in proxy venv)
 │   ├── defaults/            #   Built-in configs (models, profiles, hooks)
 │   ├── hooks/               #   Lifecycle hook system
-│   ├── cli.py               #   CLI entry point (~1213 lines)
+│   ├── cli.py               #   CLI entry point
+│   ├── chat.py              #   Interactive chat client for the local proxy
 │   ├── config.py            #   Secrets & config management
 │   ├── profiles.py          #   Profile loading with fallthrough
-│   ├── proxy.py             #   LiteLLM proxy lifecycle (~2101 lines)
+│   ├── proxy.py             #   LiteLLM proxy lifecycle
 │   ├── front_proxy.py       #   Always-on reverse proxy (:4443 → LiteLLM :4444)
 │   ├── watchdog.py          #   Self-healing daemon keeping both proxies alive
 │   ├── state.py             #   JSON state persistence
+│   ├── keys.py              #   Named provider-key switching (go-litellm key store)
 │   ├── agent_runner.py      #   Agent execution wrapper
 │   ├── litellm_proxy.py     #   LiteLLM proxy helpers
 │   ├── opencode_cli.py      #   OpenCode CLI integration
+│   ├── bin/go-litellm       #   Vendored Go gateway binary
 │   └── models.yaml          #   Base model definitions (user-overridable)
 ├── scripts/                 # Utility scripts
 │   ├── run-litellm-local    #   Run LiteLLM locally
@@ -52,14 +63,17 @@ run-claude/
 │   ├── test_front_proxy.py  #   Front proxy tests
 │   ├── test_watchdog.py     #   Watchdog daemon tests
 │   └── test_proxy_logging.py#   Proxy logging tests
-├── .gitmodules              # Submodule references (repos/litellm)
+├── .gitmodules              # Submodule references (repos/litellm, repos/go-litellm)
 ├── .python-version          # Python version pin
 ├── .tool-versions           # asdf/mise tool versions
 ├── CLAUDE.md                # Claude Code project instructions
 ├── Makefile                 # Build automation (test, install, coverage)
 ├── profiles.yaml            # Profile definitions (14+ built-in profiles)
 ├── pyproject.toml           # Python project config (hatchling)
+├── merge-notes.md           # Notes from branch merges (working notes)
 ├── uv.lock                  # Dependency lockfile
+├── web/                     # Landing site (Elixir Hologram) → [layout/web.md](layout/web.md)
+├── CHANGELOG.md             # Release history
 ├── README.md                # User guide
 ├── SECRETS.md               # Secrets configuration guide
 ├── SECRETS_ADVANCED.md      # Advanced secrets management
