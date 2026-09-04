@@ -233,3 +233,9 @@ The following custom skills remain available via `/command`:
 Wafer model-tier CLI (sonnet→Qwen3.5, haiku→DS-V4-Flash-Fast, fable→kimi-k3 + glm-5.3-flash); cerebras profile = glm-4.7/gemma/gpt-oss tiers on non-sub key. Installed to `~/.local/bin` via trl-infra root `make install-utilities`.
 
 REQUIRED monorepo rules: Trinity Protocol (substantive responses run Orientation → Friction → Response; full text trl-infra `protocols/the-trinity-protocol.md`); no shell in the main thread — delegate to tasker subagents; all work on worktrees with `epic.<group>` consolidation branches off `develop`, PR + squash flow into epics (one epic PR per group). Monorepo ops: `../../../../CLAUDE.md`.
+
+## Branch & PR Policy
+
+- Submodules sit on **`develop`** — keep your checkout on `develop`.
+- All PRs target **`develop`** (feature/bug/task branches fork from `develop`).
+- **`main` is CI/CD-only**: CI/CD automation performs all merges into `main` (release path). Never merge to or push `main` by hand.
