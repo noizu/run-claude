@@ -232,7 +232,22 @@ The following custom skills remain available via `/command`:
 
 Wafer model-tier CLI (sonnet→Qwen3.5, haiku→DS-V4-Flash-Fast, fable→kimi-k3 + glm-5.3-flash); cerebras profile = glm-4.7/gemma/gpt-oss tiers on non-sub key. Installed to `~/.local/bin` via trl-infra root `make install-utilities`.
 
-REQUIRED monorepo rules: Trinity Protocol (substantive responses run Orientation → Friction → Response; full text trl-infra `protocols/the-trinity-protocol.md`); no shell in the main thread — delegate to tasker subagents; all work on worktrees with `epic.<group>` consolidation branches off `develop`, PR + squash flow into epics (one epic PR per group). Monorepo ops: `../../../../CLAUDE.md`.
+REQUIRED monorepo rules: Trinity Protocol (substantive responses run Orientation → Friction → Response; full text trl-infra `protocols/the-trinity-protocol.md`); no shell in the main thread — delegate to tasker subagents; all work on worktrees — placement per the `## Worktrees` section below; `epic.<group>` consolidation branches off `develop`, PR + squash flow into epics (one epic PR per group). Monorepo ops: `../../../../CLAUDE.md`.
+
+## Worktrees — Canonical Convention (REQUIRED)
+
+All work happens on git worktrees, created from **this repo's own `.git`** — never work directly on a shared checkout of `develop`/`main`.
+
+- **Placement (fixed):** every worktree lives inside this repo's checkout at **`.claude/worktrees/<name>/`** — never siblings (`<repo>.worktrees/`), never ad-hoc paths. Matches Claude Code's native worktree tooling, so harness-created and manual worktrees coexist.
+- **Naming:** `<name>` = branch name with `/` → `-` (branch `feature/vfs-wave1` → `.claude/worktrees/feature-vfs-wave1`).
+- **Creation** — from this repo's own `.git`, based on `develop` (never `main`):
+  ```bash
+  git -C <this-repo> worktree add .claude/worktrees/<name> -b <branch> develop
+  ```
+- **Hygiene:** `.claude/worktrees/` is gitignored in this repo; never commit its contents. One worktree per task; remove it when the work lands (`git worktree remove .claude/worktrees/<name>` — keep the branch).
+- **Addressing:** `git -C <this-repo>/.claude/worktrees/<name> …`; verify branch + clean index before any git write; no `git stash`.
+- **Elixir projects:** the MAIN checkout owns `deps/` + `_build/`; each worktree symlinks `deps` (and `_build` where needed) to the canonical checkout by **absolute path** — no per-worktree re-fetch/recompile.
+- **Legacy placements** (`.worktrees/`, `.wt/`, `<repo>.worktrees/` siblings, `staging/`) are grandfathered — do not create new ones; migrate opportunistically. `staging/` remains local-only experiments (never pushed/submoduled).
 
 ## Branch & PR Policy
 
