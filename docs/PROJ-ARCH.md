@@ -56,7 +56,7 @@ graph TB
 
 ## Front Proxy & Passthrough Mode (legacy chain)
 
-In the legacy chain, the front proxy (`:4443`) is the stable endpoint agents point at. In **standard mode** everything forwards to LiteLLM with the master key. In **passthrough mode** (claude-plan profile) Anthropic models forward to `api.anthropic.com` with the caller's original OAuth auth — preserving Claude subscription-plan usage — while non-Anthropic models swap auth to the LiteLLM master key. Non-2xx upstream responses are logged to a dedicated error log.
+In the legacy chain, the front proxy (`:4443`) is the stable endpoint agents point at. In **standard mode** everything forwards to LiteLLM with the master key. In **passthrough mode** (claude-plan profile) Anthropic models forward to `api.anthropic.com` with the caller's original OAuth auth — preserving Claude subscription-plan usage — while non-Anthropic models swap auth to the LiteLLM master key. Non-2xx upstream responses are logged to a dedicated error log. It also exposes `GET /api/claude_cli/bootstrap` (model options for the Claude CLI from LiteLLM `/model/info` + models.yaml metadata) and persists swapped auth headers in `front-proxy-auth-state.json`; per-request logs land in `request-log.jsonl` (override via `RUN_CLAUDE_REQUEST_LOG`). Data shapes: see [PROJ-SCHEMA.md](PROJ-SCHEMA.md).
 
 ## Self-Healing Watchdog
 

@@ -47,6 +47,16 @@ erDiagram
 `model_refcounts{model:int}` · `model_leases{model:epoch}` · `last_janitor_run` ·
 `key_families{family:key}` · `key_bindings{model:key}` · `named_key_envs{name:env}`
 
+## Front proxy (run_claude/front_proxy.py)
+
+| File/Route | Shape |
+|------------|-------|
+| `front-proxy-auth-state.json` | `{headers: {…}}` persisted auth headers |
+| `request-log.jsonl` | JSONL, one object per request (env: `RUN_CLAUDE_REQUEST_LOG`) |
+| `GET /api/claude_cli/bootstrap` | `additional_model_options` = LiteLLM `/model/info` + models.yaml metadata |
+| `/v1/messages` | Anthropic passthrough w/ model filtering + auth swap |
+| `/v1/chat/completions` etc. | OpenAI passthrough → LiteLLM :4444 |
+
 ## Secret-ref conventions
 
 All configs reference keys by `os.environ/VAR_NAME` — no values in YAML.
