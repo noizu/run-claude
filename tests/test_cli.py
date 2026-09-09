@@ -289,13 +289,13 @@ class TestModelsCommand:
         assert "anthropic/glm-5.2" in output
         assert "os.environ/QWEN_SUB_KEY" in output
 
-    def test_models_show_alibaba_fable_uses_kimi_k3(self, capsys):
-        """alibaba/fable should map to Kimi K3 on the Token Plan Anthropic endpoint."""
+    def test_models_show_alibaba_fable_uses_deepseek_v4_pro_0813(self, capsys):
+        """alibaba/fable maps to DS V4 Pro 0813 (remapped off kimi-k3, 2026-09 catalog)."""
         with patch("sys.argv", ["run-claude", "models", "show", "alibaba/fable"]):
             result = main()
         assert result == 0
         output = capsys.readouterr().out
-        assert "anthropic/kimi-k3" in output
+        assert "anthropic/deepseek-v4-pro-0813" in output
         assert "os.environ/QWEN_SUB_KEY" in output
         assert "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic" in output
 
