@@ -241,6 +241,9 @@ alibaba:
 
 # Alibaba Token Plan — Qwen 3.8 + DeepSeek V4
 # Uses the alibaba catalog SKUs (same Token Plan Anthropic endpoint).
+# All three heavy slots ride the "Limited-time Night 50% Off" SKUs
+# (qwen3.8-max, deepseek-v4-pro-0813, deepseek-v4-flash-0731) — this is the
+# night-discount soak profile.
 # Tiers:
 #   fable  = qwen3.8-max
 #   opus   = deepseek-v4-pro-0813
@@ -257,6 +260,53 @@ qwen:
     - "alibaba/deepseek-v4-pro-0813[1m]"
     - "alibaba/qwen3.8-flash[1m]"
     - "alibaba/deepseek-v4-flash-0731[1m]"
+
+# Alibaba Token Plan — all-Qwen flagship ladder (distinct model per slot)
+# Tiers (2026-09 plan; qwen3.8-flash outclasses 3.7-plus):
+#   fable  = qwen3.8-max   (flagship, 1M, vision, night 50% off)
+#   opus   = qwen3.7-max   (prior-gen max, reasoning)
+#   sonnet = qwen3.8-flash (newer-gen flash, stronger than 3.7-plus)
+#   haiku  = qwen3.7-plus  (balanced prior-gen, vision)
+qwen-max:
+  name: "Alibaba Qwen Max"
+  fable_model: "alibaba/qwen3.8-max"
+  opus_model: "alibaba/qwen3.7-max"
+  sonnet_model: "alibaba/qwen3.8-flash"
+  haiku_model: "alibaba/qwen3.7-plus"
+  extended:
+    - "alibaba/qwen3.8-max[1m]"
+    - "alibaba/qwen3.8-flash[1m]"
+    - "alibaba/qwen3.8-max-preview"
+    - "alibaba/qwen3.6-plus"
+    - "alibaba/qwen3.6-flash"
+
+# Alibaba Token Plan — all-Qwen speed tier (flash end of the ladder)
+qwen-flash:
+  name: "Alibaba Qwen Flash"
+  fable_model: "alibaba/qwen3.8-flash"
+  opus_model: "alibaba/qwen3.8-flash"
+  sonnet_model: "alibaba/qwen3.7-plus"
+  haiku_model: "alibaba/qwen3.6-flash"
+  extended:
+    - "alibaba/qwen3.8-flash[1m]"
+    - "alibaba/qwen3.6-plus"
+
+# Alibaba Token Plan — DeepSeek-forward mix (GLM-5.2 sonnet as coding driver)
+#   fable  = deepseek-v4-pro-0813 (GA snapshot, night 50% off)
+#   opus   = deepseek-v4-pro
+#   sonnet = glm-5.2              (strong coding/SWE, 1M)
+#   haiku  = deepseek-v4-flash-0731 (fast, night 50% off)
+alibaba-deepseek:
+  name: "Alibaba DeepSeek Mix"
+  fable_model: "alibaba/deepseek-v4-pro-0813"
+  opus_model: "alibaba/deepseek-v4-pro"
+  sonnet_model: "alibaba/glm-5.2"
+  haiku_model: "alibaba/deepseek-v4-flash-0731"
+  extended:
+    - "alibaba/deepseek-v4-pro-0813[1m]"
+    - "alibaba/deepseek-v4-flash-0731[1m]"
+    - "alibaba/qwen3.8-flash"
+    - "alibaba/qwen3.7-plus"
 
 # OpenRouter — Free Tier models
 # Requires: OPENROUTER_API_KEY
