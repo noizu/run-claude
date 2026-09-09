@@ -21,7 +21,28 @@ def test_list_profiles_matches_infos():
     assert list_profiles() == [info.name for info in list_profile_infos()]
 
 
-def test_inspect_alibaba_tiers_and_extended():
+def test_inspect_alibaba_tiers_and_extended(monkeypatch, tmp_path):
+    # Hermetic: pin resolution to the built-in catalog (see test_inspect_wafer_tiers).
+    monkeypatch.setattr(
+        "run_claude.profiles.get_user_models_file",
+        lambda: tmp_path / "no-user-models.yaml",
+    )
+    monkeypatch.setattr(
+        "run_claude.profiles.get_user_profiles_file",
+        lambda: tmp_path / "no-user-profiles.yaml",
+    )
+    monkeypatch.setattr(
+        "run_claude.profiles.get_user_profiles_override_file",
+        lambda: tmp_path / "no-user-profile-override.yaml",
+    )
+    clear_caches()
+    try:
+        _assert_alibaba_inspection()
+    finally:
+        clear_caches()
+
+
+def _assert_alibaba_inspection():
     inspection = inspect_profile("alibaba")
     assert inspection is not None
     assert inspection.name == "alibaba"
@@ -37,7 +58,7 @@ def test_inspect_alibaba_tiers_and_extended():
 
     fable = inspection.tiers["fable"]
     assert fable.model_name == "alibaba/fable"
-    assert fable.internal_name == "anthropic/kimi-k3"
+    assert fable.internal_name == "anthropic/deepseek-v4-pro-0813"
 
     sonnet = inspection.tiers["sonnet"]
     assert sonnet.internal_name == "anthropic/glm-5.2"

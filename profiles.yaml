@@ -200,7 +200,8 @@ wafer:
 # Requires: QWEN_SUB_KEY (Token Plan dedicated key, typically sk-sp-*)
 # Endpoint: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
 # Tiers (best-of-breed across the catalog, not all-Qwen):
-#   fable  = kimi-k3        (Claude Code fable alias → Kimi K3)
+#   fable  = deepseek-v4-pro-0813 (fable alias; remapped off kimi-k3 2026-09 —
+#           Kimi SKUs absent from the 2026-09 Token Plan catalog)
 #   opus   = qwen3.8-max    (flagship, 1M, vision)
 #   sonnet = glm-5.2        (coding daily driver, 1M)
 #   haiku  = qwen3.6-flash  (fast/cheap, 1M, vision — official CC haiku)
