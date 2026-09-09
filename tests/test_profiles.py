@@ -1,6 +1,7 @@
 """Tests for run_claude.profiles inspection helpers."""
 
 from run_claude.profiles import (
+    clear_caches,
     format_profile_list,
     format_profile_view,
     inspect_profile,
@@ -52,7 +53,30 @@ def test_inspect_alibaba_tiers_and_extended():
     assert "alibaba/opus" not in extra_names
 
 
-def test_inspect_wafer_tiers():
+def test_inspect_wafer_tiers(monkeypatch, tmp_path):
+    # Hermetic: pin resolution to the built-in catalog. inspect_profile merges
+    # ~/.config/run-claude/models.yaml over built-ins, so a host with stale
+    # user overrides would otherwise fail this repo-tier assertion.
+    monkeypatch.setattr(
+        "run_claude.profiles.get_user_models_file",
+        lambda: tmp_path / "no-user-models.yaml",
+    )
+    monkeypatch.setattr(
+        "run_claude.profiles.get_user_profiles_file",
+        lambda: tmp_path / "no-user-profiles.yaml",
+    )
+    monkeypatch.setattr(
+        "run_claude.profiles.get_user_profiles_override_file",
+        lambda: tmp_path / "no-user-profile-override.yaml",
+    )
+    clear_caches()
+    try:
+        _assert_wafer_inspection()
+    finally:
+        clear_caches()
+
+
+def _assert_wafer_inspection():
     inspection = inspect_profile("wafer")
     assert inspection is not None
     assert inspection.name == "wafer"
@@ -64,9 +88,15 @@ def test_inspect_wafer_tiers():
     assert fable.key_env == "WAFER_AI_API_KEY"
     assert "pass.wafer.ai" in fable.api_base
 
-    for tier in ("opus", "sonnet", "haiku"):
+    # Tier remap (2026-08): opus=GLM-5.3-Flash, sonnet=Qwen3.5-397B, haiku=DS-V4-Flash-Fast
+    expected_internal = {
+        "opus": "anthropic/GLM-5.3-Flash",
+        "sonnet": "anthropic/Qwen3.5-397B-A17B",
+        "haiku": "anthropic/DeepSeek-V4-Flash-0731-Fast",
+    }
+    for tier, internal in expected_internal.items():
         binding = inspection.tiers[tier]
-        assert binding.internal_name == "anthropic/GLM-5.3-Flash"
+        assert binding.internal_name == internal
         assert binding.key_env == "WAFER_AI_API_KEY"
         assert "pass.wafer.ai" in binding.api_base
 
