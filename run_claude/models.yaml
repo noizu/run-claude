@@ -1821,7 +1821,9 @@ model_list:
 # Endpoint: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
 # Chat models only (image/video/audio are not Claude Code /v1/messages).
 # deepseek-v3.2 is listed on Token Plan but rejected on the Anthropic surface.
-# Tiers: fable=kimi-k3, opus=qwen3.8-max, sonnet=glm-5.2, haiku=qwen3.6-flash
+# Tiers: fable=deepseek-v4-pro-0813, opus=qwen3.8-max, sonnet=glm-5.2, haiku=qwen3.6-flash
+# (fable remapped off kimi-k3 2026-09-10 — Kimi SKUs absent from the 2026-09
+# Token Plan catalog; alibaba/kimi-k3 remains as an opt-in named SKU)
 
   - model_name: "alibaba/haiku"
     litellm_params:
@@ -1909,7 +1911,7 @@ model_list:
 
   - model_name: "alibaba/fable"
     litellm_params:
-      model: anthropic/kimi-k3
+      model: anthropic/deepseek-v4-pro-0813
       api_key: os.environ/QWEN_SUB_KEY
       api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
       drop_params: false
@@ -1917,13 +1919,13 @@ model_list:
       reasoning_effort: "high"
     metadata:
       provider: alibaba
-      description: "Alibaba Kimi K3 (fable tier) via Token Plan Anthropic API"
-      strengths: "Claude Code fable alias; Kimi K3 flagship, 1M context, vision"
-      weaknesses: "Token Plan credits; thinking-only Kimi SKU"
+      description: "Alibaba DeepSeek V4 Pro 0813 (fable tier) via Token Plan Anthropic API"
+      strengths: "Claude Code fable alias; GA DS V4 Pro snapshot, 1M context, strong agents/tools"
+      weaknesses: "Text-only; high Token Plan credit burn"
 
   - model_name: "alibaba/fable[1m]"
     litellm_params:
-      model: anthropic/kimi-k3
+      model: anthropic/deepseek-v4-pro-0813
       api_key: os.environ/QWEN_SUB_KEY
       api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
       drop_params: false
@@ -1931,9 +1933,9 @@ model_list:
       reasoning_effort: "high"
     metadata:
       provider: alibaba
-      description: "Alibaba Kimi K3 1M alias (fable tier)"
+      description: "Alibaba DeepSeek V4 Pro 0813 1M alias (fable tier)"
       strengths: "Claude Code [1m] suffix; native 1M context"
-      weaknesses: "Token Plan credits; thinking-only Kimi SKU"
+      weaknesses: "Text-only; high Token Plan credit burn"
 
   - model_name: "alibaba/qwen3.8-max"
     litellm_params:
