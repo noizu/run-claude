@@ -638,6 +638,22 @@ model_list:
       strengths: "Frontier intelligence at flash cost; native multimodal"
       weaknesses: "Less depth than GLM-5.3"
 
+  - model_name: "zai/glm-5.3-flashx"
+    litellm_params:
+      model: anthropic/glm-5.3-flashx
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+      extra_headers:
+        anthropic-product: claude_code
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.3-FlashX (named SKU, Anthropic protocol)"
+      strengths: "Faster variant of GLM-5.3-Flash; frontier intelligence at flash cost"
+      weaknesses: "Less depth than GLM-5.3"
+
   - model_name: "zai/glm-5.2"
     litellm_params:
       model: anthropic/glm-5.2
@@ -1048,6 +1064,20 @@ model_list:
       provider: zai
       description: "Z.AI GLM-5.3-Flash via coding plan OpenAI-compatible endpoint"
       strengths: "Frontier intelligence at flash cost; native multimodal; 3x quota vs GLM-5.3"
+      weaknesses: "Less depth than GLM-5.3"
+
+  - model_name: "zai-oa/glm-5.3-flashx"
+    litellm_params:
+      model: openai/glm-5.3-flashx
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/coding/paas/v4
+      drop_params: true
+      additional_drop_params: ["context_management", "output_config"]
+      reasoning_effort: "high"
+    metadata:
+      provider: zai
+      description: "Z.AI GLM-5.3-FlashX via coding plan OpenAI-compatible endpoint"
+      strengths: "Faster variant of GLM-5.3-Flash; native multimodal; 3x quota vs GLM-5.3"
       weaknesses: "Less depth than GLM-5.3"
 
   - model_name: "zai-oa/glm-5.2"
