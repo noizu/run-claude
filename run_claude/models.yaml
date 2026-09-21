@@ -8,67 +8,90 @@ model_list:
   # ==========================================================================
   # Anthropic
   # ==========================================================================
-  - model_name: "claude-opus-4-20250514"
+  # Current Claude 5 family (ids per https://docs.anthropic.com/en/docs/about-claude/models).
+  # Retired 2025 ids (claude-opus-4-20250514, claude-sonnet-4-20250514,
+  # claude-3-5-haiku-20241022) return model_not_found and were removed 2026-09-21.
+  - model_name: "claude-fable-5-1"
     litellm_params:
-      model: anthropic/claude-opus-4-20250514
+      model: anthropic/claude-fable-5-1
       api_key: os.environ/ANTHROPIC_API_KEY
     metadata:
       provider: anthropic
-      description: "Anthropic Opus 4 via API key"
-      strengths: "Deep reasoning, complex code, nuanced writing"
-      weaknesses: "Slower, expensive, API key billing"
+      description: "Anthropic Fable 5.1 via API key (most capable GA model)"
+      strengths: "Strongest reasoning, long agentic runs, nuanced writing"
+      weaknesses: "Slowest, most expensive"
 
-  - model_name: "claude-sonnet-4-20250514"
+  - model_name: "claude-fable-5-1[1m]"
     litellm_params:
-      model: anthropic/claude-sonnet-4-20250514
+      model: anthropic/claude-fable-5-1
       api_key: os.environ/ANTHROPIC_API_KEY
     metadata:
       provider: anthropic
-      description: "Anthropic Sonnet 4 via API key"
+      description: "Anthropic Fable 5.1 1M context via API key"
+      strengths: "Huge context + strongest reasoning"
+      weaknesses: "Slow, high token usage"
+
+  - model_name: "claude-opus-5"
+    litellm_params:
+      model: anthropic/claude-opus-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+    metadata:
+      provider: anthropic
+      description: "Anthropic Opus 5 via API key"
+      strengths: "Deep reasoning, complex code"
+      weaknesses: "Slower, expensive"
+
+  - model_name: "claude-sonnet-5"
+    litellm_params:
+      model: anthropic/claude-sonnet-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+    metadata:
+      provider: anthropic
+      description: "Anthropic Sonnet 5 via API key"
       strengths: "Balanced speed/quality, strong coding"
-      weaknesses: "Less depth than Opus, API key billing"
+      weaknesses: "Less depth than Opus/Fable"
 
-  - model_name: "claude-3-5-haiku-20241022"
+  - model_name: "claude-haiku-4-5-20251001"
     litellm_params:
-      model: anthropic/claude-3-5-haiku-20241022
+      model: anthropic/claude-haiku-4-5-20251001
       api_key: os.environ/ANTHROPIC_API_KEY
     metadata:
       provider: anthropic
-      description: "Anthropic Haiku 3.5 via API key"
+      description: "Anthropic Haiku 4.5 via API key"
       strengths: "Very fast, cheap, good for simple tasks"
-      weaknesses: "Limited reasoning depth, older generation"
+      weaknesses: "Limited reasoning depth"
 
   # Anthropic - OpenAI v1 endpoint format
-  - model_name: "claude-opus-4-20250514-oa"
+  - model_name: "claude-opus-5-oa"
     litellm_params:
-      model: openai/claude-opus-4-20250514
+      model: openai/claude-opus-5
       api_key: os.environ/ANTHROPIC_API_KEY
       api_base: https://api.anthropic.com/v1
     metadata:
       provider: anthropic
-      description: "Anthropic Opus 4 via OpenAI-compat endpoint"
+      description: "Anthropic Opus 5 via OpenAI-compat endpoint"
       strengths: "Deep reasoning, complex code, nuanced writing"
       weaknesses: "Slower, expensive, API key billing"
 
-  - model_name: "claude-sonnet-4-20250514-oa"
+  - model_name: "claude-sonnet-5-oa"
     litellm_params:
-      model: openai/claude-sonnet-4-20250514
+      model: openai/claude-sonnet-5
       api_key: os.environ/ANTHROPIC_API_KEY
       api_base: https://api.anthropic.com/v1
     metadata:
       provider: anthropic
-      description: "Anthropic Sonnet 4 via OpenAI-compat endpoint"
+      description: "Anthropic Sonnet 5 via OpenAI-compat endpoint"
       strengths: "Balanced speed/quality, strong coding"
       weaknesses: "Less depth than Opus, API key billing"
 
-  - model_name: "claude-3-5-haiku-20241022-oa"
+  - model_name: "claude-haiku-4-5-20251001-oa"
     litellm_params:
-      model: openai/claude-3-5-haiku-20241022
+      model: openai/claude-haiku-4-5-20251001
       api_key: os.environ/ANTHROPIC_API_KEY
       api_base: https://api.anthropic.com/v1
     metadata:
       provider: anthropic
-      description: "Anthropic Haiku 3.5 via OpenAI-compat endpoint"
+      description: "Anthropic Haiku 4.5 via OpenAI-compat endpoint"
       strengths: "Very fast, cheap, good for simple tasks"
       weaknesses: "Limited reasoning depth, older generation"
 
@@ -156,6 +179,26 @@ model_list:
       description: "Claude Sonnet 4.6 1M context via plan"
       strengths: "Large context, fast, strong coding"
       weaknesses: "Less depth than Opus"
+
+  - model_name: "claude-fable-5-1"
+    litellm_params:
+      model: anthropic/claude-fable-5-1
+      api_key: "unused-routed-by-front-proxy"
+    metadata:
+      provider: anthropic
+      description: "Claude Fable 5.1 via plan (OAuth passthrough)"
+      strengths: "Most capable GA model"
+      weaknesses: "Slowest output"
+
+  - model_name: "claude-fable-5-1[1m]"
+    litellm_params:
+      model: anthropic/claude-fable-5-1
+      api_key: "unused-routed-by-front-proxy"
+    metadata:
+      provider: anthropic
+      description: "Claude Fable 5.1 1M context via plan"
+      strengths: "Huge context + strongest reasoning"
+      weaknesses: "Slow, high token usage"
 
   - model_name: "claude-sonnet-5"
     litellm_params:
