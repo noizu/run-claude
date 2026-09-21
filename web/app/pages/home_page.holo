@@ -86,15 +86,15 @@ claude</code></pre>
         <tbody>
           <tr>
             <td>anthropic</td>
-            <td>—</td>
-            <td>claude-opus-4</td>
-            <td>claude-sonnet-4</td>
-            <td>claude-3-5-haiku</td>
+            <td>claude-fable-5-1</td>
+            <td>claude-opus-5</td>
+            <td>claude-sonnet-5</td>
+            <td>claude-haiku-4-5</td>
           </tr>
           <tr>
             <td>claude-plan <span class="tag">OAuth</span></td>
-            <td>opus tier</td>
-            <td>claude-opus-4-8</td>
+            <td>claude-fable-5-1</td>
+            <td>claude-opus-5</td>
             <td>claude-sonnet-5</td>
             <td>claude-haiku-4-5</td>
           </tr>
