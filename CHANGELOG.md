@@ -1,6 +1,7 @@
 # Changelog — utilities/agent/run-claude
 
 ## [Unreleased]
+- Anthropic catalog: current Claude 5 ids (`claude-fable-5-1`[+1m], `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5-20251001`) replace the retired 2025 ids (`claude-opus-4-20250514`, `claude-sonnet-4-20250514`, `claude-3-5-haiku-20241022`), which now return `model_not_found`; the `-oa` mirrors follow. `anthropic` and `claude-plan` profiles map fable→fable-5-1, opus→opus-5, sonnet→sonnet-5, haiku→haiku-4-5. Fable plan stubs added; landing-page tables updated.
 - Gemini catalog: 3.1 Pro / 3.7 Flash / 3.5 Flash-Lite plus `gemini-image-premium` (Nano Banana Pro) and `gemini-image-fast` (Nano Banana 2).
 - `run-claude keys switch <family> <key>` registers matching catalog models (including synthesized `zai-alt/*`) when the family is not yet live on the gateway, then rebinds.
 - `run-claude profiles list` (and `show`/`view`) report each profile's key sets (family, default env, named key) plus persisted `keys switch` overrides. `--names-only` stays bare names; `--json` includes `key_sets`.
