@@ -55,13 +55,13 @@ groq-pro:
 #   fable  = glm-5.3
 #   opus   = glm-5.3-flash
 #   sonnet = glm-5.2
-#   haiku  = glm-5-turbo
+#   haiku  = glm-5.3-flashx
 # Requires: ZAI_SUB_KEY; Tyna copies also need ZAI_SUB_KEY_TYNA
 zai-pro:
   name: "Zai Subscription"
   opus_model: "zai/opus"
   sonnet_model: "zai/sonnet"
-  haiku_model: "zai/haiku"
+  haiku_model: "zai/glm-5.3-flashx"
   fable_model: "zai/fable"
   extended:
     - "zai/opus[1m]"
@@ -93,7 +93,7 @@ zai-alt: &zai-alt-profile
   name: "Zai Subscription (Alt)"
   opus_model: "zai-alt/opus"
   sonnet_model: "zai-alt/sonnet"
-  haiku_model: "zai-alt/haiku"
+  haiku_model: "zai-alt/glm-5.3-flashx"
   fable_model: "zai-alt/fable"
   extended:
     - "zai-alt/opus[1m]"
