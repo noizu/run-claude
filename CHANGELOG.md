@@ -1,6 +1,7 @@
 # Changelog — utilities/agent/run-claude
 
 ## [Unreleased]
+- New profiles `zai-pro-x` and `zai-alt-x`: SKU-identical clones of `zai-pro` / `zai-alt` that route the opus/sonnet tiers (and matching `extended` catalog entries) through the faster `glm-5.3-flashx` model instead of `glm-5.3-flash`, on both the `zai/*`+`zai-oa/*` and `zai-alt/*`+`zai-oa-alt/*` key families. `zai-alt/glm-5.3-flashx` / `zai-oa-alt/glm-5.3-flashx` are synthesized automatically via the existing `FAMILY_CLONES` mechanism once the base `zai/glm-5.3-flashx` / `zai-oa/glm-5.3-flashx` catalog entries exist.
 - Gemini catalog: 3.1 Pro / 3.7 Flash / 3.5 Flash-Lite plus `gemini-image-premium` (Nano Banana Pro) and `gemini-image-fast` (Nano Banana 2).
 - `run-claude keys switch <family> <key>` registers matching catalog models (including synthesized `zai-alt/*`) when the family is not yet live on the gateway, then rebinds.
 - `run-claude profiles list` (and `show`/`view`) report each profile's key sets (family, default env, named key) plus persisted `keys switch` overrides. `--names-only` stays bare names; `--json` includes `key_sets`.

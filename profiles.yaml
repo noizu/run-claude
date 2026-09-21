@@ -128,6 +128,68 @@ zai-alt: &zai-alt-profile
     - "zai-oa-alt/glm-4.7"
 zai-pro-alt: *zai-alt-profile
 
+# Z.AI Subscription - FlashX (faster variant of glm-5.3-flash)
+#   fable  = glm-5.3
+#   opus   = glm-5.3-flashx
+#   sonnet = glm-5.3-flashx
+#   haiku  = glm-5-turbo
+# Requires: ZAI_SUB_KEY; Tyna copies also need ZAI_SUB_KEY_TYNA
+zai-pro-x:
+  name: "Zai Subscription (FlashX)"
+  opus_model: "zai/glm-5.3-flashx (sub)"
+  sonnet_model: "zai/glm-5.3-flashx (sub)"
+  haiku_model: "zai/haiku"
+  fable_model: "zai/glm-5.3 (sub)"
+  extended:
+    - "zai/opus[1m]"
+    - "zai/sonnet[1m]"
+    - "zai/haiku[1m]"
+    - "zai/fable[1m]"
+    - "zai-tyna/opus"
+    - "zai-tyna/opus[1m]"
+    - "zai-tyna/sonnet"
+    - "zai-tyna/sonnet[1m]"
+    - "zai-tyna/haiku"
+    - "zai-tyna/haiku[1m]"
+    - "zai-tyna/fable"
+    - "zai-tyna/fable[1m]"
+    - "zai/glm-5.3"
+    - "zai/glm-5.3-flashx"
+    - "zai/glm-5.3-flashx[1m]"
+    - "zai/glm-5.2"
+    - "zai-oa/glm-5.3"
+    - "zai-oa/glm-5.3-flashx"
+    - "zai-oa/glm-5.3-flashx[1m]"
+    - "zai-oa/glm-5.2"
+    - "zai-oa/glm-5-turbo"
+    - "zai-oa/glm-4.7"
+
+# Independent SKU-identical clone of zai-pro-x (family zai-alt/*).
+# Default key: ZAI_SUB_KEY_TYNA. Rebind independently:
+#   run-claude keys switch zai     tyna|zai
+#   run-claude keys switch zai-alt tyna|zai
+zai-alt-x:
+  name: "Zai Subscription (Alt, FlashX)"
+  opus_model: "zai-alt/glm-5.3-flashx"
+  sonnet_model: "zai-alt/glm-5.3-flashx"
+  haiku_model: "zai-alt/haiku"
+  fable_model: "zai-alt/fable"
+  extended:
+    - "zai-alt/opus[1m]"
+    - "zai-alt/sonnet[1m]"
+    - "zai-alt/haiku[1m]"
+    - "zai-alt/fable[1m]"
+    - "zai-alt/glm-5.3"
+    - "zai-alt/glm-5.3-flashx"
+    - "zai-alt/glm-5.3-flashx[1m]"
+    - "zai-alt/glm-5.2"
+    - "zai-oa-alt/glm-5.3"
+    - "zai-oa-alt/glm-5.3-flashx"
+    - "zai-oa-alt/glm-5.3-flashx[1m]"
+    - "zai-oa-alt/glm-5.2"
+    - "zai-oa-alt/glm-5-turbo"
+    - "zai-oa-alt/glm-4.7"
+
 # Z.AI Subscription - OpenAI v1 endpoint format
 #   fable  = glm-5.3
 #   opus   = glm-5.3-flash
