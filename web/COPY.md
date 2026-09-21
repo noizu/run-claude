@@ -91,8 +91,8 @@ disables an entry.`
 
 | Profile | fable | opus | sonnet | haiku |
 |---|---|---|---|---|
-| `anthropic` | — | claude-opus-4 | claude-sonnet-4 | claude-3-5-haiku |
-| `claude-plan` (OAuth) | opus tier | claude-opus-4-8 | claude-sonnet-5 | claude-haiku-4-5 |
+| `anthropic` | claude-fable-5-1 | claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5 |
+| `claude-plan` (OAuth) | claude-fable-5-1 | claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5 |
 | `wafer` | kimi-k3 | glm-5.3-flash (max) | glm-5.3-flash (high) | glm-5.3-flash (low) |
 | `zai-pro` | glm-5.3 | glm-5.3-flash | glm-5.3-flash | glm-5-turbo |
 | `cerebras` | zai-glm-4.7 | gemma-4-31b | gpt-oss-120b | gpt-oss-120b |
