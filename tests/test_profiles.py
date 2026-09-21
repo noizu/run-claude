@@ -150,8 +150,8 @@ def test_inspect_zai_pro_instances(monkeypatch, tmp_path):
         assert inspection.tiers["opus"].internal_name == "anthropic/glm-5.3-flash"
         assert inspection.tiers["opus"].key_env == "ZAI_SUB_KEY"
         assert inspection.tiers["opus"].instance == "zai"
-        assert inspection.tiers["haiku"].model_name == "zai/glm-5.3-flashx (sub)"
-        assert inspection.tiers["haiku"].internal_name == "anthropic/glm-5.3-flashx"
+        assert inspection.tiers["haiku"].model_name == "zai/glm-5.3-flash (sub)"
+        assert inspection.tiers["haiku"].internal_name == "anthropic/glm-5.3-flash"
 
         tyna = next(item for item in inspection.extended if item.model_name == "zai-tyna/opus")
         assert tyna.key_env == "ZAI_SUB_KEY_TYNA"
@@ -182,10 +182,10 @@ def test_inspect_zai_pro_alt_defaults_to_tyna(monkeypatch, tmp_path):
         assert inspection.display_name == "Zai Subscription (Alt)"
         assert inspection.tiers["opus"].model_name == "zai-alt/opus"
         assert inspection.tiers["sonnet"].model_name == "zai-alt/sonnet"
-        assert inspection.tiers["haiku"].model_name == "zai-alt/glm-5.3-flashx"
+        assert inspection.tiers["haiku"].model_name == "zai-alt/glm-5.3-flash"
         assert inspection.tiers["fable"].model_name == "zai-alt/fable"
         assert inspection.tiers["opus"].internal_name == "anthropic/glm-5.3-flash"
-        assert inspection.tiers["haiku"].internal_name == "anthropic/glm-5.3-flashx"
+        assert inspection.tiers["haiku"].internal_name == "anthropic/glm-5.3-flash"
         assert inspection.tiers["fable"].internal_name == "anthropic/glm-5.3"
         assert inspection.tiers["opus"].key_env == "ZAI_SUB_KEY_TYNA"
         assert inspection.tiers["opus"].instance == "tyna"
