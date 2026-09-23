@@ -2266,6 +2266,34 @@ model_list:
       strengths: "Claude Code [1m] suffix; native 1M context"
       weaknesses: "Text-only; not on every console listing"
 
+  - model_name: "alibaba/deepseek-v4.1-flash"
+    litellm_params:
+      model: anthropic/deepseek-v4.1-flash
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+    metadata:
+      provider: alibaba
+      description: "DeepSeek V4.1 Flash via Alibaba Token Plan Anthropic API"
+      strengths: "Newest Flash generation, fast 1M reasoning"
+      weaknesses: "Text-only; SKU new on Token Plan — verify console listing"
+
+  - model_name: "alibaba/deepseek-v4.1-flash[1m]"
+    litellm_params:
+      model: anthropic/deepseek-v4.1-flash
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "low"
+    metadata:
+      provider: alibaba
+      description: "DeepSeek V4.1 Flash 1M alias"
+      strengths: "Claude Code [1m] suffix; native 1M context"
+      weaknesses: "Text-only; SKU new on Token Plan — verify console listing"
+
   - model_name: "alibaba/kimi-k3"
     litellm_params:
       model: anthropic/kimi-k3
@@ -2321,6 +2349,34 @@ model_list:
       description: "Kimi K2.5 via Alibaba Token Plan Anthropic API"
       strengths: "Vision + text, 256k context"
       weaknesses: "Oldest Kimi SKU on Token Plan"
+
+  - model_name: "alibaba/glm-5.3"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+    metadata:
+      provider: alibaba
+      description: "GLM-5.3 via Alibaba Token Plan Anthropic API"
+      strengths: "Z.AI flagship GLM on Token Plan; strong coding/SWE, 1M context"
+      weaknesses: "Text-only; newest SKU — verify console listing"
+
+  - model_name: "alibaba/glm-5.3[1m]"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: ["context_management", "thinking"]
+      reasoning_effort: "high"
+    metadata:
+      provider: alibaba
+      description: "GLM-5.3 1M alias via Alibaba Token Plan Anthropic API"
+      strengths: "Claude Code [1m] suffix; native 1M context"
+      weaknesses: "Text-only; newest SKU — verify console listing"
 
   - model_name: "alibaba/glm-5.2"
     litellm_params:

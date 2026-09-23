@@ -296,36 +296,36 @@ alibaba:
     - "alibaba/deepseek-v4-flash"
     - "alibaba/deepseek-v4-flash-0731"
     - "alibaba/deepseek-v4-flash-0731[1m]"
+    - "alibaba/deepseek-v4.1-flash"
+    - "alibaba/deepseek-v4.1-flash[1m]"
     - "alibaba/kimi-k3"
     - "alibaba/kimi-k2.7-code"
     - "alibaba/kimi-k2.6"
     - "alibaba/kimi-k2.5"
+    - "alibaba/glm-5.3"
+    - "alibaba/glm-5.3[1m]"
     - "alibaba/glm-5.2"
     - "alibaba/glm-5.1"
     - "alibaba/glm-5"
     - "alibaba/minimax-m2.5"
 
-# Alibaba Token Plan — Qwen 3.8 + DeepSeek V4
+# Alibaba Token Plan — all-Qwen 3.8 ladder
 # Uses the alibaba catalog SKUs (same Token Plan Anthropic endpoint).
-# All three heavy slots ride the "Limited-time Night 50% Off" SKUs
-# (qwen3.8-max, deepseek-v4-pro-0813, deepseek-v4-flash-0731) — this is the
-# night-discount soak profile.
-# Tiers:
-#   fable  = qwen3.8-max
-#   opus   = deepseek-v4-pro-0813
+# Tiers (2026-09-23):
+#   fable  = qwen3.8-max   (flagship, 1M, vision, night 50% off)
+#   opus   = qwen3.8-max
 #   sonnet = qwen3.8-flash
-#   haiku  = deepseek-v4-flash-0731
+#   haiku  = qwen3.8-flash
 qwen:
   name: "Alibaba Qwen"
   fable_model: "alibaba/qwen3.8-max"
-  opus_model: "alibaba/deepseek-v4-pro-0813"
+  opus_model: "alibaba/qwen3.8-max"
   sonnet_model: "alibaba/qwen3.8-flash"
-  haiku_model: "alibaba/deepseek-v4-flash-0731"
+  haiku_model: "alibaba/qwen3.8-flash"
   extended:
     - "alibaba/qwen3.8-max[1m]"
-    - "alibaba/deepseek-v4-pro-0813[1m]"
     - "alibaba/qwen3.8-flash[1m]"
-    - "alibaba/deepseek-v4-flash-0731[1m]"
+    - "alibaba/qwen3.8-max-preview"
 
 # Alibaba Token Plan — all-Qwen flagship ladder (distinct model per slot)
 # Tiers (2026-09 plan; qwen3.8-flash outclasses 3.7-plus):
@@ -357,22 +357,22 @@ qwen-flash:
     - "alibaba/qwen3.8-flash[1m]"
     - "alibaba/qwen3.6-plus"
 
-# Alibaba Token Plan — DeepSeek-forward mix (GLM-5.2 sonnet as coding driver)
-#   fable  = deepseek-v4-pro-0813 (GA snapshot, night 50% off)
-#   opus   = deepseek-v4-pro
-#   sonnet = glm-5.2              (strong coding/SWE, 1M)
-#   haiku  = deepseek-v4-flash-0731 (fast, night 50% off)
+# Alibaba Token Plan — all-DeepSeek ladder
+# Tiers (2026-09-23):
+#   fable  = deepseek-v4-pro-0813  (GA snapshot, night 50% off)
+#   opus   = deepseek-v4-pro-0813
+#   sonnet = deepseek-v4.1-flash
+#   haiku  = deepseek-v4.1-flash
 alibaba-deepseek:
-  name: "Alibaba DeepSeek Mix"
+  name: "Alibaba DeepSeek"
   fable_model: "alibaba/deepseek-v4-pro-0813"
-  opus_model: "alibaba/deepseek-v4-pro"
-  sonnet_model: "alibaba/glm-5.2"
-  haiku_model: "alibaba/deepseek-v4-flash-0731"
+  opus_model: "alibaba/deepseek-v4-pro-0813"
+  sonnet_model: "alibaba/deepseek-v4.1-flash"
+  haiku_model: "alibaba/deepseek-v4.1-flash"
   extended:
     - "alibaba/deepseek-v4-pro-0813[1m]"
-    - "alibaba/deepseek-v4-flash-0731[1m]"
-    - "alibaba/qwen3.8-flash"
-    - "alibaba/qwen3.7-plus"
+    - "alibaba/deepseek-v4.1-flash"
+    - "alibaba/deepseek-v4.1-flash[1m]"
 
 # OpenRouter — Free Tier models
 # Requires: OPENROUTER_API_KEY
@@ -486,10 +486,14 @@ claude-plan:
     - "alibaba/deepseek-v4-flash"
     - "alibaba/deepseek-v4-flash-0731"
     - "alibaba/deepseek-v4-flash-0731[1m]"
+    - "alibaba/deepseek-v4.1-flash"
+    - "alibaba/deepseek-v4.1-flash[1m]"
     - "alibaba/kimi-k3"
     - "alibaba/kimi-k2.7-code"
     - "alibaba/kimi-k2.6"
     - "alibaba/kimi-k2.5"
+    - "alibaba/glm-5.3"
+    - "alibaba/glm-5.3[1m]"
     - "alibaba/glm-5.2"
     - "alibaba/glm-5.1"
     - "alibaba/glm-5"
@@ -575,10 +579,14 @@ all-sub:
     - "alibaba/deepseek-v4-flash"
     - "alibaba/deepseek-v4-flash-0731"
     - "alibaba/deepseek-v4-flash-0731[1m]"
+    - "alibaba/deepseek-v4.1-flash"
+    - "alibaba/deepseek-v4.1-flash[1m]"
     - "alibaba/kimi-k3"
     - "alibaba/kimi-k2.7-code"
     - "alibaba/kimi-k2.6"
     - "alibaba/kimi-k2.5"
+    - "alibaba/glm-5.3"
+    - "alibaba/glm-5.3[1m]"
     - "alibaba/glm-5.2"
     - "alibaba/glm-5.1"
     - "alibaba/glm-5"
@@ -670,10 +678,14 @@ claude-enhanced:
     - "alibaba/deepseek-v4-flash"
     - "alibaba/deepseek-v4-flash-0731"
     - "alibaba/deepseek-v4-flash-0731[1m]"
+    - "alibaba/deepseek-v4.1-flash"
+    - "alibaba/deepseek-v4.1-flash[1m]"
     - "alibaba/kimi-k3"
     - "alibaba/kimi-k2.7-code"
     - "alibaba/kimi-k2.6"
     - "alibaba/kimi-k2.5"
+    - "alibaba/glm-5.3"
+    - "alibaba/glm-5.3[1m]"
     - "alibaba/glm-5.2"
     - "alibaba/glm-5.1"
     - "alibaba/glm-5"
@@ -784,10 +796,14 @@ kitchen-sink:
     - "alibaba/deepseek-v4-flash"
     - "alibaba/deepseek-v4-flash-0731"
     - "alibaba/deepseek-v4-flash-0731[1m]"
+    - "alibaba/deepseek-v4.1-flash"
+    - "alibaba/deepseek-v4.1-flash[1m]"
     - "alibaba/kimi-k3"
     - "alibaba/kimi-k2.7-code"
     - "alibaba/kimi-k2.6"
     - "alibaba/kimi-k2.5"
+    - "alibaba/glm-5.3"
+    - "alibaba/glm-5.3[1m]"
     - "alibaba/glm-5.2"
     - "alibaba/glm-5.1"
     - "alibaba/glm-5"
