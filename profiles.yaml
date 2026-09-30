@@ -76,7 +76,7 @@ groq-pro:
 # Requires: ZAI_SUB_KEY; Tyna copies also need ZAI_SUB_KEY_TYNA
 zai-pro:
   name: "Zai Subscription"
-  opus_model: "zai/glm-5.3-flash (sub)"
+  opus_model: "zai/glm-5.3 (sub)"
   sonnet_model: "zai/glm-5.3-flash (sub)"
   haiku_model: "zai/glm-5.3-flash (sub)"
   fable_model: "zai/glm-5.3 (sub)"
@@ -110,7 +110,7 @@ zai-pro:
 #   run-claude keys switch zai-alt tyna|zai
 zai-alt: &zai-alt-profile
   name: "Zai Subscription (Alt)"
-  opus_model: "zai-alt/opus"
+  opus_model: "zai-alt/glm-5.3"
   sonnet_model: "zai-alt/sonnet"
   haiku_model: "zai-alt/glm-5.3-flash"
   fable_model: "zai-alt/fable"
