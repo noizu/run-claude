@@ -159,4 +159,5 @@ Starlette app (`front_proxy.py`); proxies to LiteLLM at `127.0.0.1:4444`.
 | `/v1/messages` | POST | Anthropic passthrough: strips Anthropic-prefixed (`claude-`) models per routing rules, swaps auth from `front-proxy-auth-state.json`; `/v1/messages/count_tokens` passes through unmodified |
 | `/v1/chat/completions`, `/v1/completions`, `/v1/embeddings`, `/v1/images`, `/v1/audio`, `/v1/responses` | any | OpenAI-compatible paths → direct LiteLLM passthrough |
 | `/api/claude_cli/bootstrap` | GET | Returns `additional_model_options` for the Claude CLI: merges LiteLLM `/model/info` with `models.yaml` metadata (provider/strengths/weaknesses) |
+| `/health` | GET | Liveness probe — static `{"status":"ok"}` JSON |
 | everything else | any | Generic reverse proxy to LiteLLM (hop-by-hop headers stripped; OAuth flows pass through) |

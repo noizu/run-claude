@@ -4,7 +4,7 @@ run-claude provides directory-aware model routing for Claude Code and OpenCode v
 
 ## Components
 
-- **CLI** (`cli.py`): Subcommands — enter, leave, janitor, set-folder, status, env, proxy, db, profiles, models, keys, chat, with, install, secrets.
+- **CLI** (`cli.py`): Subcommands — enter, leave, janitor, set-folder, status, env, proxy, watchdog, db, profiles, models, keys, chat, with, install, secrets.
 - **OpenCode CLI** (`opencode_cli.py`): `run-open-code` entry point sharing the same command handlers.
 - **Agent runner** (`agent_runner.py`): Shared Claude/OpenCode launch logic; sets ANTHROPIC_BASE_URL to :4443 and per-tier model vars.
 - **Chat client** (`chat.py`): Interactive terminal chat against the local gateway; model picker, `/keys` switching.
@@ -38,7 +38,7 @@ run-claude provides directory-aware model routing for Claude Code and OpenCode v
 
 ## Ecosystem Fit
 
-Lives at `Portfolio/Utilities/source/run-claude` in the Noizu Infra monorepo (dual install path under `utilities/`) but is not part of the shell-utility toolchain: no k8-lib, not installed by `make install-utilities`, no `.infra-config.yaml` target. Self-contained Python package (hatchling + uv) installed via `make install` (`uv tool install .`); console scripts: run-claude, run-open-code, run-litellm-proxy. Provides per-directory provider routing (wafer, z.ai, Groq, Cerebras, Ollama, mixed) for agent sessions working on the monorepo. go-litellm source pinned as submodule at `repos/go-litellm`; Elixir alternative `repos/ex-litellm`. Landing site: Elixir Hologram app in `web/` deployed via `helm/run-claude-landing`.
+Lives at `Portfolio/Utilities/source/run-claude` in the Noizu Infra monorepo but is not part of the shell-utility toolchain: no k8-lib, not installed by `make install-utilities`, no `.infra-config.yaml` target. Self-contained Python package (hatchling + uv) installed via `make install` (`uv tool install .`); console scripts: run-claude, run-open-code, run-litellm-proxy. Provides per-directory provider routing (wafer, z.ai, Groq, Cerebras, Ollama, mixed) for agent sessions working on the monorepo. go-litellm source pinned as submodule at `repos/go-litellm`; Elixir alternative `repos/ex-litellm`. Landing site: Elixir Hologram app in `web/` deployed via `helm/run-claude-landing`.
 
 ## Detailed Docs
 

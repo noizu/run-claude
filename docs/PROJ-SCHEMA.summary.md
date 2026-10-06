@@ -54,6 +54,7 @@ erDiagram
 | `front-proxy-auth-state.json` | `{headers: {…}}` persisted auth headers |
 | `request-log.jsonl` | JSONL, one object per request (env: `RUN_CLAUDE_REQUEST_LOG`) |
 | `GET /api/claude_cli/bootstrap` | `additional_model_options` = LiteLLM `/model/info` + models.yaml metadata |
+| `GET /health` | Static `{"status":"ok"}` liveness probe |
 | `/v1/messages` | Anthropic passthrough w/ model filtering + auth swap |
 | `/v1/chat/completions` etc. | OpenAI passthrough → LiteLLM :4444 |
 

@@ -34,7 +34,7 @@ graph TB
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| CLI | `cli.py` | Command dispatch: enter/leave/janitor/set-folder/status/env/proxy/db/profiles/models/keys/chat/with/install/secrets |
+| CLI | `cli.py` | Command dispatch: enter/leave/janitor/set-folder/status/env/proxy/watchdog/db/profiles/models/keys/chat/with/install/secrets |
 | OpenCode CLI | `opencode_cli.py` | `run-open-code` entry point; re-exports shared command handlers for OpenCode |
 | Agent runner | `agent_runner.py` | Shared launch logic for Claude/OpenCode: builds env (ANTHROPIC_BASE_URL → :4443, tier model vars), runs agent |
 | Chat client | `chat.py` | Interactive terminal chat against the local gateway; model picker, `/keys` key switching |
@@ -82,7 +82,7 @@ The agent-facing endpoint stays `127.0.0.1:4443` in both modes. Default resoluti
 
 ## Ecosystem Fit (Noizu monorepo)
 
-run-claude lives at `Portfolio/Utilities/source/run-claude` in the Noizu Infra monorepo (with a dual install path under `utilities/`) but is deliberately **not** part of the shell-utility toolchain: it does not source `share/k8-lib`, is not installed by `make install-utilities`, and has no `.infra-config.yaml` build target. It is a self-contained Python package (hatchling + uv) installed via its own `make install` (`uv tool install .`), exposing `run-claude`, `run-open-code`, and `run-litellm-proxy` console scripts. Its role in the ecosystem is developer-workstation model routing for the agent fleets that operate on this repo — profiles for wafer.ai, z.ai, Groq, Cerebras, Ollama-local, and mixed-provider setups let Claude Code / OpenCode sessions run against alternate providers per directory. Companion artifacts: an Elixir Hologram landing site (`web/`) deployed via the `helm/run-claude-landing` chart.
+run-claude lives at `Portfolio/Utilities/source/run-claude` in the Noizu Infra monorepo but is deliberately **not** part of the shell-utility toolchain: it does not source `share/k8-lib`, is not installed by `make install-utilities`, and has no `.infra-config.yaml` build target. It is a self-contained Python package (hatchling + uv) installed via its own `make install` (`uv tool install .`), exposing `run-claude`, `run-open-code`, and `run-litellm-proxy` console scripts. Its role in the ecosystem is developer-workstation model routing for the agent fleets that operate on this repo — profiles for wafer.ai, z.ai, Groq, Cerebras, Ollama-local, and mixed-provider setups let Claude Code / OpenCode sessions run against alternate providers per directory. Companion artifacts: an Elixir Hologram landing site (`web/`) deployed via the `helm/run-claude-landing` chart.
 
 ## Key Decisions
 

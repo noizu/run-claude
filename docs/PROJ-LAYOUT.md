@@ -74,9 +74,11 @@ run-claude/
 │                            #   out locally), repos/go-litellm
 ├── .python-version          # Python version pin
 ├── .tool-versions           # asdf/mise tool versions
+├── AGENT.md                 # Generic agent instructions (mirror of CLAUDE.md)
+├── AGENTS.md                # Multi-agent/Grok Build rules (kept aligned w/ CLAUDE.md)
 ├── CLAUDE.md                # Claude Code project instructions
 ├── Makefile                 # Build automation (test, install, coverage)
-├── profiles.yaml            # Profile definitions (14+ built-in profiles)
+├── profiles.yaml            # Profile definitions (35 built-in profiles: zai, alibaba, wafer, groq, …)
 ├── pyproject.toml           # Python project config (hatchling)
 ├── merge-notes.md           # Notes from branch merges (working notes)
 ├── uv.lock                  # Dependency lockfile
