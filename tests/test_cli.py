@@ -77,18 +77,18 @@ class TestEnvCommand:
         assert "ANTHROPIC_DEFAULT_HAIKU_MODEL=cerebras/gpt-oss-120b" in output
 
     def test_env_alibaba_profile_uses_qwen_models(self, capsys):
-        """alibaba profile should map opus/sonnet/haiku to Token Plan aliases."""
+        """alibaba profile should map tier slots to real Token Plan model names."""
         with patch("sys.argv", ["run-claude", "env", "alibaba"]):
             result = main()
         assert result == 0
         captured = capsys.readouterr()
         output = captured.out
 
-        assert "ANTHROPIC_DEFAULT_OPUS_MODEL=alibaba/opus" in output
-        assert "ANTHROPIC_DEFAULT_SONNET_MODEL=alibaba/sonnet" in output
-        assert "ANTHROPIC_DEFAULT_HAIKU_MODEL=alibaba/haiku" in output
-        assert "ANTHROPIC_DEFAULT_FABLE_MODEL=alibaba/fable" in output
-        assert "ANTHROPIC_DEFAULT_FABLE_MODEL=alibaba/opus" not in output
+        assert "ANTHROPIC_DEFAULT_OPUS_MODEL=alibaba/qwen3.8-max" in output
+        assert "ANTHROPIC_DEFAULT_SONNET_MODEL=alibaba/glm-5.2" in output
+        assert "ANTHROPIC_DEFAULT_HAIKU_MODEL=alibaba/qwen3.6-flash" in output
+        assert "ANTHROPIC_DEFAULT_FABLE_MODEL=alibaba/deepseek-v4-pro-0813" in output
+        assert "ANTHROPIC_DEFAULT_FABLE_MODEL=alibaba/qwen3.8-max" not in output
 
     def test_env_export_flag_adds_export_prefix(self, capsys):
         """env --export should prefix lines with 'export'."""
@@ -155,10 +155,10 @@ class TestProfilesCommand:
             result = main()
         assert result == 0
         output = capsys.readouterr().out
-        assert "opus:   alibaba/opus" in output
-        assert "sonnet: alibaba/sonnet" in output
-        assert "haiku:  alibaba/haiku" in output
-        assert "fable:  alibaba/fable" in output
+        assert "opus:   alibaba/qwen3.8-max" in output
+        assert "sonnet: alibaba/glm-5.2" in output
+        assert "haiku:  alibaba/qwen3.6-flash" in output
+        assert "fable:  alibaba/deepseek-v4-pro-0813" in output
         assert "alibaba/qwen3.8-max" in output
         assert "alibaba/glm-5.2" in output
         assert "alibaba/kimi-k3" in output
@@ -190,8 +190,8 @@ class TestProfilesCommand:
             result = main()
         assert result == 0
         output = capsys.readouterr().out
-        assert "opus:   zai/opus" in output
-        assert "fable:  zai/fable" in output
+        assert "opus:   zai/glm-5.3" in output
+        assert "fable:  zai/glm-5.3" in output
         assert "anthropic/glm-5.3-flash" in output
         assert "anthropic/glm-5.3" in output
         assert "ZAI_SUB_KEY" in output
@@ -204,8 +204,8 @@ class TestProfilesCommand:
             result = main()
         assert result == 0
         output = capsys.readouterr().out
-        assert "opus:   zai-alt/opus" in output
-        assert "fable:  zai-alt/fable" in output
+        assert "opus:   zai-alt/glm-5.3" in output
+        assert "fable:  zai-alt/glm-5.3" in output
         assert "anthropic/glm-5.3-flash" in output
         assert "anthropic/glm-5.3" in output
         assert "ZAI_SUB_KEY_TYNA" in output
@@ -220,7 +220,7 @@ class TestProfilesCommand:
         payload = json.loads(capsys.readouterr().out)
         assert payload["name"] == "alibaba"
         opus = payload["tiers"]["opus"]
-        assert opus["model_name"] == "alibaba/opus"
+        assert opus["model_name"] == "alibaba/qwen3.8-max"
         assert opus["internal_name"] == "anthropic/qwen3.8-max"
         assert opus["key_env"] == "QWEN_SUB_KEY"
         assert opus["instance"] == "qwen"
@@ -304,3 +304,84 @@ class TestModelsCommand:
         with patch("sys.argv", ["run-claude", "models", "show", "nonexistent"]):
             result = main()
         assert result == 1
+
+
+class TestModelOverrides:
+    """modelOverrides injection so built-in claude-* IDs follow the profile."""
+
+    @staticmethod
+    def _profile(**slots):
+        from types import SimpleNamespace
+        from run_claude.profiles import ProfileMeta
+        return SimpleNamespace(meta=ProfileMeta(name="t", **slots))
+
+    def test_non_anthropic_profile_maps_builtin_ids(self):
+        from run_claude.agent_runner import build_model_overrides
+        p = self._profile(fable_model="wafer/fable", opus_model="wafer/opus",
+                          sonnet_model="wafer/sonnet", haiku_model="wafer/haiku")
+        o = build_model_overrides(p)
+        assert o["claude-fable-5-1"] == "wafer/fable"
+        assert o["claude-opus-5-5"] == "wafer/opus"
+        assert o["claude-sonnet-5-5[1m]"] == "wafer/sonnet"
+        assert o["claude-haiku-4-5"] == "wafer/haiku"
+
+    def test_anthropic_profile_gets_no_overrides(self):
+        from run_claude.agent_runner import build_model_overrides
+        p = self._profile(fable_model="claude-fable-5-1", opus_model="claude-opus-5",
+                          sonnet_model="claude-sonnet-5", haiku_model="claude-haiku-4-5-20251001")
+        assert build_model_overrides(p) == {}
+
+    def test_inject_adds_inline_settings_for_claude_only(self, tmp_path, monkeypatch):
+        import json
+        from run_claude.agent_runner import inject_model_overrides
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        p = self._profile(opus_model="wafer/opus")
+        cmd = inject_model_overrides(["claude", "--resume"], p, "wafer")
+        assert cmd[:2] == ["claude", "--settings"] and cmd[3] == "--resume"
+        assert json.loads(cmd[2])["modelOverrides"]["claude-opus-5-5"] == "wafer/opus"
+        assert not list(tmp_path.iterdir()), "nothing should be written to disk"
+        assert inject_model_overrides(["opencode"], p, "wafer") == ["opencode"]
+
+    def test_inject_merges_user_inline_settings(self):
+        import json
+        from run_claude.agent_runner import inject_model_overrides
+        p = self._profile(opus_model="wafer/opus")
+        user = json.dumps({"permissions": {"allow": ["Bash(ls)"]},
+                           "modelOverrides": {"claude-opus-5-5": "mine/opus"}})
+        cmd = inject_model_overrides(["claude", "--settings", user, "-p", "hi"], p, "wafer")
+        assert cmd.count("--settings") == 1 and cmd[-2:] == ["-p", "hi"]
+        data = json.loads(cmd[cmd.index("--settings") + 1])
+        assert data["permissions"] == {"allow": ["Bash(ls)"]}
+        assert data["modelOverrides"]["claude-opus-5-5"] == "mine/opus"  # user wins
+        assert data["modelOverrides"]["claude-fable-5-1"] == "wafer/opus"  # fable falls back to opus
+
+    def test_inject_merges_user_settings_file_and_equals_form(self, tmp_path):
+        import json
+        from run_claude.agent_runner import inject_model_overrides
+        f = tmp_path / "s.json"
+        f.write_text(json.dumps({"model": "sonnet"}))
+        p = self._profile(opus_model="wafer/opus")
+        cmd = inject_model_overrides(["claude", f"--settings={f}"], p, "wafer")
+        data = json.loads(cmd[2])
+        assert data["model"] == "sonnet" and "claude-opus-5-5" in data["modelOverrides"]
+
+    def test_inject_unparseable_user_settings_warns_and_leaves_cmd(self, capsys):
+        from run_claude.agent_runner import inject_model_overrides
+        p = self._profile(opus_model="wafer/opus")
+        cmd = ["claude", "--settings", "/nonexistent/x.json"]
+        assert inject_model_overrides(cmd, p, "wafer") == cmd
+        assert "WARNING" in capsys.readouterr().err
+
+    def test_injection_is_opt_in(self, monkeypatch):
+        from run_claude.agent_runner import model_overrides_enabled
+        monkeypatch.delenv("RUN_CLAUDE_MODEL_OVERRIDES", raising=False)
+        assert model_overrides_enabled() is False
+        monkeypatch.setenv("RUN_CLAUDE_MODEL_OVERRIDES", "1")
+        assert model_overrides_enabled() is True
+
+    def test_extra_builtin_ids_from_env(self, monkeypatch):
+        from run_claude.agent_runner import build_model_overrides
+        monkeypatch.setenv("RUN_CLAUDE_EXTRA_BUILTIN_IDS", "claude-fable-6=fable, bogus=nope")
+        p = self._profile(fable_model="wafer/fable")
+        o = build_model_overrides(p)
+        assert o["claude-fable-6"] == "wafer/fable" and "bogus" not in o

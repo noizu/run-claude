@@ -41,8 +41,10 @@ run-claude/
 │                            #   front proxy, watchdog, proxy startup/liveness/logging, packaging)
 ├── web/                     # Landing site (Elixir Hologram)
 ├── CHANGELOG.md             # Release history
+├── AGENT.md                 # Generic agent instructions (mirror of CLAUDE.md)
+├── AGENTS.md                # Multi-agent rules (kept aligned w/ CLAUDE.md)
 ├── CLAUDE.md                # Claude Code project instructions
 ├── Makefile                 # Build automation
-├── profiles.yaml            # Profile definitions
+├── profiles.yaml            # Profile definitions (35 built-in profiles)
 └── pyproject.toml           # Python project config
 ```

@@ -3345,3 +3345,316 @@ model_list:
     metadata:
       provider: openrouter
       description: "Stealth Ox Alpha — coding LLM (no :free SKU known)"
+
+  # --- Real-name tier entries (2026-10-07) ---
+  # Exact litellm_params/model_info copies of the tier alias named in each
+  # description; only model_name differs. Parenthesized suffix = pinned effort.
+
+  - model_name: "zai/glm-5-turbo"
+    litellm_params:
+      model: anthropic/glm-5-turbo
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: [context_management, thinking]
+      reasoning_effort: low
+      extra_headers: {anthropic-product: claude_code}
+    metadata:
+      provider: zai
+      description: Real-name copy of zai/haiku — ZAI GLM 5 Turbo (haiku tier)
+      strengths: Fast, cheap, good for simple tasks
+      weaknesses: Limited reasoning depth
+
+  - model_name: "zai/glm-5-turbo[1m]"
+    litellm_params:
+      model: anthropic/glm-5-turbo
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: [context_management, thinking]
+      reasoning_effort: low
+      extra_headers: {anthropic-product: claude_code}
+    metadata:
+      provider: zai
+      description: Real-name copy of zai/haiku[1m] — ZAI GLM 5 Turbo 1M context (haiku tier)
+      strengths: Fast, cheap, large context
+      weaknesses: Limited reasoning depth
+
+  - model_name: "zai/glm-5.3[1m]"
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_key: os.environ/ZAI_SUB_KEY
+      api_base: https://api.z.ai/api/anthropic
+      drop_params: false
+      additional_drop_params: [context_management, thinking]
+      reasoning_effort: max
+      extra_headers: {anthropic-product: claude_code}
+    metadata:
+      provider: zai
+      description: Real-name copy of zai/fable[1m] — ZAI GLM 5.3 1M context (fable tier)
+      strengths: Flagship coding/agent; Claude Fable 5-level, large context
+      weaknesses: Slower, more expensive; text-only
+
+  - model_name: "groq/gpt-oss-120b (high)"
+    litellm_params:
+      model: groq/openai/gpt-oss-120b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: [context_management, thinking]
+      reasoning_effort: high
+      include_reasoning: false
+    metadata:
+      provider: groq
+      description: Real-name copy of groq/opus — GPT-OSS 120B on Groq (opus tier)
+      strengths: Fast, high reasoning effort
+      weaknesses: Rate limits
+
+  - model_name: "groq/gpt-oss-120b (high)[1m]"
+    litellm_params:
+      model: groq/openai/gpt-oss-120b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: [context_management, thinking]
+      reasoning_effort: high
+      include_reasoning: false
+    metadata:
+      provider: groq
+      description: Real-name copy of groq/opus[1m] — GPT-OSS 120B on Groq (opus 1M alias)
+
+  - model_name: "groq/gpt-oss-120b (medium)"
+    litellm_params:
+      model: groq/openai/gpt-oss-120b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: [context_management, thinking]
+      reasoning_effort: medium
+      include_reasoning: false
+    metadata:
+      provider: groq
+      description: Real-name copy of groq/sonnet — GPT-OSS 120B on Groq (sonnet tier)
+      strengths: Fast, medium reasoning effort
+      weaknesses: Rate limits, less precise
+
+  - model_name: "groq/gpt-oss-120b (medium)[1m]"
+    litellm_params:
+      model: groq/openai/gpt-oss-120b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: [context_management, thinking]
+      reasoning_effort: medium
+      include_reasoning: false
+    metadata:
+      provider: groq
+      description: Real-name copy of groq/sonnet[1m] — GPT-OSS 120B on Groq (sonnet 1M alias)
+
+  - model_name: "groq/gpt-oss-20b (low)"
+    litellm_params:
+      model: groq/openai/gpt-oss-20b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: [context_management, thinking]
+      reasoning_effort: low
+      include_reasoning: false
+    metadata:
+      provider: groq
+      description: Real-name copy of groq/haiku — GPT-OSS 20B on Groq (haiku tier)
+      strengths: Ultra-fast inference, free tier
+      weaknesses: Small model, limited depth
+
+  - model_name: "groq/gpt-oss-20b (low)[1m]"
+    litellm_params:
+      model: groq/openai/gpt-oss-20b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: [context_management, thinking]
+      reasoning_effort: low
+      include_reasoning: false
+    metadata:
+      provider: groq
+      description: Real-name copy of groq/haiku[1m] — GPT-OSS 20B on Groq (haiku 1M alias)
+
+  - model_name: "groq-qwen3.6-27b[1m]"
+    litellm_params:
+      model: groq/qwen/qwen3.6-27b
+      api_key: os.environ/GROQ_API_KEY
+      drop_params: true
+      additional_drop_params: [context_management, thinking, reasoning_effort]
+    metadata:
+      provider: groq
+      description: Real-name copy of groq/fable[1m] — Qwen3.6 27B on Groq (fable 1M alias)
+
+  - model_name: "cerebras-pro/glm-4.7"
+    litellm_params:
+      model: cerebras/zai-glm-4.7
+      api_key: os.environ/CEREBRAS_SUB_KEY
+      drop_params: true
+      additional_drop_params: [context_management, output_config, thinking, reasoning_effort, thinking_blocks]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    metadata:
+      provider: cerebras
+      description: Real-name copy of cerebras-pro/opus — Cerebras Pro tier-mapped as opus
+      strengths: Strong tier equivalent
+      weaknesses: Requires subscription
+
+  - model_name: "cerebras-pro/glm-4.7[1m]"
+    litellm_params:
+      model: cerebras/zai-glm-4.7
+      api_key: os.environ/CEREBRAS_SUB_KEY
+      drop_params: true
+      additional_drop_params: [context_management, output_config, thinking, reasoning_effort, thinking_blocks]
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 10
+    metadata:
+      provider: cerebras
+      description: Real-name copy of cerebras-pro/opus[1m] — Cerebras Pro opus tier (1M alias)
+      strengths: Strong, large context alias
+      weaknesses: Requires subscription
+
+  - model_name: "wafer/kimi-k3"
+    litellm_params:
+      model: anthropic/Kimi-K3
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: [context_management, thinking]
+      extra_headers: {anthropic-product: claude_code}
+    metadata:
+      provider: wafer
+      description: Real-name copy of wafer/fable — Wafer fable tier (Kimi-K3; thinking-only upstream, no effort pin)
+      strengths: Strong coding/agentic, 1M context, vision
+      weaknesses: Highest Wafer output price in the live catalog
+
+  - model_name: "wafer/kimi-k3[1m]"
+    litellm_params:
+      model: anthropic/Kimi-K3
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: [context_management, thinking]
+      extra_headers: {anthropic-product: claude_code}
+    metadata:
+      provider: wafer
+      description: Real-name copy of wafer/fable[1m] — Wafer fable tier 1M alias (Kimi-K3; thinking-only upstream)
+      strengths: Claude Code [1m] suffix
+      weaknesses: Highest Wafer output price in the live catalog
+
+  - model_name: "wafer/glm-5.3-flash (max)"
+    litellm_params:
+      model: anthropic/GLM-5.3-Flash
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: [context_management, thinking]
+      default_reasoning_effort: max
+      extra_headers: {anthropic-product: claude_code}
+    metadata:
+      provider: wafer
+      description: Real-name copy of wafer/opus — Wafer opus tier (GLM-5.3-Flash, default max effort)
+      strengths: Flagship depth; client effort overrides still honored
+      weaknesses: Pay-as-you-go
+
+  - model_name: "wafer/glm-5.3-flash (max)[1m]"
+    litellm_params:
+      model: anthropic/GLM-5.3-Flash
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: [context_management, thinking]
+      default_reasoning_effort: max
+      extra_headers: {anthropic-product: claude_code}
+    metadata:
+      provider: wafer
+      description: Real-name copy of wafer/opus[1m] — Wafer opus tier 1M alias (GLM-5.3-Flash, default max effort)
+      strengths: Claude Code [1m] suffix
+      weaknesses: Pay-as-you-go
+
+  - model_name: "wafer/qwen3.5-397b-a17b (high)"
+    litellm_params:
+      model: anthropic/Qwen3.5-397B-A17B
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: [context_management, thinking]
+      default_reasoning_effort: high
+      extra_headers: {anthropic-product: claude_code}
+    metadata:
+      provider: wafer
+      description: Real-name copy of wafer/sonnet — Wafer sonnet tier (Qwen3.5-397B-A17B, default high effort)
+      strengths: Daily driver; fast coding MoE; client effort overrides still honored
+      weaknesses: 262K context, not 1M; no ZDR; pay-as-you-go
+
+  - model_name: "wafer/qwen3.5-397b-a17b (high)[1m]"
+    litellm_params:
+      model: anthropic/Qwen3.5-397B-A17B
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: [context_management, thinking]
+      default_reasoning_effort: high
+      extra_headers: {anthropic-product: claude_code}
+    metadata:
+      provider: wafer
+      description: Real-name copy of wafer/sonnet[1m] — Wafer sonnet tier 1M alias (Qwen3.5-397B-A17B, default high effort)
+      strengths: Prevents [1m] suffix 404s; client effort overrides still honored
+      weaknesses: Backend cap is 262K, not 1M; pay-as-you-go
+
+  - model_name: "wafer/deepseek-v4-flash-0731-fast"
+    litellm_params:
+      model: anthropic/DeepSeek-V4-Flash-0731-Fast
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: [context_management, thinking]
+      default_reasoning_effort: low
+      extra_headers: {anthropic-product: claude_code}
+    metadata:
+      provider: wafer
+      description: Real-name copy of wafer/haiku — Wafer haiku tier (DeepSeek-V4-Flash-0731-Fast, default low effort)
+      strengths: Cheapest Wafer tier, 1M context, high throughput; client overrides honored
+      weaknesses: Flash quality vs GLM-5.2 / Kimi-K3
+
+  - model_name: "wafer/deepseek-v4-flash-0731-fast[1m]"
+    litellm_params:
+      model: anthropic/DeepSeek-V4-Flash-0731-Fast
+      api_key: os.environ/WAFER_AI_API_KEY
+      api_base: https://pass.wafer.ai
+      drop_params: false
+      additional_drop_params: [context_management, thinking]
+      default_reasoning_effort: low
+      extra_headers: {anthropic-product: claude_code}
+    metadata:
+      provider: wafer
+      description: Real-name copy of wafer/haiku[1m] — Wafer haiku tier 1M alias (DeepSeek-V4-Flash-0731-Fast, default low effort)
+      strengths: Claude Code [1m] suffix; native 1M context
+      weaknesses: Flash quality vs GLM-5.2 / Kimi-K3
+
+  - model_name: "alibaba/glm-5.2[1m]"
+    litellm_params:
+      model: anthropic/glm-5.2
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: [context_management, thinking]
+      reasoning_effort: medium
+    metadata:
+      provider: alibaba
+      description: Real-name copy of alibaba/sonnet[1m] — Alibaba GLM-5.2 1M alias (sonnet tier)
+      strengths: Claude Code [1m] suffix; native 1M context
+      weaknesses: Text-only
+
+  - model_name: "alibaba/qwen3.6-flash[1m]"
+    litellm_params:
+      model: anthropic/qwen3.6-flash
+      api_key: os.environ/QWEN_SUB_KEY
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      drop_params: false
+      additional_drop_params: [context_management, thinking]
+      reasoning_effort: low
+    metadata:
+      provider: alibaba
+      description: Real-name copy of alibaba/haiku[1m] — Alibaba Qwen 3.6 Flash 1M alias (haiku tier)
+      strengths: Claude Code [1m] suffix; native 1M context
+      weaknesses: Less depth than GLM-5.2 / Qwen 3.8
