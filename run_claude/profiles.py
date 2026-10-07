@@ -280,6 +280,9 @@ class ModelMetadata:
     thinking: dict[str, Any] | None = None
     tokens_per_second: int | None = None
     notes: str = ""
+    context_window: int | None = None
+    modalities: dict[str, Any] | None = None
+    supports_tools: bool | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ModelMetadata:
@@ -293,6 +296,9 @@ class ModelMetadata:
             thinking=data.get("thinking"),
             tokens_per_second=data.get("tokens_per_second"),
             notes=data.get("notes", ""),
+            context_window=data.get("context_window"),
+            modalities=data.get("modalities"),
+            supports_tools=data.get("supports_tools"),
         )
 
 

@@ -168,6 +168,30 @@ header.top {
   color: var(--accent);
 }
 
+.facetbar {
+  align-items: center;
+}
+.facet-label {
+  color: var(--text-faint);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-right: 3px;
+}
+.select {
+  padding: 3px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  font-size: 15px;
+  cursor: pointer;
+}
+.select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* ---------- model grid ---------- */
 .grid {
   display: grid;
@@ -257,6 +281,16 @@ header.top {
 .badge.think {
   color: var(--accent);
   border-color: var(--accent);
+}
+.badge.tools {
+  color: var(--green);
+  border-color: var(--green);
+  border-style: dashed;
+}
+.badge.modality {
+  color: var(--purple);
+  border-color: var(--purple);
+  border-style: dotted;
 }
 .badge.synth {
   color: var(--text-faint);

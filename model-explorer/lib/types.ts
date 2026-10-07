@@ -33,6 +33,11 @@ export interface Thinking {
   default_level?: string | null;
 }
 
+export interface Modalities {
+  input?: string[]; // subset of: text, image, audio, video
+  output?: string[]; // subset of: text, image, audio
+}
+
 export interface Model {
   name: string;
   provider: string;
@@ -42,6 +47,9 @@ export interface Model {
   pricing?: Pricing;
   limits?: Limits;
   thinking?: Thinking;
+  modalities?: Modalities;
+  supports_tools?: boolean | null;
+  context_window?: number | null;
   tokens_per_second?: number | null;
   notes?: string;
   // Non-secret slice of litellm_params (api_key values are never shipped).

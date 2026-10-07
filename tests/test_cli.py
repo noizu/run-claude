@@ -3,6 +3,7 @@
 import pytest
 from unittest.mock import patch
 from run_claude.cli import main
+from run_claude.profiles import clear_caches
 
 
 class TestMain:
@@ -72,9 +73,9 @@ class TestEnvCommand:
         output = captured.out
 
         assert "ANTHROPIC_DEFAULT_FABLE_MODEL=cerebras/zai-glm-4.7" in output
-        assert "ANTHROPIC_DEFAULT_OPUS_MODEL=cerebras/gemma-4-31b" in output
+        assert "ANTHROPIC_DEFAULT_OPUS_MODEL=cerebras/qwen-3-235b-a22b-instruct-2507" in output
         assert "ANTHROPIC_DEFAULT_SONNET_MODEL=cerebras/gpt-oss-120b" in output
-        assert "ANTHROPIC_DEFAULT_HAIKU_MODEL=cerebras/gpt-oss-120b" in output
+        assert "ANTHROPIC_DEFAULT_HAIKU_MODEL=cerebras/llama-3.3-70b" in output
 
     def test_env_alibaba_profile_uses_qwen_models(self, capsys):
         """alibaba profile should map tier slots to real Token Plan model names."""
@@ -184,32 +185,60 @@ class TestProfilesCommand:
         assert "fable" in output
         assert "QWEN_SUB_KEY" in output
 
-    def test_profiles_view_zai_pro_bindings(self, capsys):
+    def test_profiles_view_zai_pro_bindings(self, capsys, monkeypatch, tmp_path):
         """profiles view zai-pro should show instance, internal names, and key env vars."""
-        with patch("sys.argv", ["run-claude", "profiles", "view", "zai-pro"]):
-            result = main()
+        # Hermetic: a host user.profiles.yaml zai-pro override would otherwise
+        # shadow this repo's profile (see test_inspect_zai_pro_instances).
+        monkeypatch.setattr(
+            "run_claude.profiles.get_user_profiles_file",
+            lambda: tmp_path / "no-user-profiles.yaml",
+        )
+        monkeypatch.setattr(
+            "run_claude.profiles.get_user_profiles_override_file",
+            lambda: tmp_path / "no-user-profile-override.yaml",
+        )
+        clear_caches()
+        try:
+            with patch("sys.argv", ["run-claude", "profiles", "view", "zai-pro"]):
+                result = main()
+        finally:
+            clear_caches()
         assert result == 0
         output = capsys.readouterr().out
-        assert "opus:   zai/glm-5.3" in output
+        assert "opus:   zai/glm-5.3-flashx (sub)" in output
         assert "fable:  zai/glm-5.3" in output
         assert "anthropic/glm-5.3-flash" in output
         assert "anthropic/glm-5.3" in output
         assert "ZAI_SUB_KEY" in output
         assert "ZAI_SUB_KEY_TYNA" in output
-        assert "zai-tyna/opus" in output
+        assert "zai-alt/glm-5.3-flash" in output
 
-    def test_profiles_view_zai_pro_alt_bindings(self, capsys):
+    def test_profiles_view_zai_pro_alt_bindings(self, capsys, monkeypatch, tmp_path):
         """profiles view zai-pro-alt should default tiers to the zai-alt family."""
-        with patch("sys.argv", ["run-claude", "profiles", "view", "zai-pro-alt"]):
-            result = main()
+        # Hermetic: a host user.profiles.yaml override would otherwise shadow
+        # this repo's profile (see test_profiles_view_zai_pro_bindings).
+        monkeypatch.setattr(
+            "run_claude.profiles.get_user_profiles_file",
+            lambda: tmp_path / "no-user-profiles.yaml",
+        )
+        monkeypatch.setattr(
+            "run_claude.profiles.get_user_profiles_override_file",
+            lambda: tmp_path / "no-user-profile-override.yaml",
+        )
+        clear_caches()
+        try:
+            with patch("sys.argv", ["run-claude", "profiles", "view", "zai-pro-alt"]):
+                result = main()
+        finally:
+            clear_caches()
         assert result == 0
         output = capsys.readouterr().out
-        assert "opus:   zai-alt/glm-5.3" in output
+        assert "opus:   zai-alt/glm-5.3-flashx" in output
         assert "fable:  zai-alt/glm-5.3" in output
         assert "anthropic/glm-5.3-flash" in output
         assert "anthropic/glm-5.3" in output
         assert "ZAI_SUB_KEY_TYNA" in output
-        assert "zai-alt/opus[1m]" in output
+        assert "zai-alt/glm-5.3-flash[1m]" in output
 
     def test_profiles_view_json(self, capsys):
         """profiles view --json should expose instance/internal/key_env per tier."""
@@ -260,8 +289,8 @@ class TestModelsCommand:
             result = main()
         assert result == 0
         output = capsys.readouterr().out
-        assert "alibaba/opus" in output
-        assert "alibaba/fable" in output
+        assert "alibaba/qwen3.8-max" in output
+        assert "alibaba/deepseek-v4-pro-0813" in output
         assert "alibaba/qwen3.8-max" in output
         assert "alibaba/qwen3.6-flash" in output
         assert "alibaba/glm-5.2" in output
@@ -271,8 +300,8 @@ class TestModelsCommand:
         assert "alibaba/minimax-m2.5" in output
 
     def test_models_show_alibaba_opus_uses_token_plan_anthropic(self, capsys):
-        """alibaba/opus should use QWEN_SUB_KEY and the Token Plan Anthropic base URL."""
-        with patch("sys.argv", ["run-claude", "models", "show", "alibaba/opus"]):
+        """alibaba/qwen3.8-max should use QWEN_SUB_KEY and the Token Plan Anthropic base URL."""
+        with patch("sys.argv", ["run-claude", "models", "show", "alibaba/qwen3.8-max"]):
             result = main()
         assert result == 0
         output = capsys.readouterr().out
@@ -281,8 +310,8 @@ class TestModelsCommand:
         assert "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic" in output
 
     def test_models_show_alibaba_sonnet_uses_glm(self, capsys):
-        """alibaba/sonnet should map to GLM-5.2 on the Token Plan Anthropic endpoint."""
-        with patch("sys.argv", ["run-claude", "models", "show", "alibaba/sonnet"]):
+        """alibaba/glm-5.2 should map to GLM-5.2 on the Token Plan Anthropic endpoint."""
+        with patch("sys.argv", ["run-claude", "models", "show", "alibaba/glm-5.2"]):
             result = main()
         assert result == 0
         output = capsys.readouterr().out
@@ -290,8 +319,8 @@ class TestModelsCommand:
         assert "os.environ/QWEN_SUB_KEY" in output
 
     def test_models_show_alibaba_fable_uses_deepseek_v4_pro_0813(self, capsys):
-        """alibaba/fable maps to DS V4 Pro 0813 (remapped off kimi-k3, 2026-09 catalog)."""
-        with patch("sys.argv", ["run-claude", "models", "show", "alibaba/fable"]):
+        """alibaba/deepseek-v4-pro-0813 is the DS V4 Pro tier SKU (remapped off kimi-k3, 2026-09 catalog)."""
+        with patch("sys.argv", ["run-claude", "models", "show", "alibaba/deepseek-v4-pro-0813"]):
             result = main()
         assert result == 0
         output = capsys.readouterr().out

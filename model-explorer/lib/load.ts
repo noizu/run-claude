@@ -74,6 +74,10 @@ function toModel(
     pricing: (meta.pricing as Model["pricing"]) ?? undefined,
     limits: (meta.limits as Model["limits"]) ?? undefined,
     thinking: (meta.thinking as Model["thinking"]) ?? undefined,
+    modalities: (meta.modalities as Model["modalities"]) ?? undefined,
+    supports_tools:
+      typeof meta.supports_tools === "boolean" ? meta.supports_tools : undefined,
+    context_window: (meta.context_window as number | null) ?? undefined,
     tokens_per_second: (meta.tokens_per_second as number | null) ?? undefined,
     notes: typeof meta.notes === "string" ? meta.notes : undefined,
     // api_key / api_key_name deliberately excluded — never shipped to the client.
