@@ -77,18 +77,18 @@ class TestEnvCommand:
         assert "ANTHROPIC_DEFAULT_HAIKU_MODEL=cerebras/gpt-oss-120b" in output
 
     def test_env_alibaba_profile_uses_qwen_models(self, capsys):
-        """alibaba profile should map opus/sonnet/haiku to Token Plan aliases."""
+        """alibaba profile should map tier slots to real Token Plan model names."""
         with patch("sys.argv", ["run-claude", "env", "alibaba"]):
             result = main()
         assert result == 0
         captured = capsys.readouterr()
         output = captured.out
 
-        assert "ANTHROPIC_DEFAULT_OPUS_MODEL=alibaba/opus" in output
-        assert "ANTHROPIC_DEFAULT_SONNET_MODEL=alibaba/sonnet" in output
-        assert "ANTHROPIC_DEFAULT_HAIKU_MODEL=alibaba/haiku" in output
-        assert "ANTHROPIC_DEFAULT_FABLE_MODEL=alibaba/fable" in output
-        assert "ANTHROPIC_DEFAULT_FABLE_MODEL=alibaba/opus" not in output
+        assert "ANTHROPIC_DEFAULT_OPUS_MODEL=alibaba/qwen3.8-max" in output
+        assert "ANTHROPIC_DEFAULT_SONNET_MODEL=alibaba/glm-5.2" in output
+        assert "ANTHROPIC_DEFAULT_HAIKU_MODEL=alibaba/qwen3.6-flash" in output
+        assert "ANTHROPIC_DEFAULT_FABLE_MODEL=alibaba/deepseek-v4-pro-0813" in output
+        assert "ANTHROPIC_DEFAULT_FABLE_MODEL=alibaba/qwen3.8-max" not in output
 
     def test_env_export_flag_adds_export_prefix(self, capsys):
         """env --export should prefix lines with 'export'."""
@@ -155,10 +155,10 @@ class TestProfilesCommand:
             result = main()
         assert result == 0
         output = capsys.readouterr().out
-        assert "opus:   alibaba/opus" in output
-        assert "sonnet: alibaba/sonnet" in output
-        assert "haiku:  alibaba/haiku" in output
-        assert "fable:  alibaba/fable" in output
+        assert "opus:   alibaba/qwen3.8-max" in output
+        assert "sonnet: alibaba/glm-5.2" in output
+        assert "haiku:  alibaba/qwen3.6-flash" in output
+        assert "fable:  alibaba/deepseek-v4-pro-0813" in output
         assert "alibaba/qwen3.8-max" in output
         assert "alibaba/glm-5.2" in output
         assert "alibaba/kimi-k3" in output
@@ -190,8 +190,8 @@ class TestProfilesCommand:
             result = main()
         assert result == 0
         output = capsys.readouterr().out
-        assert "opus:   zai/opus" in output
-        assert "fable:  zai/fable" in output
+        assert "opus:   zai/glm-5.3" in output
+        assert "fable:  zai/glm-5.3" in output
         assert "anthropic/glm-5.3-flash" in output
         assert "anthropic/glm-5.3" in output
         assert "ZAI_SUB_KEY" in output
@@ -204,8 +204,8 @@ class TestProfilesCommand:
             result = main()
         assert result == 0
         output = capsys.readouterr().out
-        assert "opus:   zai-alt/opus" in output
-        assert "fable:  zai-alt/fable" in output
+        assert "opus:   zai-alt/glm-5.3" in output
+        assert "fable:  zai-alt/glm-5.3" in output
         assert "anthropic/glm-5.3-flash" in output
         assert "anthropic/glm-5.3" in output
         assert "ZAI_SUB_KEY_TYNA" in output
@@ -220,7 +220,7 @@ class TestProfilesCommand:
         payload = json.loads(capsys.readouterr().out)
         assert payload["name"] == "alibaba"
         opus = payload["tiers"]["opus"]
-        assert opus["model_name"] == "alibaba/opus"
+        assert opus["model_name"] == "alibaba/qwen3.8-max"
         assert opus["internal_name"] == "anthropic/qwen3.8-max"
         assert opus["key_env"] == "QWEN_SUB_KEY"
         assert opus["instance"] == "qwen"

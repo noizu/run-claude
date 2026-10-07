@@ -50,14 +50,14 @@ def _assert_alibaba_inspection():
     assert inspection.fable_fallback is False
 
     opus = inspection.tiers["opus"]
-    assert opus.model_name == "alibaba/opus"
+    assert opus.model_name == "alibaba/qwen3.8-max"
     assert opus.internal_name == "anthropic/qwen3.8-max"
     assert opus.key_env == "QWEN_SUB_KEY"
     assert opus.instance == "qwen"
     assert "token-plan.ap-southeast-1.maas.aliyuncs.com" in opus.api_base
 
     fable = inspection.tiers["fable"]
-    assert fable.model_name == "alibaba/fable"
+    assert fable.model_name == "alibaba/deepseek-v4-pro-0813"
     assert fable.internal_name == "anthropic/deepseek-v4-pro-0813"
 
     sonnet = inspection.tiers["sonnet"]
@@ -70,8 +70,8 @@ def _assert_alibaba_inspection():
     assert "alibaba/kimi-k2.7-code" in extra_names
     assert "alibaba/deepseek-v4-pro" in extra_names
     assert "alibaba/minimax-m2.5" in extra_names
-    # Tier aliases themselves are not repeated as additional models.
-    assert "alibaba/opus" not in extra_names
+    # Tier models themselves are not repeated as additional models.
+    assert "alibaba/qwen3.8-max" not in extra_names
 
 
 def test_inspect_wafer_tiers(monkeypatch, tmp_path):
@@ -104,7 +104,7 @@ def _assert_wafer_inspection():
     assert inspection.display_name == "Wafer Serverless"
 
     fable = inspection.tiers["fable"]
-    assert fable.model_name == "wafer/fable[1m]"
+    assert fable.model_name == "wafer/kimi-k3[1m]"
     assert fable.internal_name == "anthropic/Kimi-K3"
     assert fable.key_env == "WAFER_AI_API_KEY"
     assert "pass.wafer.ai" in fable.api_base
@@ -180,11 +180,12 @@ def test_inspect_zai_pro_alt_defaults_to_tyna(monkeypatch, tmp_path):
         inspection = inspect_profile("zai-pro-alt")
         assert inspection is not None
         assert inspection.display_name == "Zai Subscription (Alt)"
-        assert inspection.tiers["opus"].model_name == "zai-alt/opus"
-        assert inspection.tiers["sonnet"].model_name == "zai-alt/sonnet"
+        assert inspection.tiers["opus"].model_name == "zai-alt/glm-5.3"
+        assert inspection.tiers["sonnet"].model_name == "zai-alt/glm-5.3-flash"
         assert inspection.tiers["haiku"].model_name == "zai-alt/glm-5.3-flash"
-        assert inspection.tiers["fable"].model_name == "zai-alt/fable"
-        assert inspection.tiers["opus"].internal_name == "anthropic/glm-5.3-flash"
+        assert inspection.tiers["fable"].model_name == "zai-alt/glm-5.3"
+        assert inspection.tiers["opus"].internal_name == "anthropic/glm-5.3"
+        assert inspection.tiers["sonnet"].internal_name == "anthropic/glm-5.3-flash"
         assert inspection.tiers["haiku"].internal_name == "anthropic/glm-5.3-flash"
         assert inspection.tiers["fable"].internal_name == "anthropic/glm-5.3"
         assert inspection.tiers["opus"].key_env == "ZAI_SUB_KEY_TYNA"
@@ -192,7 +193,7 @@ def test_inspect_zai_pro_alt_defaults_to_tyna(monkeypatch, tmp_path):
 
         extra_names = {item.model_name for item in inspection.extended}
         assert "zai-alt/opus[1m]" in extra_names
-        assert "zai-alt/glm-5.3" in extra_names
+        assert "zai-alt/glm-5.3[1m]" in extra_names
         assert "zai-oa-alt/glm-5.3" in extra_names
         assert "zai-alt/opus" not in extra_names
         assert "zai/opus" not in extra_names
@@ -367,8 +368,9 @@ def test_zai_alt_x_profile_exists_and_uses_flashx():
     assert inspection.tiers["opus"].model_name == "zai-alt/glm-5.3-flashx"
     assert inspection.tiers["sonnet"].model_name == "zai-alt/glm-5.3-flashx"
     assert inspection.tiers["opus"].internal_name == "anthropic/glm-5.3-flashx"
-    assert inspection.tiers["haiku"].model_name == "zai-alt/haiku"
-    assert inspection.tiers["fable"].model_name == "zai-alt/fable"
+    assert inspection.tiers["haiku"].model_name == "zai-alt/glm-5-turbo"
+    assert inspection.tiers["haiku"].internal_name == "anthropic/glm-5-turbo"
+    assert inspection.tiers["fable"].model_name == "zai-alt/glm-5.3"
 
     extra_names = {item.model_name for item in inspection.extended}
     assert "zai-alt/glm-5.3-flashx[1m]" in extra_names
