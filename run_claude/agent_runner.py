@@ -47,6 +47,74 @@ def build_env_vars_anthropic(profile, proxy_url: str, api_key: str) -> dict[str,
     return env
 
 
+# Built-in Claude Code model IDs -> profile slot. Claude Code >= 2.1.2xx ships a long
+# built-in model list; selecting one of these sends the real `claude-*` ID, which
+# bypasses ANTHROPIC_DEFAULT_*_MODEL and the front proxy forwards to api.anthropic.com.
+# `modelOverrides` rewrites them to the profile's slot model. Add new CLI IDs here.
+BUILTIN_CLAUDE_MODEL_SLOTS: dict[str, str] = {
+    "claude-fable-5-1": "fable",
+    "claude-fable-5": "fable",
+    "claude-opus-5-5": "opus",
+    "claude-opus-5-1": "opus",
+    "claude-opus-5": "opus",
+    "claude-opus-4-8": "opus",
+    "claude-sonnet-5-5": "sonnet",
+    "claude-sonnet-5": "sonnet",
+    "claude-sonnet-4-6": "sonnet",
+    "claude-sonnet-4-5": "sonnet",
+    "claude-haiku-4-5": "haiku",
+    "claude-haiku-4-5-20251001": "haiku",
+}
+
+
+def build_model_overrides(profile) -> dict[str, str]:
+    """Map built-in claude-* IDs to the profile's slot models.
+
+    Slots whose profile model is itself a real `claude-*` ID (e.g. the anthropic
+    profile) are left alone so they keep passing through to Anthropic.
+    """
+    slots = {
+        "fable": profile.meta.effective_fable_model(),
+        "opus": profile.meta.opus_model,
+        "sonnet": profile.meta.sonnet_model,
+        "haiku": profile.meta.haiku_model,
+    }
+    overrides: dict[str, str] = {}
+    for model_id, slot in BUILTIN_CLAUDE_MODEL_SLOTS.items():
+        target = slots.get(slot)
+        if not target or target.startswith("claude-"):
+            continue
+        overrides[model_id] = target
+        overrides[f"{model_id}[1m]"] = target
+    return overrides
+
+
+def write_claude_settings(profile_name: str, overrides: dict[str, str]) -> Path:
+    """Write a per-profile settings file carrying modelOverrides; returns its path."""
+    import json
+
+    state_home = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state")
+    path = state_home / "run-claude" / f"claude-settings.{profile_name}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"modelOverrides": overrides}, indent=2) + "\n")
+    return path
+
+
+def inject_model_overrides(cmd: list[str], profile, profile_name: str) -> list[str]:
+    """Add `--settings <file>` with modelOverrides when launching claude."""
+    if not cmd or Path(cmd[0]).name != "claude":
+        return cmd
+    if any(a == "--settings" or a.startswith("--settings=") for a in cmd):
+        print("[MODEL_OVERRIDES] --settings already supplied; not injecting", file=sys.stderr)
+        return cmd
+    overrides = build_model_overrides(profile)
+    if not overrides:
+        return cmd
+    settings_path = write_claude_settings(profile_name, overrides)
+    print(f"[MODEL_OVERRIDES] {len(overrides)} entries -> {settings_path}", file=sys.stderr)
+    return [cmd[0], "--settings", str(settings_path), *cmd[1:]]
+
+
 def build_env_vars_openai(profile, proxy_url: str, api_key: str) -> dict[str, str]:
     """Build environment variables for OpenAI-compatible API."""
     env = {}
@@ -146,6 +214,8 @@ def cmd_run_agent(
 
     # Determine command to run
     cmd = args.cmd if args.cmd else agent_config.default_cmd
+    if agent_config.agent_name == "claude":
+        cmd = inject_model_overrides(list(cmd), profile, profile_name)
 
     # Print status (reuse existing function if needed)
     from . import state

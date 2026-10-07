@@ -304,3 +304,46 @@ class TestModelsCommand:
         with patch("sys.argv", ["run-claude", "models", "show", "nonexistent"]):
             result = main()
         assert result == 1
+
+
+class TestModelOverrides:
+    """modelOverrides injection so built-in claude-* IDs follow the profile."""
+
+    @staticmethod
+    def _profile(**slots):
+        from types import SimpleNamespace
+        from run_claude.profiles import ProfileMeta
+        return SimpleNamespace(meta=ProfileMeta(name="t", **slots))
+
+    def test_non_anthropic_profile_maps_builtin_ids(self):
+        from run_claude.agent_runner import build_model_overrides
+        p = self._profile(fable_model="wafer/fable", opus_model="wafer/opus",
+                          sonnet_model="wafer/sonnet", haiku_model="wafer/haiku")
+        o = build_model_overrides(p)
+        assert o["claude-fable-5-1"] == "wafer/fable"
+        assert o["claude-opus-5-5"] == "wafer/opus"
+        assert o["claude-sonnet-5-5[1m]"] == "wafer/sonnet"
+        assert o["claude-haiku-4-5"] == "wafer/haiku"
+
+    def test_anthropic_profile_gets_no_overrides(self):
+        from run_claude.agent_runner import build_model_overrides
+        p = self._profile(fable_model="claude-fable-5-1", opus_model="claude-opus-5",
+                          sonnet_model="claude-sonnet-5", haiku_model="claude-haiku-4-5-20251001")
+        assert build_model_overrides(p) == {}
+
+    def test_inject_adds_settings_flag_for_claude_only(self, tmp_path, monkeypatch):
+        import json
+        from run_claude.agent_runner import inject_model_overrides
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+        p = self._profile(opus_model="wafer/opus")
+        cmd = inject_model_overrides(["claude", "--resume"], p, "wafer")
+        assert cmd[:2] == ["claude", "--settings"] and cmd[3] == "--resume"
+        data = json.loads((tmp_path / "run-claude" / "claude-settings.wafer.json").read_text())
+        assert data["modelOverrides"]["claude-opus-5-5"] == "wafer/opus"
+        assert inject_model_overrides(["opencode"], p, "wafer") == ["opencode"]
+
+    def test_inject_respects_user_settings_flag(self):
+        from run_claude.agent_runner import inject_model_overrides
+        p = self._profile(opus_model="wafer/opus")
+        cmd = ["claude", "--settings", "x.json"]
+        assert inject_model_overrides(cmd, p, "wafer") == cmd
