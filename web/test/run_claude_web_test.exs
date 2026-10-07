@@ -33,7 +33,7 @@ defmodule RunClaudeWeb.RequestTest do
     assert body =~ "Your subscription, where it makes sense"
     assert body =~ "Local gateway, no middleman"
     assert body =~ "Tier mappings are one YAML stanza"
-    assert body =~ "claude-opus-4-8"
+    assert body =~ "claude-opus-5"
     assert body =~ "glm-5.3-flash (low)"
     assert body =~ "How it works"
     assert body =~ "Do my API keys leave my machine?"
