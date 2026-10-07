@@ -43,8 +43,27 @@ def build_env_vars_anthropic(profile, proxy_url: str, api_key: str) -> dict[str,
     fable_model = profile.meta.effective_fable_model()
     if fable_model:
         env["ANTHROPIC_DEFAULT_FABLE_MODEL"] = fable_model
+        # Claude Code assumes a 200k window for catalog-unknown model IDs; the
+        # run-claude catalog knows the real one, so pass it through unless the
+        # user already pinned it.
+        if not os.environ.get("CLAUDE_CODE_MAX_CONTEXT_TOKENS"):
+            window = _catalog_context_window(fable_model)
+            if window:
+                env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"] = str(window)
 
     return env
+
+
+def _catalog_context_window(model_name: str) -> int | None:
+    """context_window for a model from the catalog (models.yaml), if known."""
+    try:
+        from .profiles import load_model_definitions
+        model_def = load_model_definitions().get(model_name)
+        if model_def and model_def.metadata.context_window:
+            return model_def.metadata.context_window
+    except Exception:
+        pass
+    return None
 
 
 # Built-in Claude Code model IDs -> profile slot. Claude Code >= 2.1.2xx ships a long
@@ -82,6 +101,30 @@ def build_model_overrides(profile) -> dict[str, str]:
         overrides[model_id] = target
         overrides[f"{model_id}[1m]"] = target
     return overrides
+
+
+def build_model_picker_options(profile) -> list[dict[str, str]]:
+    """modelPicker option rows for the profile's models that declare behavesAs.
+
+    Claude Code warns "isn't described by this version's model catalog" for
+    gateway model IDs it doesn't know; a `behavesAs` full model ID (v2.1.257+)
+    on the picker row gives it the mapped model's capabilities and context
+    assumptions. Rows are additive (replaceBuiltInOptions stays false).
+    """
+    try:
+        from .profiles import load_model_definitions
+        model_defs = load_model_definitions()
+    except Exception:
+        return []
+    names = {profile.meta.slot_model(slot) for slot in ("fable", "opus", "sonnet", "haiku")}
+    names |= {m for m in (profile.meta.extended or []) if m}
+    rows = []
+    for name in sorted(names):
+        model_def = model_defs.get(name)
+        behaves_as = model_def.metadata.behaves_as if model_def else ""
+        if behaves_as:
+            rows.append({"model": name, "behavesAs": behaves_as})
+    return rows
 
 
 def model_overrides_enabled() -> bool:
@@ -150,8 +193,18 @@ def inject_model_overrides(cmd: list[str], profile, profile_name: str) -> list[s
         return cmd
     merged = dict(user_settings or {})
     merged["modelOverrides"] = {**overrides, **(merged.get("modelOverrides") or {})}
+    picker_rows = build_model_picker_options(profile)
+    if picker_rows:
+        user_picker = merged.get("modelPicker") or {}
+        if not isinstance(user_picker, dict):
+            user_picker = {}
+        options = [o for o in (user_picker.get("options") or []) if isinstance(o, dict)]
+        seen = {o.get("model") for o in options}
+        options += [row for row in picker_rows if row["model"] not in seen]
+        merged["modelPicker"] = {**user_picker, "options": options}
     print(f"[MODEL_OVERRIDES] {len(merged['modelOverrides'])} entries "
-          f"(profile {profile_name}{', merged with --settings' if user_settings else ''})",
+          f"(profile {profile_name}{', merged with --settings' if user_settings else ''})"
+          f"{f', {len(picker_rows)} modelPicker rows' if picker_rows else ''}",
           file=sys.stderr)
     return [cmd[0], "--settings", json.dumps(merged, separators=(",", ":")), *rest]
 
