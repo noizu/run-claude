@@ -45,7 +45,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 40
-    notes: press reports conflicting $0.25 cache read; images tokenized at text rate
+    notes: press reports conflicting $0.25 cache read; images tokenized at text 
+      rate
     context_window: 200000
     modalities:
       input: [text, image]
@@ -85,7 +86,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 40
-    notes: press reports conflicting $0.25 cache read; images tokenized at text rate
+    notes: press reports conflicting $0.25 cache read; images tokenized at text 
+      rate
     context_window: 1000000
     modalities:
       input: [text, image]
@@ -374,7 +376,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 50
-    notes: 4.x pricing inferred from opus-5 tier; images tokenized at text rate; subscription plan; list price shown for reference
+    notes: 4.x pricing inferred from opus-5 tier; images tokenized at text rate;
+      subscription plan; list price shown for reference
     context_window: 200000
     modalities:
       input: [text, image]
@@ -414,7 +417,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 50
-    notes: 4.x pricing inferred from opus-5 tier; images tokenized at text rate; subscription plan; list price shown for reference
+    notes: 4.x pricing inferred from opus-5 tier; images tokenized at text rate;
+      subscription plan; list price shown for reference
     context_window: 1000000
     modalities:
       input: [text, image]
@@ -454,7 +458,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 50
-    notes: 4.x pricing inferred from opus-5 tier; images tokenized at text rate; subscription plan; list price shown for reference
+    notes: 4.x pricing inferred from opus-5 tier; images tokenized at text rate;
+      subscription plan; list price shown for reference
     context_window: 200000
     modalities:
       input: [text, image]
@@ -494,7 +499,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 50
-    notes: 4.x pricing inferred from opus-5 tier; images tokenized at text rate; subscription plan; list price shown for reference
+    notes: 4.x pricing inferred from opus-5 tier; images tokenized at text rate;
+      subscription plan; list price shown for reference
     context_window: 1000000
     modalities:
       input: [text, image]
@@ -534,7 +540,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 50
-    notes: 4.x pricing inferred from opus-5 tier; images tokenized at text rate; subscription plan; list price shown for reference
+    notes: 4.x pricing inferred from opus-5 tier; images tokenized at text rate;
+      subscription plan; list price shown for reference
     context_window: 200000
     modalities:
       input: [text, image]
@@ -574,7 +581,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 50
-    notes: 4.x pricing inferred from opus-5 tier; images tokenized at text rate; subscription plan; list price shown for reference
+    notes: 4.x pricing inferred from opus-5 tier; images tokenized at text rate;
+      subscription plan; list price shown for reference
     context_window: 1000000
     modalities:
       input: [text, image]
@@ -614,7 +622,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 65
-    notes: images tokenized at text rate; subscription plan; list price shown for reference
+    notes: images tokenized at text rate; subscription plan; list price shown 
+      for reference
     context_window: 200000
     modalities:
       input: [text, image]
@@ -654,7 +663,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 65
-    notes: images tokenized at text rate; subscription plan; list price shown for reference
+    notes: images tokenized at text rate; subscription plan; list price shown 
+      for reference
     context_window: 1000000
     modalities:
       input: [text, image]
@@ -694,7 +704,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 40
-    notes: press reports conflicting $0.25 cache read; images tokenized at text rate; subscription plan; list price shown for reference
+    notes: press reports conflicting $0.25 cache read; images tokenized at text 
+      rate; subscription plan; list price shown for reference
     context_window: 200000
     modalities:
       input: [text, image]
@@ -734,7 +745,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 40
-    notes: press reports conflicting $0.25 cache read; images tokenized at text rate; subscription plan; list price shown for reference
+    notes: press reports conflicting $0.25 cache read; images tokenized at text 
+      rate; subscription plan; list price shown for reference
     context_window: 1000000
     modalities:
       input: [text, image]
@@ -774,7 +786,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 80
-    notes: images tokenized at text rate; subscription plan; list price shown for reference
+    notes: images tokenized at text rate; subscription plan; list price shown 
+      for reference
     context_window: 200000
     modalities:
       input: [text, image]
@@ -814,7 +827,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 80
-    notes: images tokenized at text rate; subscription plan; list price shown for reference
+    notes: images tokenized at text rate; subscription plan; list price shown 
+      for reference
     context_window: 1000000
     modalities:
       input: [text, image]
@@ -854,7 +868,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 50
-    notes: images tokenized at text rate; subscription plan; list price shown for reference
+    notes: images tokenized at text rate; subscription plan; list price shown 
+      for reference
     context_window: 200000
     modalities:
       input: [text, image]
@@ -894,7 +909,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 50
-    notes: images tokenized at text rate; subscription plan; list price shown for reference
+    notes: images tokenized at text rate; subscription plan; list price shown 
+      for reference
     context_window: 1000000
     modalities:
       input: [text, image]
@@ -934,7 +950,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 130
-    notes: images tokenized at text rate; subscription plan; list price shown for reference
+    notes: images tokenized at text rate; subscription plan; list price shown 
+      for reference
     context_window: 200000
     modalities:
       input: [text, image]
@@ -977,7 +994,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 130
-    notes: images tokenized at text rate; subscription plan; list price shown for reference
+    notes: images tokenized at text rate; subscription plan; list price shown 
+      for reference
     context_window: 1000000
     modalities:
       input: [text, image]
@@ -1016,12 +1034,12 @@ model_list:
       levels:
       default_level:
     tokens_per_second: 60
-    notes: images tokenized at text rate
+    notes: images tokenized at text rate GPT-4.1 supports function/tool calling.
     context_window: 1047576
     modalities:
       input: [text]
       output: [text]
-    supports_tools: false
+    supports_tools: true
 - model_name: "openai-gpt4o"
   litellm_params:
     model: openai/gpt-4o
@@ -1181,7 +1199,8 @@ model_list:
     notes: ''
     context_window: 200000
     modalities:
-      input: [text, image]
+      input:
+      - text
       output: [text]
     supports_tools: true
 - model_name: "openai-gpt5.5"
@@ -1613,7 +1632,8 @@ model_list:
     model: cerebras/gpt-oss-120b
     api_key: os.environ/CEREBRAS_API_KEY
     drop_params: true
-    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort",
+      "thinking_blocks"]
     timeout: 600
     stream_timeout: 600
     num_retries: 10
@@ -1660,7 +1680,8 @@ model_list:
     model: cerebras/gpt-oss-120b
     api_key: os.environ/CEREBRAS_API_KEY
     drop_params: true
-    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort",
+      "thinking_blocks"]
     timeout: 600
     stream_timeout: 600
     num_retries: 10
@@ -1852,7 +1873,8 @@ model_list:
     model: cerebras/llama-3.3-70b
     api_key: os.environ/CEREBRAS_API_KEY
     drop_params: true
-    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort",
+      "thinking_blocks"]
     timeout: 600
     stream_timeout: 600
     num_retries: 10
@@ -1897,7 +1919,8 @@ model_list:
     model: cerebras/llama3.1-8b
     api_key: os.environ/CEREBRAS_API_KEY
     drop_params: true
-    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort",
+      "thinking_blocks"]
     timeout: 600
     stream_timeout: 600
     num_retries: 10
@@ -1942,7 +1965,8 @@ model_list:
     model: cerebras/qwen-3-235b-a22b-instruct-2507
     api_key: os.environ/CEREBRAS_API_KEY
     drop_params: true
-    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort",
+      "thinking_blocks"]
     timeout: 600
     stream_timeout: 600
     num_retries: 10
@@ -1987,7 +2011,8 @@ model_list:
     model: cerebras/qwen-3-32b
     api_key: os.environ/CEREBRAS_API_KEY
     drop_params: true
-    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort",
+      "thinking_blocks"]
     timeout: 600
     stream_timeout: 600
     num_retries: 10
@@ -2032,7 +2057,8 @@ model_list:
     model: cerebras/zai-glm-4.7
     api_key: os.environ/CEREBRAS_API_KEY
     drop_params: true
-    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort",
+      "thinking_blocks"]
     timeout: 600
     stream_timeout: 600
     num_retries: 10
@@ -2079,7 +2105,8 @@ model_list:
     model: cerebras/zai-glm-4.7
     api_key: os.environ/CEREBRAS_API_KEY
     drop_params: true
-    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort",
+      "thinking_blocks"]
     timeout: 600
     stream_timeout: 600
     num_retries: 10
@@ -2271,7 +2298,8 @@ model_list:
     model: cerebras/zai-glm-4.7
     api_key: os.environ/CEREBRAS_SUB_KEY
     drop_params: true
-    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort",
+      "thinking_blocks"]
     timeout: 600
     stream_timeout: 600
     num_retries: 10
@@ -2318,7 +2346,8 @@ model_list:
     model: cerebras/zai-glm-4.7
     api_key: os.environ/CEREBRAS_SUB_KEY
     drop_params: true
-    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort", "thinking_blocks"]
+    additional_drop_params: ["context_management", "output_config", "thinking", "reasoning_effort",
+      "thinking_blocks"]
     timeout: 600
     stream_timeout: 600
     num_retries: 10
@@ -2402,7 +2431,8 @@ model_list:
       - high
       default_level: "max"
     tokens_per_second: 80
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -2448,7 +2478,9 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 150
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference; flash context reported ~1M (aihubmix/z.ai docs); 200K guaranteed floor'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference; flash context reported ~1M
+      (aihubmix/z.ai docs); 200K guaranteed floor'
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -2494,7 +2526,9 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 200
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference; flash context reported ~1M (aihubmix/z.ai docs); 200K guaranteed floor'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference; flash context reported ~1M
+      (aihubmix/z.ai docs); 200K guaranteed floor'
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -2540,7 +2574,9 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 150
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference; flash context reported ~1M (aihubmix/z.ai docs); 200K guaranteed floor'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference; flash context reported ~1M
+      (aihubmix/z.ai docs); 200K guaranteed floor'
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -2586,7 +2622,9 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 200
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference; flash context reported ~1M (aihubmix/z.ai docs); 200K guaranteed floor'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference; flash context reported ~1M
+      (aihubmix/z.ai docs); 200K guaranteed floor'
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -2636,7 +2674,8 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 80
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -2681,7 +2720,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 60
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -2726,7 +2766,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 60
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -2772,7 +2813,8 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 80
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -2818,7 +2860,8 @@ model_list:
       - high
       default_level: "max"
     tokens_per_second: 80
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -2864,7 +2907,8 @@ model_list:
       - high
       default_level: "low"
     tokens_per_second: 80
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -2910,7 +2954,9 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 150
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference; flash context reported ~1M (aihubmix/z.ai docs); 200K guaranteed floor'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference; flash context reported ~1M
+      (aihubmix/z.ai docs); 200K guaranteed floor'
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -2956,7 +3002,9 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 200
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference; flash context reported ~1M (aihubmix/z.ai docs); 200K guaranteed floor'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference; flash context reported ~1M
+      (aihubmix/z.ai docs); 200K guaranteed floor'
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -3002,7 +3050,9 @@ model_list:
       - high
       default_level: "low"
     tokens_per_second: 150
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference; flash context reported ~1M (aihubmix/z.ai docs); 200K guaranteed floor'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference; flash context reported ~1M
+      (aihubmix/z.ai docs); 200K guaranteed floor'
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -3048,7 +3098,8 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 80
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -3095,7 +3146,8 @@ model_list:
       - high
       default_level:
     tokens_per_second: 60
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -3142,7 +3194,8 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 80
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -3191,7 +3244,8 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 80
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -3235,7 +3289,8 @@ model_list:
       - high
       default_level: "max"
     tokens_per_second: 80
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -3252,7 +3307,8 @@ model_list:
   metadata:
     provider: zai
     description: "Z.AI GLM-5.3-Flash via coding plan OpenAI-compatible endpoint"
-    strengths: "Frontier intelligence at flash cost; native multimodal; 3x quota vs GLM-5.3"
+    strengths: "Frontier intelligence at flash cost; native multimodal; 3x quota vs
+      GLM-5.3"
     weaknesses: "Less depth than GLM-5.3"
 
     pricing:
@@ -3279,7 +3335,9 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 150
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference; flash context reported ~1M (aihubmix/z.ai docs); 200K guaranteed floor'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference; flash context reported ~1M
+      (aihubmix/z.ai docs); 200K guaranteed floor'
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -3323,7 +3381,9 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 200
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference; flash context reported ~1M (aihubmix/z.ai docs); 200K guaranteed floor'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference; flash context reported ~1M
+      (aihubmix/z.ai docs); 200K guaranteed floor'
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -3367,7 +3427,9 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 150
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference; flash context reported ~1M (aihubmix/z.ai docs); 200K guaranteed floor'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference; flash context reported ~1M
+      (aihubmix/z.ai docs); 200K guaranteed floor'
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -3411,7 +3473,9 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 200
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference; flash context reported ~1M (aihubmix/z.ai docs); 200K guaranteed floor'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference; flash context reported ~1M
+      (aihubmix/z.ai docs); 200K guaranteed floor'
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -3455,7 +3519,8 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 80
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -3499,7 +3564,8 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 60
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -3547,7 +3613,8 @@ model_list:
       - high
       default_level: "medium"
     tokens_per_second: 60
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 128000
     modalities:
       input: [text, image]
@@ -4044,7 +4111,8 @@ model_list:
       anthropic-product: claude_code
   metadata:
     provider: wafer
-    description: "Wafer Kimi-K2.6 named alias, Claude Code [1m] suffix (backend is 262K)"
+    description: "Wafer Kimi-K2.6 named alias, Claude Code [1m] suffix (backend is
+      262K)"
     strengths: "Prevents [1m] suffix 404s"
     weaknesses: "Backend cap is 262K, not 1M"
 
@@ -4212,7 +4280,8 @@ model_list:
       levels:
       default_level: "high"
     tokens_per_second: 40
-    notes: subscription plan; list price shown for reference; Qwen3.8 family natively omni-modal (audio/video in)
+    notes: subscription plan; list price shown for reference; Qwen3.8 family 
+      natively omni-modal (audio/video in)
     context_window: 1000000
     modalities:
       input:
@@ -4257,7 +4326,8 @@ model_list:
       levels:
       default_level: "high"
     tokens_per_second: 40
-    notes: subscription plan; list price shown for reference; Qwen3.8 family natively omni-modal (audio/video in)
+    notes: subscription plan; list price shown for reference; Qwen3.8 family 
+      natively omni-modal (audio/video in)
     context_window: 1000000
     modalities:
       input:
@@ -4302,7 +4372,8 @@ model_list:
       levels:
       default_level: "low"
     tokens_per_second: 60
-    notes: subscription plan; list price shown for reference; Qwen3.8 family natively omni-modal (audio/video in)
+    notes: subscription plan; list price shown for reference; Qwen3.8 family 
+      natively omni-modal (audio/video in)
     context_window: 131072
     modalities:
       input:
@@ -4347,7 +4418,8 @@ model_list:
       levels:
       default_level: "low"
     tokens_per_second: 60
-    notes: subscription plan; list price shown for reference; Qwen3.8 family natively omni-modal (audio/video in)
+    notes: subscription plan; list price shown for reference; Qwen3.8 family 
+      natively omni-modal (audio/video in)
     context_window: 1000000
     modalities:
       input:
@@ -4392,7 +4464,8 @@ model_list:
       levels:
       default_level: "high"
     tokens_per_second: 40
-    notes: subscription plan; list price shown for reference; Qwen3.8 family natively omni-modal (audio/video in)
+    notes: subscription plan; list price shown for reference; Qwen3.8 family 
+      natively omni-modal (audio/video in)
     context_window: 1000000
     modalities:
       input:
@@ -4618,7 +4691,8 @@ model_list:
   metadata:
     provider: alibaba
     description: "DeepSeek V4 Pro 0813 (GA) via Alibaba Token Plan Anthropic API"
-    strengths: "Dated GA Pro snapshot, 1M context, stronger agents/tools than undated Pro"
+    strengths: "Dated GA Pro snapshot, 1M context, stronger agents/tools than undated
+      Pro"
     weaknesses: "Text-only; high credit burn"
 
     pricing:
@@ -4847,7 +4921,8 @@ model_list:
       levels:
       default_level: "low"
     tokens_per_second: 50
-    notes: v4.1 priced at v4-flash tier; subscription plan; list price shown for reference
+    notes: v4.1 priced at v4-flash tier; subscription plan; list price shown for
+      reference
     context_window: 131072
     modalities:
       input: [text]
@@ -4888,7 +4963,8 @@ model_list:
       levels:
       default_level: "low"
     tokens_per_second: 50
-    notes: v4.1 priced at v4-flash tier; subscription plan; list price shown for reference
+    notes: v4.1 priced at v4-flash tier; subscription plan; list price shown for
+      reference
     context_window: 1000000
     modalities:
       input: [text]
@@ -5096,7 +5172,8 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 80
-    notes: glm priced at z.ai list rate (served via DashScope); subscription plan; list price shown for reference
+    notes: glm priced at z.ai list rate (served via DashScope); subscription 
+      plan; list price shown for reference
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -5140,7 +5217,8 @@ model_list:
       - high
       default_level: "high"
     tokens_per_second: 80
-    notes: glm priced at z.ai list rate (served via DashScope); subscription plan; list price shown for reference
+    notes: glm priced at z.ai list rate (served via DashScope); subscription 
+      plan; list price shown for reference
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -5184,7 +5262,8 @@ model_list:
       - high
       default_level: "medium"
     tokens_per_second: 80
-    notes: glm priced at z.ai list rate (served via DashScope); subscription plan; list price shown for reference
+    notes: glm priced at z.ai list rate (served via DashScope); subscription 
+      plan; list price shown for reference
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -5228,7 +5307,8 @@ model_list:
       - high
       default_level: "medium"
     tokens_per_second: 60
-    notes: glm priced at z.ai list rate (served via DashScope); subscription plan; list price shown for reference
+    notes: glm priced at z.ai list rate (served via DashScope); subscription 
+      plan; list price shown for reference
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -5272,7 +5352,8 @@ model_list:
       - high
       default_level: "medium"
     tokens_per_second: 60
-    notes: glm priced at z.ai list rate (served via DashScope); subscription plan; list price shown for reference
+    notes: glm priced at z.ai list rate (served via DashScope); subscription 
+      plan; list price shown for reference
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -6143,12 +6224,13 @@ model_list:
       levels:
       default_level:
     tokens_per_second: 60
-    notes: images tokenized at text rate; azure mirrors openai list price
+    notes: images tokenized at text rate; azure mirrors openai list price 
+      GPT-4.1 supports function/tool calling.
     context_window: 1047576
     modalities:
       input: [text]
       output: [text]
-    supports_tools: false
+    supports_tools: true
 - model_name: "azure-gpt4o"
   litellm_params:
     model: azure/gpt-4o
@@ -6388,7 +6470,8 @@ model_list:
       levels:
       default_level:
     tokens_per_second: 60
-    notes: named grok-2-mini but SKU is grok-2-vision-latest; priced by name tier
+    notes: named grok-2-mini but SKU is grok-2-vision-latest; priced by name 
+      tier
     context_window: 131072
     modalities:
       input: [text]
@@ -7418,7 +7501,8 @@ model_list:
       levels:
       default_level:
     tokens_per_second:
-    notes: openrouter free tier; tts model; pricing unit not per-text-token (audio)
+    notes: openrouter free tier; tts model; pricing unit not per-text-token 
+      (audio)
     context_window: 131072
     modalities:
       input: [text]
@@ -7558,7 +7642,8 @@ model_list:
       levels:
       default_level:
     tokens_per_second:
-    notes: openrouter free tier; speech/voice model; pricing unit not per-text-token (audio)
+    notes: openrouter free tier; speech/voice model; pricing unit not 
+      per-text-token (audio)
     context_window: 131072
     modalities:
       input: [text]
@@ -7815,7 +7900,8 @@ model_list:
     api_key: os.environ/OPENROUTER_API_KEY
   metadata:
     provider: openrouter
-    description: "NVIDIA Nemotron 3.5 Content Safety (free tier) — multimodal safety classifier"
+    description: "NVIDIA Nemotron 3.5 Content Safety (free tier) — multimodal safety
+      classifier"
 
     pricing:
       text:
@@ -7850,7 +7936,8 @@ model_list:
     api_key: os.environ/OPENROUTER_API_KEY
   metadata:
     provider: openrouter
-    description: "NVIDIA Nemotron 3 Ultra 550B A55B (free tier) — frontier-reasoning MoE LLM"
+    description: "NVIDIA Nemotron 3 Ultra 550B A55B (free tier) — frontier-reasoning
+      MoE LLM"
 
     pricing:
       text:
@@ -7992,7 +8079,8 @@ model_list:
       - high
       default_level: low
     tokens_per_second: 60
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 200000
     modalities:
       input: [text, image, video]
@@ -8009,7 +8097,8 @@ model_list:
     extra_headers: {anthropic-product: claude_code}
   metadata:
     provider: zai
-    description: Real-name copy of zai/haiku[1m] — ZAI GLM 5 Turbo 1M context (haiku tier)
+    description: Real-name copy of zai/haiku[1m] — ZAI GLM 5 Turbo 1M context 
+      (haiku tier)
     strengths: Fast, cheap, large context
     weaknesses: Limited reasoning depth
 
@@ -8037,7 +8126,8 @@ model_list:
       - high
       default_level: low
     tokens_per_second: 60
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -8054,7 +8144,8 @@ model_list:
     extra_headers: {anthropic-product: claude_code}
   metadata:
     provider: zai
-    description: Real-name copy of zai/fable[1m] — ZAI GLM 5.3 1M context (fable tier)
+    description: Real-name copy of zai/fable[1m] — ZAI GLM 5.3 1M context (fable
+      tier)
     strengths: Flagship coding/agent; Claude Fable 5-level, large context
     weaknesses: Slower, more expensive; text-only
 
@@ -8082,7 +8173,8 @@ model_list:
       - high
       default_level: max
     tokens_per_second: 80
-    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max); subscription plan; list price shown for reference'
+    notes: 'GLM-5.3 family rejects reasoning_effort=medium (valid: low|high|max);
+      subscription plan; list price shown for reference'
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -8142,7 +8234,8 @@ model_list:
     include_reasoning: false
   metadata:
     provider: groq
-    description: Real-name copy of groq/opus[1m] — GPT-OSS 120B on Groq (opus 1M alias)
+    description: Real-name copy of groq/opus[1m] — GPT-OSS 120B on Groq (opus 1M
+      alias)
 
     pricing:
       text:
@@ -8184,7 +8277,8 @@ model_list:
     include_reasoning: false
   metadata:
     provider: groq
-    description: Real-name copy of groq/sonnet — GPT-OSS 120B on Groq (sonnet tier)
+    description: Real-name copy of groq/sonnet — GPT-OSS 120B on Groq (sonnet 
+      tier)
     strengths: Fast, medium reasoning effort
     weaknesses: Rate limits, less precise
 
@@ -8228,7 +8322,8 @@ model_list:
     include_reasoning: false
   metadata:
     provider: groq
-    description: Real-name copy of groq/sonnet[1m] — GPT-OSS 120B on Groq (sonnet 1M alias)
+    description: Real-name copy of groq/sonnet[1m] — GPT-OSS 120B on Groq 
+      (sonnet 1M alias)
 
     pricing:
       text:
@@ -8314,7 +8409,8 @@ model_list:
     include_reasoning: false
   metadata:
     provider: groq
-    description: Real-name copy of groq/haiku[1m] — GPT-OSS 20B on Groq (haiku 1M alias)
+    description: Real-name copy of groq/haiku[1m] — GPT-OSS 20B on Groq (haiku 
+      1M alias)
 
     pricing:
       text:
@@ -8354,7 +8450,8 @@ model_list:
     additional_drop_params: [context_management, thinking, reasoning_effort]
   metadata:
     provider: groq
-    description: Real-name copy of groq/fable[1m] — Qwen3.6 27B on Groq (fable 1M alias)
+    description: Real-name copy of groq/fable[1m] — Qwen3.6 27B on Groq (fable 
+      1M alias)
 
     pricing:
       text:
@@ -8388,13 +8485,15 @@ model_list:
     model: cerebras/zai-glm-4.7
     api_key: os.environ/CEREBRAS_SUB_KEY
     drop_params: true
-    additional_drop_params: [context_management, output_config, thinking, reasoning_effort, thinking_blocks]
+    additional_drop_params: [context_management, output_config, thinking, 
+        reasoning_effort, thinking_blocks]
     timeout: 600
     stream_timeout: 600
     num_retries: 10
   metadata:
     provider: cerebras
-    description: Real-name copy of cerebras-pro/opus — Cerebras Pro tier-mapped as opus
+    description: Real-name copy of cerebras-pro/opus — Cerebras Pro tier-mapped 
+      as opus
     strengths: Strong tier equivalent
     weaknesses: Requires subscription
 
@@ -8433,13 +8532,15 @@ model_list:
     model: cerebras/zai-glm-4.7
     api_key: os.environ/CEREBRAS_SUB_KEY
     drop_params: true
-    additional_drop_params: [context_management, output_config, thinking, reasoning_effort, thinking_blocks]
+    additional_drop_params: [context_management, output_config, thinking, 
+        reasoning_effort, thinking_blocks]
     timeout: 600
     stream_timeout: 600
     num_retries: 10
   metadata:
     provider: cerebras
-    description: Real-name copy of cerebras-pro/opus[1m] — Cerebras Pro opus tier (1M alias)
+    description: Real-name copy of cerebras-pro/opus[1m] — Cerebras Pro opus 
+      tier (1M alias)
     strengths: Strong, large context alias
     weaknesses: Requires subscription
 
@@ -8483,7 +8584,8 @@ model_list:
     extra_headers: {anthropic-product: claude_code}
   metadata:
     provider: wafer
-    description: Real-name copy of wafer/fable — Wafer fable tier (Kimi-K3; thinking-only upstream, no effort pin)
+    description: Real-name copy of wafer/fable — Wafer fable tier (Kimi-K3; 
+      thinking-only upstream, no effort pin)
     strengths: Strong coding/agentic, 1M context, vision
     weaknesses: Highest Wafer output price in the live catalog
 
@@ -8524,7 +8626,8 @@ model_list:
     extra_headers: {anthropic-product: claude_code}
   metadata:
     provider: wafer
-    description: Real-name copy of wafer/fable[1m] — Wafer fable tier 1M alias (Kimi-K3; thinking-only upstream)
+    description: Real-name copy of wafer/fable[1m] — Wafer fable tier 1M alias 
+      (Kimi-K3; thinking-only upstream)
     strengths: Claude Code [1m] suffix
     weaknesses: Highest Wafer output price in the live catalog
 
@@ -8566,7 +8669,8 @@ model_list:
     extra_headers: {anthropic-product: claude_code}
   metadata:
     provider: wafer
-    description: Real-name copy of wafer/opus — Wafer opus tier (GLM-5.3-Flash, default max effort)
+    description: Real-name copy of wafer/opus — Wafer opus tier (GLM-5.3-Flash, 
+      default max effort)
     strengths: Flagship depth; client effort overrides still honored
     weaknesses: Pay-as-you-go
 
@@ -8594,7 +8698,8 @@ model_list:
       - high
       default_level: max
     tokens_per_second: 150
-    notes: portfolio discount cluster pricing; flash context reported ~1M (aihubmix/z.ai docs); 200K guaranteed floor
+    notes: portfolio discount cluster pricing; flash context reported ~1M 
+      (aihubmix/z.ai docs); 200K guaranteed floor
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -8611,7 +8716,8 @@ model_list:
     extra_headers: {anthropic-product: claude_code}
   metadata:
     provider: wafer
-    description: Real-name copy of wafer/opus[1m] — Wafer opus tier 1M alias (GLM-5.3-Flash, default max effort)
+    description: Real-name copy of wafer/opus[1m] — Wafer opus tier 1M alias 
+      (GLM-5.3-Flash, default max effort)
     strengths: Claude Code [1m] suffix
     weaknesses: Pay-as-you-go
 
@@ -8639,7 +8745,8 @@ model_list:
       - high
       default_level: max
     tokens_per_second: 150
-    notes: portfolio discount cluster pricing; flash context reported ~1M (aihubmix/z.ai docs); 200K guaranteed floor
+    notes: portfolio discount cluster pricing; flash context reported ~1M 
+      (aihubmix/z.ai docs); 200K guaranteed floor
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -8656,8 +8763,10 @@ model_list:
     extra_headers: {anthropic-product: claude_code}
   metadata:
     provider: wafer
-    description: Real-name copy of wafer/sonnet — Wafer sonnet tier (Qwen3.5-397B-A17B, default high effort)
-    strengths: Daily driver; fast coding MoE; client effort overrides still honored
+    description: Real-name copy of wafer/sonnet — Wafer sonnet tier 
+      (Qwen3.5-397B-A17B, default high effort)
+    strengths: Daily driver; fast coding MoE; client effort overrides still 
+      honored
     weaknesses: 262K context, not 1M; no ZDR; pay-as-you-go
 
     pricing:
@@ -8698,7 +8807,8 @@ model_list:
     extra_headers: {anthropic-product: claude_code}
   metadata:
     provider: wafer
-    description: Real-name copy of wafer/sonnet[1m] — Wafer sonnet tier 1M alias (Qwen3.5-397B-A17B, default high effort)
+    description: Real-name copy of wafer/sonnet[1m] — Wafer sonnet tier 1M alias
+      (Qwen3.5-397B-A17B, default high effort)
     strengths: Prevents [1m] suffix 404s; client effort overrides still honored
     weaknesses: Backend cap is 262K, not 1M; pay-as-you-go
 
@@ -8740,8 +8850,10 @@ model_list:
     extra_headers: {anthropic-product: claude_code}
   metadata:
     provider: wafer
-    description: Real-name copy of wafer/haiku — Wafer haiku tier (DeepSeek-V4-Flash-0731-Fast, default low effort)
-    strengths: Cheapest Wafer tier, 1M context, high throughput; client overrides honored
+    description: Real-name copy of wafer/haiku — Wafer haiku tier 
+      (DeepSeek-V4-Flash-0731-Fast, default low effort)
+    strengths: Cheapest Wafer tier, 1M context, high throughput; client 
+      overrides honored
     weaknesses: Flash quality vs GLM-5.2 / Kimi-K3
 
     pricing:
@@ -8782,7 +8894,8 @@ model_list:
     extra_headers: {anthropic-product: claude_code}
   metadata:
     provider: wafer
-    description: Real-name copy of wafer/haiku[1m] — Wafer haiku tier 1M alias (DeepSeek-V4-Flash-0731-Fast, default low effort)
+    description: Real-name copy of wafer/haiku[1m] — Wafer haiku tier 1M alias 
+      (DeepSeek-V4-Flash-0731-Fast, default low effort)
     strengths: Claude Code [1m] suffix; native 1M context
     weaknesses: Flash quality vs GLM-5.2 / Kimi-K3
 
@@ -8823,7 +8936,8 @@ model_list:
     reasoning_effort: medium
   metadata:
     provider: alibaba
-    description: Real-name copy of alibaba/sonnet[1m] — Alibaba GLM-5.2 1M alias (sonnet tier)
+    description: Real-name copy of alibaba/sonnet[1m] — Alibaba GLM-5.2 1M alias
+      (sonnet tier)
     strengths: Claude Code [1m] suffix; native 1M context
     weaknesses: Text-only
 
@@ -8851,7 +8965,8 @@ model_list:
       - high
       default_level: medium
     tokens_per_second: 80
-    notes: glm priced at z.ai list rate (served via DashScope); subscription plan; list price shown for reference
+    notes: glm priced at z.ai list rate (served via DashScope); subscription 
+      plan; list price shown for reference
     context_window: 1000000
     modalities:
       input: [text, image, video]
@@ -8867,7 +8982,8 @@ model_list:
     reasoning_effort: low
   metadata:
     provider: alibaba
-    description: Real-name copy of alibaba/haiku[1m] — Alibaba Qwen 3.6 Flash 1M alias (haiku tier)
+    description: Real-name copy of alibaba/haiku[1m] — Alibaba Qwen 3.6 Flash 1M
+      alias (haiku tier)
     strengths: Claude Code [1m] suffix; native 1M context
     weaknesses: Less depth than GLM-5.2 / Qwen 3.8
     pricing:

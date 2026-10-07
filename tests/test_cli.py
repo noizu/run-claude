@@ -291,7 +291,6 @@ class TestModelsCommand:
         output = capsys.readouterr().out
         assert "alibaba/qwen3.8-max" in output
         assert "alibaba/deepseek-v4-pro-0813" in output
-        assert "alibaba/qwen3.8-max" in output
         assert "alibaba/qwen3.6-flash" in output
         assert "alibaba/glm-5.2" in output
         assert "alibaba/kimi-k3" in output

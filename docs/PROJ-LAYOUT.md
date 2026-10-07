@@ -41,10 +41,9 @@ run-claude/
 │   └── go-litellm/          #   Go gateway (active release target, git submodule)
 ├── run_claude/              # Main Python package → [layout/run-claude-package.md](layout/run-claude-package.md)
 │   ├── callbacks/           #   Provider compatibility layer (runs in proxy venv)
-│   ├── defaults/            #   Built-in configs (models, profiles, hooks)
+│   ├── explorer.py          #   Model explorer launcher (serve app + open browser)
 │   ├── hooks/               #   Lifecycle hook system
 │   ├── cli.py               #   CLI entry point
-│   ├── explorer.py          #   Model explorer launcher (serve app + open browser)
 │   ├── chat.py              #   Interactive chat client for the local proxy
 │   ├── config.py            #   Secrets & config management
 │   ├── profiles.py          #   Profile loading with fallthrough

@@ -268,6 +268,16 @@ def _find_models_files(debug: bool = False) -> list[Path]:
     return files
 
 
+def _optional_int(value: Any) -> int | None:
+    """Coerce a metadata scalar to int; None for anything malformed."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 @dataclass
 class ModelMetadata:
     """Human-readable model metadata for catalog display."""
@@ -294,11 +304,11 @@ class ModelMetadata:
             pricing=data.get("pricing"),
             limits=data.get("limits"),
             thinking=data.get("thinking"),
-            tokens_per_second=data.get("tokens_per_second"),
+            tokens_per_second=_optional_int(data.get("tokens_per_second")),
             notes=data.get("notes", ""),
-            context_window=data.get("context_window"),
-            modalities=data.get("modalities"),
-            supports_tools=data.get("supports_tools"),
+            context_window=_optional_int(data.get("context_window")),
+            modalities=data.get("modalities") if isinstance(data.get("modalities"), dict) else None,
+            supports_tools=data.get("supports_tools") if isinstance(data.get("supports_tools"), bool) else None,
         )
 
 

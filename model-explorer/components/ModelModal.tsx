@@ -135,7 +135,7 @@ export default function ModelModal({ model, onClose }: { model: Model; onClose: 
             <tbody>
               <tr>
                 <th>Thinking supported</th>
-                <td>{t?.supported ? "yes" : t !== undefined ? "no" : "—"}</td>
+                <td>{t ? (t.supported ? "yes" : "no") : "—"}</td>
               </tr>
               <tr>
                 <th>Thinking levels</th>
@@ -161,13 +161,7 @@ export default function ModelModal({ model, onClose }: { model: Model; onClose: 
               </tr>
               <tr>
                 <th>Output modalities</th>
-                <td>
-                  {model.modalities?.output?.length
-                    ? model.modalities.output.join(", ")
-                    : model.modalities
-                      ? "—"
-                      : "—"}
-                </td>
+                <td>{model.modalities?.output?.length ? model.modalities.output.join(", ") : "—"}</td>
               </tr>
             </tbody>
           </table>

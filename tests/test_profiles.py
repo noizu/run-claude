@@ -367,7 +367,9 @@ def _assert_all_flash_refs_are_flashx(profile_name):
         assert "glm-5.3-flashx" in name, f"non-flashx glm-5.3-flash reference: {name!r}"
 
 
-def test_zai_pro_x_profile_exists_and_uses_flashx():
+def test_zai_pro_x_profile_exists_with_flashx_opus():
+    # FlashX profile: opus tier carries flashx; sonnet/haiku step down to plain
+    # flash for tier variance (extended list stays flashx-only).
     assert "zai-pro-x" in list_profiles()
     inspection = inspect_profile("zai-pro-x")
     assert inspection is not None
