@@ -20,6 +20,11 @@ run-claude/
 ├── docs/                    # Documentation → [layout/docs.md](layout/docs.md)
 ├── helm/                    # Helm charts → [layout/web.md](layout/web.md)
 │   └── run-claude-landing/  #   Landing-site chart (web/ image)
+├── model-explorer/          # Standalone Next.js model/profile catalog app
+│   ├── app/                 #   App-router pages (server component loads YAML)
+│   ├── components/          #   Explorer, model/profile modal cards
+│   ├── lib/                 #   Loader mirroring profiles.py merge logic
+│   └── README.md            #   Run instructions + provenance legend
 ├── hooks/                   # Shell integration (bash/zsh hooks, installer)
 │   ├── bash_hook.sh         #   Bash PROMPT_COMMAND hook
 │   ├── zsh_hook.zsh         #   Zsh precmd hook
@@ -39,6 +44,7 @@ run-claude/
 │   ├── defaults/            #   Built-in configs (models, profiles, hooks)
 │   ├── hooks/               #   Lifecycle hook system
 │   ├── cli.py               #   CLI entry point
+│   ├── explorer.py          #   Model explorer launcher (serve app + open browser)
 │   ├── chat.py              #   Interactive chat client for the local proxy
 │   ├── config.py            #   Secrets & config management
 │   ├── profiles.py          #   Profile loading with fallthrough

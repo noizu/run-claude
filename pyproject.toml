@@ -34,6 +34,9 @@ packages = ["run_claude"]
 "profiles.yaml" = "run_claude/profiles.yaml"
 "templates" = "run_claude/templates"
 "dep" = "run_claude/dep"
+# Next.js app source (no node_modules/.next in a clean checkout; build it in a
+# clean tree if you've run `npm install` locally to avoid bloating the wheel).
+"model-explorer" = "run_claude/model-explorer"
 
 [dependency-groups]
 dev = [
