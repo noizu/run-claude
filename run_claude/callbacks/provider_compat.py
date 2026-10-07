@@ -127,7 +127,7 @@ def _is_strict_provider(model: str) -> bool:
     """Check if the model belongs to a strict provider.
 
     Handles both litellm model strings (e.g., 'cerebras/zai-glm-4.7')
-    and model group names (e.g., 'cerebras-pro/opus') by checking if
+    and model group names (e.g., 'cerebras-pro/glm-4.7') by checking if
     the extracted provider starts with any known strict provider name.
     """
     provider = _get_provider_from_model(model)

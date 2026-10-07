@@ -34,9 +34,17 @@ packages = ["run_claude"]
 "profiles.yaml" = "run_claude/profiles.yaml"
 "templates" = "run_claude/templates"
 "dep" = "run_claude/dep"
-# Next.js app source (no node_modules/.next in a clean checkout; build it in a
-# clean tree if you've run `npm install` locally to avoid bloating the wheel).
-"model-explorer" = "run_claude/model-explorer"
+# Next.js app source — explicit file list so node_modules/.next from a local
+# npm install/build can never leak into the wheel (force-include is recursive
+# and hatch applies no excludes to it).
+"model-explorer/app" = "run_claude/model-explorer/app"
+"model-explorer/components" = "run_claude/model-explorer/components"
+"model-explorer/lib" = "run_claude/model-explorer/lib"
+"model-explorer/package.json" = "run_claude/model-explorer/package.json"
+"model-explorer/package-lock.json" = "run_claude/model-explorer/package-lock.json"
+"model-explorer/tsconfig.json" = "run_claude/model-explorer/tsconfig.json"
+"model-explorer/next.config.ts" = "run_claude/model-explorer/next.config.ts"
+"model-explorer/README.md" = "run_claude/model-explorer/README.md"
 
 [dependency-groups]
 dev = [

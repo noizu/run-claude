@@ -14,6 +14,10 @@ export default function Explorer({ data }: { data: ExplorerData }) {
   const [tab, setTab] = useState<"models" | "profiles">("models");
   const [query, setQuery] = useState("");
   const [providers, setProviders] = useState<Set<string>>(new Set());
+  const [think, setThink] = useState<"any" | "yes" | "no">("any");
+  const [tools, setTools] = useState<"any" | "yes">("any");
+  const [modalities, setModalities] = useState<Set<string>>(new Set());
+  const [ctxMin, setCtxMin] = useState<number | null>(null);
   // Modal stack enables dig-down: profile → model → (nothing deeper today).
   const [stack, setStack] = useState<ModalState[]>([]);
 
@@ -39,12 +43,19 @@ export default function Explorer({ data }: { data: ExplorerData }) {
 
   const filteredModels = useMemo(
     () =>
-      data.models.filter(
-        (m) =>
-          (providers.size === 0 || providers.has(m.provider)) && matchesModel(m),
-      ),
+      data.models.filter((m) => {
+        if (providers.size !== 0 && !providers.has(m.provider)) return false;
+        if (think !== "any" && (m.thinking?.supported === true) !== (think === "yes")) return false;
+        if (tools === "yes" && m.supports_tools !== true) return false;
+        if (modalities.size !== 0) {
+          const inMods = m.modalities?.input ?? [];
+          for (const want of modalities) if (!inMods.includes(want)) return false;
+        }
+        if (ctxMin !== null && (m.context_window ?? 0) < ctxMin) return false;
+        return matchesModel(m);
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data.models, providers, q],
+    [data.models, providers, think, tools, modalities, ctxMin, q],
   );
 
   const filteredProfiles = useMemo(() => {
@@ -65,6 +76,14 @@ export default function Explorer({ data }: { data: ExplorerData }) {
       const next = new Set(prev);
       if (next.has(p)) next.delete(p);
       else next.add(p);
+      return next;
+    });
+
+  const toggleModality = (mod: string) =>
+    setModalities((prev) => {
+      const next = new Set(prev);
+      if (next.has(mod)) next.delete(mod);
+      else next.add(mod);
       return next;
     });
 
@@ -118,17 +137,62 @@ export default function Explorer({ data }: { data: ExplorerData }) {
       </div>
 
       {tab === "models" && (
-        <div className="chips">
-          {providerList.map(([p, n]) => (
-            <button
-              key={p}
-              className={`chip ${providers.has(p) ? "on" : ""}`}
-              onClick={() => toggleProvider(p)}
+        <>
+          <div className="chips">
+            {providerList.map(([p, n]) => (
+              <button
+                key={p}
+                className={`chip ${providers.has(p) ? "on" : ""}`}
+                onClick={() => toggleProvider(p)}
+              >
+                {p} · {n}
+              </button>
+            ))}
+          </div>
+          <div className="chips facetbar">
+            <span className="facet-label">filters</span>
+            <select
+              className="select"
+              value={think}
+              onChange={(e) => setThink(e.target.value as "any" | "yes" | "no")}
+              aria-label="Filter by thinking support"
             >
-              {p} · {n}
-            </button>
-          ))}
-        </div>
+              <option value="any">thinking: any</option>
+              <option value="yes">thinking: supported</option>
+              <option value="no">thinking: no</option>
+            </select>
+            <select
+              className="select"
+              value={tools}
+              onChange={(e) => setTools(e.target.value as "any" | "yes")}
+              aria-label="Filter by tool support"
+            >
+              <option value="any">tools: any</option>
+              <option value="yes">tools: supported</option>
+            </select>
+            <select
+              className="select"
+              value={ctxMin ?? ""}
+              onChange={(e) => setCtxMin(e.target.value ? Number(e.target.value) : null)}
+              aria-label="Filter by minimum context window"
+            >
+              <option value="">context: any</option>
+              <option value={32000}>context ≥ 32K</option>
+              <option value={128000}>context ≥ 128K</option>
+              <option value={200000}>context ≥ 200K</option>
+              <option value={1000000}>context ≥ 1M</option>
+            </select>
+            {["image", "audio", "video"].map((mod) => (
+              <button
+                key={mod}
+                className={`chip ${modalities.has(mod) ? "on" : ""}`}
+                onClick={() => toggleModality(mod)}
+              >
+                in: {mod}
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
       {tab === "models" ? (
@@ -140,6 +204,14 @@ export default function Explorer({ data }: { data: ExplorerData }) {
                 <ProviderBadge model={m} />
                 <SourceBadge model={m} />
                 {m.thinking?.supported && <span className="badge think">thinking</span>}
+                {m.supports_tools && <span className="badge tools">tools</span>}
+                {["image", "audio", "video"].map((mod) =>
+                  m.modalities?.input?.includes(mod) ? (
+                    <span key={mod} className="badge modality">
+                      {mod}
+                    </span>
+                  ) : null,
+                )}
                 {m.synthesized && <span className="badge synth">clone</span>}
                 {m.overridden && <span className="badge override">override</span>}
               </div>

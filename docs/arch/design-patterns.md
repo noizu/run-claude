@@ -68,7 +68,7 @@ ctx = await chain.execute(ctx)
 
 ## 8. Strict Provider Detection
 
-`_is_strict_provider(model)` handles both litellm model strings (e.g., `cerebras/zai-glm-4.7`) and model group names (e.g., `cerebras-pro/opus`) by extracting the provider prefix and checking against `STRICT_PROVIDERS`. This replaced direct set membership checks throughout `provider_compat.py`.
+`_is_strict_provider(model)` handles both litellm model strings (e.g., `cerebras/zai-glm-4.7`) and model group names (e.g., `cerebras-pro/glm-4.7`) by extracting the provider prefix and checking against `STRICT_PROVIDERS`. This replaced direct set membership checks throughout `provider_compat.py`.
 
 ```python
 def _is_strict_provider(model: str) -> bool:

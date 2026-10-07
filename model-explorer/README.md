@@ -37,7 +37,9 @@ Model pricing/throughput metadata carries a `source` badge:
 | free | $0 (local, free tiers) |
 
 Enriched values live in `run_claude/models.yaml` under `metadata.pricing`,
-`metadata.limits`, `metadata.thinking`, `metadata.tokens_per_second`.
+`metadata.limits`, `metadata.thinking`, `metadata.context_window`,
+`metadata.modalities` (input/output: text/image/audio/video),
+`metadata.supports_tools`, and `metadata.tokens_per_second`.
 
 ## Run
 

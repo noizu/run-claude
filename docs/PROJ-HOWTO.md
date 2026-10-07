@@ -83,7 +83,7 @@ Task-oriented guides for the things you'll actually do with `run-claude`. For *w
 **Gotchas:**
 - `keys switch zai tyna` does **not** move `zai-alt/*`. Each family is independent.
 - Concurrent quota only doubles if `ZAI_SUB_KEY` and `ZAI_SUB_KEY_TYNA` are actually different accounts. Same value in both env vars means two groups, one quota.
-- `zai-tyna/*` catalog copies still exist as hardcoded Tyna SKUs on `zai-pro`'s picker; the switchable clone is `zai-alt/*`.
+- Tyna SKUs live under the switchable `zai-alt/*` clone family (keyed `ZAI_SUB_KEY_TYNA`); the old `zai-tyna/*` tier aliases were removed.
 
 ## Recurring Workflow
 
