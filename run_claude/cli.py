@@ -180,6 +180,15 @@ def main() -> int:
     secrets_sub.add_parser("path", help="Show secrets file path")
     secrets_sub.add_parser("export", help="Export secrets to .env file for docker compose")
 
+    # explorer - serve the model explorer web app
+    explorer_p = subparsers.add_parser(
+        "explorer",
+        help="Serve the model explorer web app and open it in a browser (Ctrl-C/Ctrl-D stops it)",
+    )
+    explorer_p.add_argument("--port", type=int, default=3312, help="Port to serve on (default: 3312)")
+    explorer_p.add_argument("--dev", action="store_true", help="Run the Next.js dev server instead of a production build")
+    explorer_p.add_argument("--no-open", dest="no_open", action="store_true", help="Do not open a browser tab")
+
     args = parser.parse_args()
 
     if args.kitchen_sink:
@@ -230,6 +239,10 @@ def main() -> int:
         return cmd_install(args)
     elif args.command == "secrets":
         return cmd_secrets(args)
+    elif args.command == "explorer":
+        from .explorer import cmd_explorer
+
+        return cmd_explorer(args)
     else:
         parser.print_help()
         return 1

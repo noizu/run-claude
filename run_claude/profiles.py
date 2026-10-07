@@ -275,6 +275,11 @@ class ModelMetadata:
     strengths: str = ""
     weaknesses: str = ""
     provider: str = ""
+    pricing: dict[str, Any] | None = None
+    limits: dict[str, Any] | None = None
+    thinking: dict[str, Any] | None = None
+    tokens_per_second: int | None = None
+    notes: str = ""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ModelMetadata:
@@ -283,6 +288,11 @@ class ModelMetadata:
             strengths=data.get("strengths", ""),
             weaknesses=data.get("weaknesses", ""),
             provider=data.get("provider", ""),
+            pricing=data.get("pricing"),
+            limits=data.get("limits"),
+            thinking=data.get("thinking"),
+            tokens_per_second=data.get("tokens_per_second"),
+            notes=data.get("notes", ""),
         )
 
 
