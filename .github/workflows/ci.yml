@@ -93,7 +93,8 @@ jobs:
           push: false
           tags: run-claude-landing:ci
           cache-from: type=gha,scope=web
-          cache-to: type=gha,scope=web,mode=max
+          # PRs restore only; develop/main pushes export (stops PR cache churn).
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,scope=web,mode=max' || '' }}
       - name: Probe /healthz and hero content
         run: |
           docker run -d --name rc-landing -p 8150:8150 run-claude-landing:ci
