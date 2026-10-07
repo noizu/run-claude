@@ -147,7 +147,8 @@ def test_inspect_zai_pro_instances(monkeypatch, tmp_path):
         inspection = inspect_profile("zai-pro")
         assert inspection is not None
         assert inspection.tiers["fable"].internal_name == "anthropic/glm-5.3"
-        assert inspection.tiers["opus"].internal_name == "anthropic/glm-5.3-flash"
+        # bde56bd: zai-pro opus = glm-5.3 (opus-equivalent), not flash.
+        assert inspection.tiers["opus"].internal_name == "anthropic/glm-5.3"
         assert inspection.tiers["opus"].key_env == "ZAI_SUB_KEY"
         assert inspection.tiers["opus"].instance == "zai"
         assert inspection.tiers["haiku"].model_name == "zai/glm-5.3-flash (sub)"

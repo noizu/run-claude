@@ -16,3 +16,6 @@ config :logger, level: :info
 
 # Runtime overrides (PORT / BIND_IP / PHX_HOST) — prod only, see runtime.exs.
 import_config "runtime.exs"
+
+# Test overrides (no HTTP listener) — test.exs was previously never imported.
+if config_env() == :test, do: import_config("test.exs")

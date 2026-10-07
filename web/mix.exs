@@ -9,6 +9,8 @@ defmodule RunClaudeWeb.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: Mix.compilers() ++ [:hologram],
       start_permanent: Mix.env() == :prod,
+      # Coverage gate = floor(acceptance line %) - 5 (measured 85% on 2026-10-07).
+      test_coverage: [summary: [threshold: 80]],
       deps: deps()
     ]
   end
