@@ -47,10 +47,7 @@ run_claude/
 ├── state.py         # JSON state persistence: tokens, refcounts, leases, janitor
 ├── proxy.py         # LiteLLM proxy lifecycle: start/stop, health, model API calls
 ├── profiles.py      # Profile/model loading & resolution from YAML
-├── defaults/
-│   ├── models.yaml  # Built-in model definitions (LiteLLM configs)
-│   ├── profiles.yaml# Built-in profile definitions
-│   └── hooks.yaml   # Built-in hook definitions
+├── explorer.py      # Model explorer launcher (serve app + open browser)
 ├── callbacks/
 │   └── provider_compat.py  # Custom LiteLLM callback: strips unsupported fields
 │                            # for strict providers (Groq, Cerebras, Together, Anyscale)
@@ -103,7 +100,7 @@ run_claude/
 
 - Entry point: `run_claude.cli:main` (registered as `run-claude` console script)
 - Lazy imports in `proxy.py` (`httpx`, `yaml`) with fallback to `None` for build-time safety
-- `defaults/` (containing `profiles.yaml`, `models.yaml`, `hooks.yaml`) and `templates/` are force-included in the wheel via hatch config
+- `templates/` is force-included in the wheel via hatch config (the stale `defaults/` copies of profiles/models were removed — the loader reads `run_claude/models.yaml` and the repo-root `profiles.yaml` only)
 - `callbacks/provider_compat.py` runs inside the LiteLLM proxy process (separate venv at `~/.local/share/litellm/.venv`), not the main run-claude process
 - First-run initialization: `ensure_initialized()` checks `~/.config/run-claude/.initialized` marker, copies built-in profiles/models to user config if missing
 

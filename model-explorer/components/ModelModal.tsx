@@ -106,6 +106,10 @@ export default function ModelModal({ model, onClose }: { model: Model; onClose: 
           <table className="attrs">
             <tbody>
               <tr>
+                <th>Context window</th>
+                <td className="num">{fmtTokens(model.context_window)}</td>
+              </tr>
+              <tr>
                 <th>Max input tokens</th>
                 <td className="num">{fmtTokens(l?.max_input_tokens)}</td>
               </tr>
@@ -121,9 +125,17 @@ export default function ModelModal({ model, onClose }: { model: Model; onClose: 
                 <th>Throughput (estimated)</th>
                 <td className="num">{fmtTps(model.tokens_per_second)}</td>
               </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h3>Capabilities</h3>
+          <table className="attrs">
+            <tbody>
               <tr>
                 <th>Thinking supported</th>
-                <td>{t?.supported ? "yes" : l ? "no" : "—"}</td>
+                <td>{t ? (t.supported ? "yes" : "no") : "—"}</td>
               </tr>
               <tr>
                 <th>Thinking levels</th>
@@ -132,6 +144,24 @@ export default function ModelModal({ model, onClose }: { model: Model; onClose: 
               <tr>
                 <th>Default thinking level</th>
                 <td>{t?.default_level ?? "—"}</td>
+              </tr>
+              <tr>
+                <th>Tool / function calling</th>
+                <td>
+                  {model.supports_tools === true
+                    ? "supported"
+                    : model.supports_tools === false
+                      ? "not supported"
+                      : "—"}
+                </td>
+              </tr>
+              <tr>
+                <th>Input modalities</th>
+                <td>{model.modalities?.input?.length ? model.modalities.input.join(", ") : "—"}</td>
+              </tr>
+              <tr>
+                <th>Output modalities</th>
+                <td>{model.modalities?.output?.length ? model.modalities.output.join(", ") : "—"}</td>
               </tr>
             </tbody>
           </table>
