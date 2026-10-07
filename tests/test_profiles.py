@@ -298,8 +298,9 @@ def test_inspect_zai_pro_key_sets(monkeypatch, tmp_path):
     assert families["zai"].key_env == "ZAI_SUB_KEY"
     assert families["zai"].instance == "zai"
     assert families["zai"].override == ""
-    assert "zai-tyna" in families
-    assert families["zai-tyna"].key_env == "ZAI_SUB_KEY_TYNA"
+    # zai-tyna tier aliases were removed (its SKUs live under zai-alt clones);
+    # zai-pro binds zai/* slots plus zai-alt/zai-oa SKUs via its extended list.
+    assert "zai-tyna" not in families
 
 
 def test_inspect_zai_pro_alt_key_sets(monkeypatch, tmp_path):
