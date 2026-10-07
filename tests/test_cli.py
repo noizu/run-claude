@@ -372,6 +372,13 @@ class TestModelOverrides:
         assert inject_model_overrides(cmd, p, "wafer") == cmd
         assert "WARNING" in capsys.readouterr().err
 
+    def test_injection_is_opt_in(self, monkeypatch):
+        from run_claude.agent_runner import model_overrides_enabled
+        monkeypatch.delenv("RUN_CLAUDE_MODEL_OVERRIDES", raising=False)
+        assert model_overrides_enabled() is False
+        monkeypatch.setenv("RUN_CLAUDE_MODEL_OVERRIDES", "1")
+        assert model_overrides_enabled() is True
+
     def test_extra_builtin_ids_from_env(self, monkeypatch):
         from run_claude.agent_runner import build_model_overrides
         monkeypatch.setenv("RUN_CLAUDE_EXTRA_BUILTIN_IDS", "claude-fable-6=fable, bogus=nope")

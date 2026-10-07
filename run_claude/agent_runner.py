@@ -84,6 +84,14 @@ def build_model_overrides(profile) -> dict[str, str]:
     return overrides
 
 
+def model_overrides_enabled() -> bool:
+    """modelOverrides injection is opt-in: set RUN_CLAUDE_MODEL_OVERRIDES=1.
+
+    Default is off so launches use only the ANTHROPIC_DEFAULT_*_MODEL env vars.
+    """
+    return os.environ.get("RUN_CLAUDE_MODEL_OVERRIDES", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _extra_builtin_slots() -> dict[str, str]:
     """Extra built-in IDs from RUN_CLAUDE_EXTRA_BUILTIN_IDS="id=slot,id=slot".
 
@@ -247,7 +255,7 @@ def cmd_run_agent(
 
     # Determine command to run
     cmd = args.cmd if args.cmd else agent_config.default_cmd
-    if agent_config.agent_name == "claude":
+    if agent_config.agent_name == "claude" and model_overrides_enabled():
         cmd = inject_model_overrides(list(cmd), profile, profile_name)
 
     # Print status (reuse existing function if needed)
