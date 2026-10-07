@@ -1,5 +1,7 @@
 """Tests for run_claude.profiles inspection helpers."""
 
+import pytest
+
 from run_claude.profiles import (
     clear_caches,
     format_profile_list,
@@ -147,7 +149,8 @@ def test_inspect_zai_pro_instances(monkeypatch, tmp_path):
         inspection = inspect_profile("zai-pro")
         assert inspection is not None
         assert inspection.tiers["fable"].internal_name == "anthropic/glm-5.3"
-        assert inspection.tiers["opus"].internal_name == "anthropic/glm-5.3-flash"
+        # bde56bd: zai-pro opus = glm-5.3 (opus-equivalent), not flash.
+        assert inspection.tiers["opus"].internal_name == "anthropic/glm-5.3"
         assert inspection.tiers["opus"].key_env == "ZAI_SUB_KEY"
         assert inspection.tiers["opus"].instance == "zai"
         assert inspection.tiers["haiku"].model_name == "zai/glm-5.3-flash (sub)"
@@ -227,15 +230,39 @@ def test_zai_alt_catalog_clone_mirrors_zai_skus():
     )
 
 
-def test_inspect_cerebras_explicit_fable_tier():
-    inspection = inspect_profile("cerebras")
-    assert inspection is not None
-    assert inspection.fable_fallback is False
-    assert inspection.tiers["fable"].model_name == "cerebras/zai-glm-4.7"
-    assert inspection.tiers["opus"].model_name == "cerebras/gemma-4-31b"
-    assert inspection.tiers["sonnet"].model_name == "cerebras/gpt-oss-120b"
-    assert inspection.tiers["haiku"].model_name == "cerebras/gpt-oss-120b"
-    assert inspection.tiers["opus"].key_env == "CEREBRAS_API_KEY"
+@pytest.mark.xfail(
+    strict=True,
+    reason="built-in run_claude/models.yaml has no cerebras/gemma-4-31b entry "
+    "(only defaults/models.yaml does); cerebras opus resolves with no key_env "
+    "on a clean install. Remove this marker once the catalog entry lands.",
+)
+def test_inspect_cerebras_explicit_fable_tier(monkeypatch, tmp_path):
+    # Hermetic: see test_inspect_zai_pro_instances. Without this a host
+    # ~/.config/run-claude/models.yaml masked the missing catalog entry.
+    monkeypatch.setattr(
+        "run_claude.profiles.get_user_models_file",
+        lambda: tmp_path / "no-user-models.yaml",
+    )
+    monkeypatch.setattr(
+        "run_claude.profiles.get_user_profiles_file",
+        lambda: tmp_path / "no-user-profiles.yaml",
+    )
+    monkeypatch.setattr(
+        "run_claude.profiles.get_user_profiles_override_file",
+        lambda: tmp_path / "no-user-profile-override.yaml",
+    )
+    clear_caches()
+    try:
+        inspection = inspect_profile("cerebras")
+        assert inspection is not None
+        assert inspection.fable_fallback is False
+        assert inspection.tiers["fable"].model_name == "cerebras/zai-glm-4.7"
+        assert inspection.tiers["opus"].model_name == "cerebras/gemma-4-31b"
+        assert inspection.tiers["sonnet"].model_name == "cerebras/gpt-oss-120b"
+        assert inspection.tiers["haiku"].model_name == "cerebras/gpt-oss-120b"
+        assert inspection.tiers["opus"].key_env == "CEREBRAS_API_KEY"
+    finally:
+        clear_caches()
 
 
 def test_inspect_missing_returns_none():

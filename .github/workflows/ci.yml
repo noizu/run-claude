@@ -1,31 +1,89 @@
 name: CI
 
 # Landing image (context: web/ — server-rendered Phoenix/Hologram on Bandit).
-# PR: docker smoke (boot container, probe /healthz + hero content).
-# main: push sha-* to ops.noizu.com then bump helm [skip ci].
+# PR: python-test (CLI pytest) + web-test (landing ExUnit) + docker smoke, in parallel.
+# develop push: same jobs — seeds develop-ref caches that feature PRs can restore.
+# main: push sha-* to ops.noizu.com (gated on all tests) then bump helm [skip ci].
 # ArgoCD auto-syncs helm/run-claude-landing @ main.
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
   workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel release pushes.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   REGISTRY: ops.noizu.com
   IMAGE: ops.noizu.com/run-claude.therobotlives.com/web
 
 jobs:
+  python-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install deps
+        run: uv sync --group dev --frozen
+      # Gate = floor(acceptance line %) - 5 (measured 40% on 2026-10-07).
+      - name: pytest + coverage gate
+        run: uv run pytest -q --cov --cov-report=term --cov-report=xml --cov-fail-under=35
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-coverage
+          path: coverage.xml
+          if-no-files-found: ignore
+
+  web-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    env:
+      MIX_ENV: test
+      # Hologram routes 404 in :test unless this is set.
+      HOLOGRAM_START: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        id: beam
+        with:
+          version-file: web/.tool-versions
+          version-type: strict
+      - uses: actions/cache@v4
+        with:
+          path: |
+            web/deps
+            web/_build
+          key: ${{ runner.os }}-mix-${{ steps.beam.outputs.otp-version }}-${{ steps.beam.outputs.elixir-version }}-${{ hashFiles('web/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-${{ steps.beam.outputs.otp-version }}-${{ steps.beam.outputs.elixir-version }}-
+      - run: mix deps.get
+      - run: mix compile
+      # threshold lives in mix.exs test_coverage.
+      - run: mix test --cover
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-coverage
+          path: web/cover
+          if-no-files-found: ignore
+
   smoke:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      # load:true cannot export type=gha cache; cache-from only.
+      # Exports the gha cache too: build-push never ran (missing registry
+      # secrets), so cache-from-only meant every build was cold.
       - name: Build landing image
         uses: docker/build-push-action@v6
         with:
@@ -35,6 +93,7 @@ jobs:
           push: false
           tags: run-claude-landing:ci
           cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
       - name: Probe /healthz and hero content
         run: |
           docker run -d --name rc-landing -p 8150:8150 run-claude-landing:ci
@@ -55,7 +114,7 @@ jobs:
 
   build-push:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [smoke]
+    needs: [smoke, python-test, web-test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
