@@ -331,19 +331,50 @@ class TestModelOverrides:
                           sonnet_model="claude-sonnet-5", haiku_model="claude-haiku-4-5-20251001")
         assert build_model_overrides(p) == {}
 
-    def test_inject_adds_settings_flag_for_claude_only(self, tmp_path, monkeypatch):
+    def test_inject_adds_inline_settings_for_claude_only(self, tmp_path, monkeypatch):
         import json
         from run_claude.agent_runner import inject_model_overrides
         monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
         p = self._profile(opus_model="wafer/opus")
         cmd = inject_model_overrides(["claude", "--resume"], p, "wafer")
         assert cmd[:2] == ["claude", "--settings"] and cmd[3] == "--resume"
-        data = json.loads((tmp_path / "run-claude" / "claude-settings.wafer.json").read_text())
-        assert data["modelOverrides"]["claude-opus-5-5"] == "wafer/opus"
+        assert json.loads(cmd[2])["modelOverrides"]["claude-opus-5-5"] == "wafer/opus"
+        assert not list(tmp_path.iterdir()), "nothing should be written to disk"
         assert inject_model_overrides(["opencode"], p, "wafer") == ["opencode"]
 
-    def test_inject_respects_user_settings_flag(self):
+    def test_inject_merges_user_inline_settings(self):
+        import json
         from run_claude.agent_runner import inject_model_overrides
         p = self._profile(opus_model="wafer/opus")
-        cmd = ["claude", "--settings", "x.json"]
+        user = json.dumps({"permissions": {"allow": ["Bash(ls)"]},
+                           "modelOverrides": {"claude-opus-5-5": "mine/opus"}})
+        cmd = inject_model_overrides(["claude", "--settings", user, "-p", "hi"], p, "wafer")
+        assert cmd.count("--settings") == 1 and cmd[-2:] == ["-p", "hi"]
+        data = json.loads(cmd[cmd.index("--settings") + 1])
+        assert data["permissions"] == {"allow": ["Bash(ls)"]}
+        assert data["modelOverrides"]["claude-opus-5-5"] == "mine/opus"  # user wins
+        assert data["modelOverrides"]["claude-fable-5-1"] == "wafer/opus"  # fable falls back to opus
+
+    def test_inject_merges_user_settings_file_and_equals_form(self, tmp_path):
+        import json
+        from run_claude.agent_runner import inject_model_overrides
+        f = tmp_path / "s.json"
+        f.write_text(json.dumps({"model": "sonnet"}))
+        p = self._profile(opus_model="wafer/opus")
+        cmd = inject_model_overrides(["claude", f"--settings={f}"], p, "wafer")
+        data = json.loads(cmd[2])
+        assert data["model"] == "sonnet" and "claude-opus-5-5" in data["modelOverrides"]
+
+    def test_inject_unparseable_user_settings_warns_and_leaves_cmd(self, capsys):
+        from run_claude.agent_runner import inject_model_overrides
+        p = self._profile(opus_model="wafer/opus")
+        cmd = ["claude", "--settings", "/nonexistent/x.json"]
         assert inject_model_overrides(cmd, p, "wafer") == cmd
+        assert "WARNING" in capsys.readouterr().err
+
+    def test_extra_builtin_ids_from_env(self, monkeypatch):
+        from run_claude.agent_runner import build_model_overrides
+        monkeypatch.setenv("RUN_CLAUDE_EXTRA_BUILTIN_IDS", "claude-fable-6=fable, bogus=nope")
+        p = self._profile(fable_model="wafer/fable")
+        o = build_model_overrides(p)
+        assert o["claude-fable-6"] == "wafer/fable" and "bogus" not in o

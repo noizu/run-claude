@@ -343,6 +343,12 @@ class ProfileMeta:
         """Claude Code fable alias; falls back to opus when fable_model is omitted."""
         return self.fable_model or self.opus_model
 
+    def slot_model(self, slot: str) -> str:
+        """Model for a Claude tier slot ('fable'|'opus'|'sonnet'|'haiku'); '' if unset."""
+        if slot == "fable":
+            return self.effective_fable_model()
+        return {"opus": self.opus_model, "sonnet": self.sonnet_model, "haiku": self.haiku_model}.get(slot, "")
+
 
 def _profile_meta_from_data(name: str, data: dict[str, Any]) -> ProfileMeta:
     """Build ProfileMeta from either the new (flat) or legacy ({meta: ...}) YAML shape."""

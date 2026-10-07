@@ -73,15 +73,10 @@ def build_model_overrides(profile) -> dict[str, str]:
     Slots whose profile model is itself a real `claude-*` ID (e.g. the anthropic
     profile) are left alone so they keep passing through to Anthropic.
     """
-    slots = {
-        "fable": profile.meta.effective_fable_model(),
-        "opus": profile.meta.opus_model,
-        "sonnet": profile.meta.sonnet_model,
-        "haiku": profile.meta.haiku_model,
-    }
+    slot_ids = {**BUILTIN_CLAUDE_MODEL_SLOTS, **_extra_builtin_slots()}
     overrides: dict[str, str] = {}
-    for model_id, slot in BUILTIN_CLAUDE_MODEL_SLOTS.items():
-        target = slots.get(slot)
+    for model_id, slot in slot_ids.items():
+        target = profile.meta.slot_model(slot)
         if not target or target.startswith("claude-"):
             continue
         overrides[model_id] = target
@@ -89,30 +84,68 @@ def build_model_overrides(profile) -> dict[str, str]:
     return overrides
 
 
-def write_claude_settings(profile_name: str, overrides: dict[str, str]) -> Path:
-    """Write a per-profile settings file carrying modelOverrides; returns its path."""
+def _extra_builtin_slots() -> dict[str, str]:
+    """Extra built-in IDs from RUN_CLAUDE_EXTRA_BUILTIN_IDS="id=slot,id=slot".
+
+    Lets a newly shipped Claude Code model ID be remapped immediately, without
+    waiting for a run-claude release to extend BUILTIN_CLAUDE_MODEL_SLOTS.
+    """
+    extra: dict[str, str] = {}
+    for item in os.environ.get("RUN_CLAUDE_EXTRA_BUILTIN_IDS", "").split(","):
+        model_id, _, slot = item.strip().partition("=")
+        if model_id and slot in ("fable", "opus", "sonnet", "haiku"):
+            extra[model_id] = slot
+    return extra
+
+
+def _split_user_settings(cmd: list[str]) -> tuple[list[str], dict | None]:
+    """Remove the user's first --settings arg; return (rest, parsed settings or None).
+
+    Accepts inline JSON or a file path. Raises ValueError if it can't be parsed.
+    """
     import json
 
-    state_home = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state")
-    path = state_home / "run-claude" / f"claude-settings.{profile_name}.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"modelOverrides": overrides}, indent=2) + "\n")
-    return path
+    for i, arg in enumerate(cmd):
+        if arg == "--settings" and i + 1 < len(cmd):
+            value, rest = cmd[i + 1], cmd[:i] + cmd[i + 2:]
+        elif arg.startswith("--settings="):
+            value, rest = arg.split("=", 1)[1], cmd[:i] + cmd[i + 1:]
+        else:
+            continue
+        text = value if value.lstrip().startswith("{") else Path(value).expanduser().read_text()
+        data = json.loads(text)
+        if not isinstance(data, dict):
+            raise ValueError("--settings must be a JSON object")
+        return rest, data
+    return cmd, None
 
 
 def inject_model_overrides(cmd: list[str], profile, profile_name: str) -> list[str]:
-    """Add `--settings <file>` with modelOverrides when launching claude."""
+    """Add per-launch `--settings '<inline json>'` carrying modelOverrides to claude.
+
+    Nothing is written to disk. A user-supplied --settings (inline or file) is
+    merged: its other keys are kept and its own modelOverrides entries win.
+    """
+    import json
+
     if not cmd or Path(cmd[0]).name != "claude":
-        return cmd
-    if any(a == "--settings" or a.startswith("--settings=") for a in cmd):
-        print("[MODEL_OVERRIDES] --settings already supplied; not injecting", file=sys.stderr)
         return cmd
     overrides = build_model_overrides(profile)
     if not overrides:
         return cmd
-    settings_path = write_claude_settings(profile_name, overrides)
-    print(f"[MODEL_OVERRIDES] {len(overrides)} entries -> {settings_path}", file=sys.stderr)
-    return [cmd[0], "--settings", str(settings_path), *cmd[1:]]
+    try:
+        rest, user_settings = _split_user_settings(cmd[1:])
+    except (OSError, ValueError) as e:
+        print(f"[MODEL_OVERRIDES] WARNING: cannot merge your --settings ({e}); "
+              "built-in claude-* IDs may leak to api.anthropic.com for this launch",
+              file=sys.stderr)
+        return cmd
+    merged = dict(user_settings or {})
+    merged["modelOverrides"] = {**overrides, **(merged.get("modelOverrides") or {})}
+    print(f"[MODEL_OVERRIDES] {len(merged['modelOverrides'])} entries "
+          f"(profile {profile_name}{', merged with --settings' if user_settings else ''})",
+          file=sys.stderr)
+    return [cmd[0], "--settings", json.dumps(merged, separators=(",", ":")), *rest]
 
 
 def build_env_vars_openai(profile, proxy_url: str, api_key: str) -> dict[str, str]:
