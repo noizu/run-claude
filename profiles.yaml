@@ -47,10 +47,10 @@ cerebras:
 
 groq-pro:
   name: "Groq Equivalent"
-  fable_model: "groq/fable"
-  opus_model: "groq/opus"
-  sonnet_model: "groq/sonnet"
-  haiku_model: "groq/haiku"
+  fable_model: "groq-qwen3.6-27b"
+  opus_model: "groq/gpt-oss-120b (high)"
+  sonnet_model: "groq/gpt-oss-120b (medium)"
+  haiku_model: "groq/gpt-oss-20b (low)"
   # Claude Code v2.1.116+ appends "[1m]" for the 1M-context variants; register
   # aliases so those requests route instead of 404ing. Llama 3/4, Kimi K2, and
   # Qwen3-32b were shut down on Groq (2026); the live catalog is GPT-OSS,
@@ -60,6 +60,10 @@ groq-pro:
     - "groq/sonnet[1m]"
     - "groq/haiku[1m]"
     - "groq/fable[1m]"
+    - "groq-qwen3.6-27b[1m]"
+    - "groq/gpt-oss-120b (high)[1m]"
+    - "groq/gpt-oss-120b (medium)[1m]"
+    - "groq/gpt-oss-20b (low)[1m]"
     - "groq-compound"
     - "groq-compound-mini"
     - "groq-qwen3.6-27b"
@@ -111,10 +115,12 @@ zai-pro:
 zai-alt: &zai-alt-profile
   name: "Zai Subscription (Alt)"
   opus_model: "zai-alt/glm-5.3"
-  sonnet_model: "zai-alt/sonnet"
+  sonnet_model: "zai-alt/glm-5.3-flash"
   haiku_model: "zai-alt/glm-5.3-flash"
-  fable_model: "zai-alt/fable"
+  fable_model: "zai-alt/glm-5.3"
   extended:
+    - "zai-alt/glm-5.3[1m]"
+    - "zai-alt/glm-5.3-flash[1m]"
     - "zai-alt/opus[1m]"
     - "zai-alt/sonnet[1m]"
     - "zai-alt/haiku[1m]"
@@ -141,9 +147,10 @@ zai-pro-x:
   name: "Zai Subscription (FlashX)"
   opus_model: "zai/glm-5.3-flashx (sub)"
   sonnet_model: "zai/glm-5.3-flashx (sub)"
-  haiku_model: "zai/haiku"
+  haiku_model: "zai/glm-5-turbo"
   fable_model: "zai/glm-5.3 (sub)"
   extended:
+    - "zai/glm-5-turbo[1m]"
     - "zai/opus[1m]"
     - "zai/sonnet[1m]"
     - "zai/haiku[1m]"
@@ -175,9 +182,11 @@ zai-alt-x:
   name: "Zai Subscription (Alt, FlashX)"
   opus_model: "zai-alt/glm-5.3-flashx"
   sonnet_model: "zai-alt/glm-5.3-flashx"
-  haiku_model: "zai-alt/haiku"
-  fable_model: "zai-alt/fable"
+  haiku_model: "zai-alt/glm-5-turbo"
+  fable_model: "zai-alt/glm-5.3"
   extended:
+    - "zai-alt/glm-5-turbo[1m]"
+    - "zai-alt/glm-5.3[1m]"
     - "zai-alt/opus[1m]"
     - "zai-alt/sonnet[1m]"
     - "zai-alt/haiku[1m]"
@@ -232,16 +241,26 @@ zai-fast:
   haiku_model: "zai/glm-5.3-flash (sub, low)"
   fable_model: "zai/glm-5.3 (sub, low)"
 
-# Wafer Serverless — fable=Kimi-K3, opus=GLM-5.3-Flash (max), sonnet=GLM-5.3-Flash (high), haiku=DeepSeek-V4-Flash-0731-Fast
+# Wafer Serverless — fable=Kimi-K3, opus=GLM-5.3-Flash (max), sonnet=Qwen3.5-397B-A17B (high), haiku=DeepSeek-V4-Flash-0731-Fast (low)
+# Slots use real model names; the parenthesized suffix is the pinned default effort.
+# (A user override may rebind sonnet, e.g. to "wafer/glm-5.3-flash (high)[1m]".)
 # Named aliases: wafer/kimi-k2.6, wafer/glm-5.2
 # Requires: WAFER_AI_API_KEY
 wafer:
   name: "Wafer Serverless"
-  fable_model: "wafer/fable[1m]"
-  opus_model: "wafer/opus[1m]"
-  sonnet_model: "wafer/sonnet[1m]"
-  haiku_model: "wafer/haiku[1m]"
+  fable_model: "wafer/kimi-k3[1m]"
+  opus_model: "wafer/glm-5.3-flash (max)[1m]"
+  sonnet_model: "wafer/qwen3.5-397b-a17b (high)[1m]"
+  haiku_model: "wafer/deepseek-v4-flash-0731-fast[1m]"
   extended:
+    - "wafer/kimi-k3"
+    - "wafer/kimi-k3[1m]"
+    - "wafer/glm-5.3-flash (max)"
+    - "wafer/glm-5.3-flash (max)[1m]"
+    - "wafer/qwen3.5-397b-a17b (high)"
+    - "wafer/qwen3.5-397b-a17b (high)[1m]"
+    - "wafer/deepseek-v4-flash-0731-fast"
+    - "wafer/deepseek-v4-flash-0731-fast[1m]"
     - "wafer/fable"
     - "wafer/opus"
     - "wafer/sonnet"
@@ -272,11 +291,13 @@ wafer:
 #   haiku  = qwen3.6-flash  (fast/cheap, 1M, vision — official CC haiku)
 alibaba:
   name: "Alibaba Token Plan"
-  opus_model: "alibaba/opus"
-  sonnet_model: "alibaba/sonnet"
-  haiku_model: "alibaba/haiku"
-  fable_model: "alibaba/fable"
+  opus_model: "alibaba/qwen3.8-max"
+  sonnet_model: "alibaba/glm-5.2"
+  haiku_model: "alibaba/qwen3.6-flash"
+  fable_model: "alibaba/deepseek-v4-pro-0813"
   extended:
+    - "alibaba/glm-5.2[1m]"
+    - "alibaba/qwen3.6-flash[1m]"
     - "alibaba/opus[1m]"
     - "alibaba/sonnet[1m]"
     - "alibaba/haiku[1m]"
@@ -505,9 +526,11 @@ all-sub:
   name: "All Subscriptions (Claude + Z.AI + Cerebras)"
 
   opus_model: "claude-opus-4-8"
-  sonnet_model: "zai/opus"
-  haiku_model: "cerebras-pro/opus"
+  sonnet_model: "zai/glm-5.3-flash"
+  haiku_model: "cerebras-pro/glm-4.7"
   extended:
+    - "zai/glm-5.3-flash[1m]"
+    - "cerebras-pro/glm-4.7[1m]"
     # Claude variants
     - "claude-opus-4-8[1m]"
     - "claude-opus-4-7"
@@ -858,9 +881,10 @@ kitchen-sink:
 # glm 4.7 group
 fast-glm:
   name: "Cerebras Pro Subscription"
-  opus_model: "zai/opus"
-  sonnet_model: "groq/opus"
-  haiku_model: "cerebras-pro/opus"
+  fable_model: "zai/glm-5.3-flash"
+  opus_model: "zai/glm-5.3-flash"
+  sonnet_model: "groq/gpt-oss-120b (high)"
+  haiku_model: "cerebras-pro/glm-4.7"
 
 # Groq - Ultra-fast inference
 # Llama 3/4, Kimi K2, and Qwen3-32b were shut down / moved to Enterprise-only
@@ -869,15 +893,19 @@ fast-glm:
 # aliases Claude Code v2.1.116+ appends for 1M-context requests.
 groq:
   name: "Groq"
-  fable_model: "groq/fable"
-  opus_model: "groq/opus"
-  sonnet_model: "groq/sonnet"
-  haiku_model: "groq/haiku"
+  fable_model: "groq-qwen3.6-27b"
+  opus_model: "groq/gpt-oss-120b (high)"
+  sonnet_model: "groq/gpt-oss-120b (medium)"
+  haiku_model: "groq/gpt-oss-20b (low)"
   extended:
     - "groq/opus[1m]"
     - "groq/sonnet[1m]"
     - "groq/haiku[1m]"
     - "groq/fable[1m]"
+    - "groq-qwen3.6-27b[1m]"
+    - "groq/gpt-oss-120b (high)[1m]"
+    - "groq/gpt-oss-120b (medium)[1m]"
+    - "groq/gpt-oss-20b (low)[1m]"
     - "groq-compound"
     - "groq-compound-mini"
     - "groq-gpt-oss-20b"
