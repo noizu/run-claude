@@ -2403,6 +2403,7 @@ model_list:
       anthropic-product: claude_code
   metadata:
     provider: zai
+    behavesAs: claude-fable-5-1
     description: "Z.AI GLM-5.3 (named SKU, Anthropic protocol)"
     strengths: "Flagship coding/agent; Claude Fable 5-level"
     weaknesses: "Slower, more expensive; text-only"
@@ -2450,6 +2451,7 @@ model_list:
       anthropic-product: claude_code
   metadata:
     provider: zai
+    behavesAs: claude-sonnet-5-5
     description: "Z.AI GLM-5.3-Flash (named SKU, Anthropic protocol)"
     strengths: "Frontier intelligence at flash cost; native multimodal"
     weaknesses: "Less depth than GLM-5.3"
@@ -2498,6 +2500,7 @@ model_list:
       anthropic-product: claude_code
   metadata:
     provider: zai
+    behavesAs: claude-opus-5-5
     description: "Z.AI GLM-5.3-FlashX (named SKU, Anthropic protocol)"
     strengths: "Faster variant of GLM-5.3-Flash; frontier intelligence at flash cost"
     weaknesses: "Less depth than GLM-5.3"
@@ -2546,6 +2549,7 @@ model_list:
       anthropic-product: claude_code
   metadata:
     provider: zai
+    behavesAs: claude-sonnet-5-5
     description: "Z.AI GLM-5.3-Flash 1M alias (named SKU)"
     strengths: "Claude Code [1m] suffix; native 1M context"
     weaknesses: "Less depth than GLM-5.3"
@@ -2594,6 +2598,7 @@ model_list:
       anthropic-product: claude_code
   metadata:
     provider: zai
+    behavesAs: claude-opus-5-5
     description: "Z.AI GLM-5.3-FlashX 1M alias (named SKU)"
     strengths: "Claude Code [1m] suffix; native 1M context; faster variant"
     weaknesses: "Less depth than GLM-5.3"
@@ -2785,6 +2790,7 @@ model_list:
       anthropic-product: claude_code
   metadata:
     provider: zai
+    behavesAs: claude-fable-5-1
     description: "Z.AI GLM-5.3 (subscription, high thinking)"
     strengths: "Flagship coding/agent at high effort"
     weaknesses: "Cannot disable thinking (always-think model)"
@@ -2832,6 +2838,7 @@ model_list:
       anthropic-product: claude_code
   metadata:
     provider: zai
+    behavesAs: claude-fable-5-1
     description: "Z.AI GLM-5.3 (subscription, max thinking)"
     strengths: "Deepest reasoning depth"
     weaknesses: "Slowest, most expensive"
@@ -2879,6 +2886,7 @@ model_list:
       anthropic-product: claude_code
   metadata:
     provider: zai
+    behavesAs: claude-fable-5-1
     description: "Z.AI GLM-5.3 (subscription, low thinking)"
     strengths: "Flagship quality with shallow thinking (cannot disable)"
     weaknesses: "Still always-thinks; not a true low-latency tier"
@@ -2926,6 +2934,7 @@ model_list:
       anthropic-product: claude_code
   metadata:
     provider: zai
+    behavesAs: claude-sonnet-5-5
     description: "Z.AI GLM-5.3-Flash (subscription, high thinking)"
     strengths: "Frontier intelligence at flash cost"
     weaknesses: "Cannot disable thinking (always-think model)"
@@ -2974,6 +2983,7 @@ model_list:
       anthropic-product: claude_code
   metadata:
     provider: zai
+    behavesAs: claude-opus-5-5
     description: "Z.AI GLM-5.3-FlashX (subscription, high thinking)"
     strengths: "Faster variant of GLM-5.3-Flash; frontier intelligence at flash cost"
     weaknesses: "Cannot disable thinking (always-think model)"
@@ -3022,6 +3032,7 @@ model_list:
       anthropic-product: claude_code
   metadata:
     provider: zai
+    behavesAs: claude-sonnet-5-5
     description: "Z.AI GLM-5.3-Flash (subscription, low thinking)"
     strengths: "Fastest 5.3 tier (shallowest thinking)"
     weaknesses: "Reduced reasoning depth"
@@ -3261,6 +3272,7 @@ model_list:
     reasoning_effort: "max"
   metadata:
     provider: zai
+    behavesAs: claude-fable-5-1
     description: "Z.AI GLM-5.3 via coding plan OpenAI-compatible endpoint"
     strengths: "Flagship 1M-context coding model"
     weaknesses: "High quota consumption during peak hours"
@@ -3306,6 +3318,7 @@ model_list:
     reasoning_effort: "high"
   metadata:
     provider: zai
+    behavesAs: claude-sonnet-5-5
     description: "Z.AI GLM-5.3-Flash via coding plan OpenAI-compatible endpoint"
     strengths: "Frontier intelligence at flash cost; native multimodal; 3x quota vs
       GLM-5.3"
@@ -3353,6 +3366,7 @@ model_list:
     reasoning_effort: "high"
   metadata:
     provider: zai
+    behavesAs: claude-opus-5-5
     description: "Z.AI GLM-5.3-FlashX via coding plan OpenAI-compatible endpoint"
     strengths: "Faster variant of GLM-5.3-Flash; native multimodal; 3x quota vs GLM-5.3"
     weaknesses: "Less depth than GLM-5.3"
@@ -3399,6 +3413,7 @@ model_list:
     reasoning_effort: "high"
   metadata:
     provider: zai
+    behavesAs: claude-sonnet-5-5
     description: "Z.AI GLM-5.3-Flash 1M alias (OpenAI-compat)"
     strengths: "Claude Code [1m] suffix; native 1M context"
     weaknesses: "Less depth than GLM-5.3"
@@ -3445,6 +3460,7 @@ model_list:
     reasoning_effort: "high"
   metadata:
     provider: zai
+    behavesAs: claude-opus-5-5
     description: "Z.AI GLM-5.3-FlashX 1M alias (OpenAI-compat)"
     strengths: "Claude Code [1m] suffix; native 1M context; faster variant"
     weaknesses: "Less depth than GLM-5.3"
@@ -8144,6 +8160,7 @@ model_list:
     extra_headers: {anthropic-product: claude_code}
   metadata:
     provider: zai
+    behavesAs: claude-fable-5-1
     description: Real-name copy of zai/fable[1m] — ZAI GLM 5.3 1M context (fable
       tier)
     strengths: Flagship coding/agent; Claude Fable 5-level, large context
