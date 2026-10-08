@@ -6,7 +6,7 @@ domain: run-claude.therobotlives.com
 replicas: 1
 
 # Bootstrap tag until CI's first bump-chart owns sha-<7> on main.
-image: ops.noizu.com/run-claude.therobotlives.com/web:sha-ba33421
+image: ops.noizu.com/run-claude.therobotlives.com/web:sha-6bf4f8d
 
 port: 8150
 imagePullSecrets:
