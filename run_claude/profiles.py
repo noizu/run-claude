@@ -293,6 +293,7 @@ class ModelMetadata:
     context_window: int | None = None
     modalities: dict[str, Any] | None = None
     supports_tools: bool | None = None
+    behaves_as: str = ""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ModelMetadata:
@@ -309,6 +310,7 @@ class ModelMetadata:
             context_window=_optional_int(data.get("context_window")),
             modalities=data.get("modalities") if isinstance(data.get("modalities"), dict) else None,
             supports_tools=data.get("supports_tools") if isinstance(data.get("supports_tools"), bool) else None,
+            behaves_as=str(data.get("behavesAs") or data.get("behaves_as") or ""),
         )
 
 

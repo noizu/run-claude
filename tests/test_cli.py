@@ -413,3 +413,48 @@ class TestModelOverrides:
         p = self._profile(fable_model="wafer/fable")
         o = build_model_overrides(p)
         assert o["claude-fable-6"] == "wafer/fable" and "bogus" not in o
+
+
+class TestRunAgentEnv:
+    """cmd_run_agent builds the child env for the launched agent."""
+
+    @staticmethod
+    def _run(monkeypatch, agent_name):
+        import argparse
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+        from run_claude import agent_runner, profiles, proxy, state
+        from run_claude.profiles import ProfileMeta
+
+        profile = SimpleNamespace(meta=ProfileMeta(name="t", opus_model="x/opus"), model_list=[])
+        monkeypatch.setattr(profiles, "load_profile", lambda *a, **k: profile)
+        monkeypatch.setattr(proxy, "start_proxy", lambda *a, **k: True)
+        monkeypatch.setattr(proxy, "get_proxy_url", lambda: "http://127.0.0.1:4000")
+        monkeypatch.setattr(proxy, "get_api_key", lambda: "proxy-key")
+        monkeypatch.setattr(proxy, "get_status", lambda: SimpleNamespace(running=False))
+        monkeypatch.setattr(state, "load_state", lambda: {})
+        run = MagicMock(return_value=SimpleNamespace(returncode=0))
+        monkeypatch.setattr(agent_runner.subprocess, "run", run)
+
+        cfg = agent_runner.AgentConfig(agent_name, [agent_name], agent_runner.build_env_vars_anthropic)
+        args = argparse.Namespace(profile="t", cmd=[])
+        assert agent_runner.cmd_run_agent(args, cfg) == 0
+        return run.call_args.kwargs["env"]
+
+    def test_claude_launch_unsets_inherited_anthropic_api_key(self, monkeypatch, capsys):
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-stale-shell-key")
+        env = self._run(monkeypatch, "claude")
+        assert "ANTHROPIC_API_KEY" not in env
+        assert env["ANTHROPIC_BASE_URL"].startswith("http://127.0.0.1:")
+        assert "Unset inherited ANTHROPIC_API_KEY" in capsys.readouterr().err
+
+    def test_claude_launch_without_key_is_quiet(self, monkeypatch, capsys):
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        env = self._run(monkeypatch, "claude")
+        assert "ANTHROPIC_API_KEY" not in env
+        assert "Unset inherited" not in capsys.readouterr().err
+
+    def test_other_agents_keep_anthropic_api_key(self, monkeypatch):
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-kept")
+        env = self._run(monkeypatch, "opencode")
+        assert env["ANTHROPIC_API_KEY"] == "sk-kept"
