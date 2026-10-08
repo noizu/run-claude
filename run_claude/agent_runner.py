@@ -300,6 +300,13 @@ def cmd_run_agent(
     # Build environment
     env = os.environ.copy()
 
+    # Claude Code prefers ANTHROPIC_API_KEY over its own OAuth/subscription login
+    # when the variable is set. A stale key inherited from the shell would
+    # silently switch auth mode and bypass the profile's proxy credentials, so
+    # drop it before launch.
+    if agent_config.agent_name == "claude" and env.pop("ANTHROPIC_API_KEY", None) is not None:
+        print("[ENV] Unset inherited ANTHROPIC_API_KEY before launching claude", file=sys.stderr)
+
     # Add agent-specific environment variables
     proxy_url = proxy.get_proxy_url()
     api_key = proxy.get_api_key()
